@@ -1,0 +1,104 @@
+{
+  "meta": {
+    "id": "sample-dashboard",
+    "name": "Sample Dashboard",
+    "source": "ai-generated",
+    "createdAt": "2026-06-24T00:00:00.000Z"
+  },
+  "frame": {
+    "width": 1440,
+    "height": 900,
+    "background": "#f7f8fb",
+    "deviceScaleFactor": 1
+  },
+  "layers": [
+    {
+      "id": "layer-page-bg",
+      "type": "shape",
+      "name": "Page background",
+      "bounds": { "x": 0, "y": 0, "width": 1440, "height": 900 },
+      "zIndex": 0,
+      "tokenRefs": { "fill": "colors.background" }
+    },
+    {
+      "id": "layer-primary-action-label",
+      "type": "text",
+      "name": "Primary action label",
+      "bounds": { "x": 1200, "y": 31, "width": 82, "height": 20 },
+      "zIndex": 2,
+      "text": "Create",
+      "tokenRefs": { "color": "colors.primaryForeground", "typography": "typography.button" }
+    }
+  ],
+  "tokens": {
+    "colors": {
+      "background": "#f7f8fb",
+      "primary": "#2563eb",
+      "primaryForeground": "#ffffff"
+    },
+    "typography": {
+      "button": {
+        "id": "typography.button",
+        "family": "Inter",
+        "size": 14,
+        "weight": 600,
+        "lineHeight": 20,
+        "usage": "Button labels"
+      }
+    },
+    "spacing": {
+      "sm": 8,
+      "md": 16,
+      "lg": 24
+    },
+    "radius": {
+      "md": 8
+    },
+    "shadows": {}
+  },
+  "components": [
+    {
+      "id": "component-primary-action",
+      "kind": "button",
+      "name": "PrimaryActionButton",
+      "bounds": { "x": 1184, "y": 24, "width": 116, "height": 36 },
+      "layerIds": ["layer-primary-action-label"],
+      "variant": "primary",
+      "props": { "label": "Create" },
+      "tokenRefs": {
+        "background": "colors.primary",
+        "foreground": "colors.primaryForeground",
+        "radius": "radius.md"
+      },
+      "reviewStatus": "confirmed"
+    }
+  ],
+  "data": [],
+  "interactions": [
+    {
+      "id": "interaction-primary-action-click",
+      "componentId": "component-primary-action",
+      "trigger": "click",
+      "behavior": "Open create item dialog",
+      "states": ["default", "hover", "disabled"],
+      "reviewStatus": "needs-decision"
+    }
+  ],
+  "assets": [],
+  "codegen": {
+    "framework": "react",
+    "finalDir": "src/features/generated-dashboard",
+    "componentMappings": {
+      "component-primary-action": "src/components/ui/Button"
+    },
+    "tokenMappings": {
+      "colors.primary": "theme.colors.primary"
+    },
+    "verificationCommands": ["npm run typecheck", "npm run build"]
+  },
+  "review": {
+    "status": "needs-decision",
+    "openQuestions": ["Confirm the create action target and dialog contract."]
+  }
+}
+
