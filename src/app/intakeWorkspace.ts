@@ -7,6 +7,7 @@ import {
   type AnalysisLayerPatch,
   type HomepageAnalysisPlan
 } from "../importers/homepageAnalysisPlan.js";
+import { addHeroAnnotationSetToPlan, seedHomepageAnalysisPlan } from "../importers/homepageSeed.js";
 import { createLayerDocFromImageManifest, type ImageAnalysisManifest } from "../importers/imageManifest.js";
 import type { PngIntakeLayerPlan } from "../importers/pngIntake.js";
 import type { LayerKind, Rect } from "../layerdoc/types.js";
@@ -57,13 +58,6 @@ function materialize(
 
 function hasLayer(plan: HomepageAnalysisPlan, layerId: string): boolean {
   return plan.sections.some((section) => section.layers.some((layer) => layer.id === layerId));
-}
-
-function addLayerIfMissing(plan: HomepageAnalysisPlan, sectionId: string, layer: PngIntakeLayerPlan): HomepageAnalysisPlan {
-  if (hasLayer(plan, layer.id)) {
-    return plan;
-  }
-  return addAnalysisLayer(plan, sectionId, layer);
 }
 
 function sectionById(plan: HomepageAnalysisPlan, sectionId: string) {
@@ -181,85 +175,6 @@ function createManualLayer(plan: HomepageAnalysisPlan, sectionId: string, kind: 
   };
 }
 
-function seededSectionCopy(sectionId: string, sectionName: string): { title: string; detail: string; detailKind?: ManualAnalysisLayerKind } {
-  const copy: Record<string, { title: string; detail: string; detailKind?: ManualAnalysisLayerKind }> = {
-    proof: {
-      title: "Structure score is separated from visual",
-      detail: "100 structure / 100 component / tracked assets"
-    },
-    workflow: {
-      title: "Image analysis becomes an editable graph",
-      detail: "8 sections, 18 layers, one source of truth."
-    },
-    features: {
-      title: "LayerDoc source of truth",
-      detail: "Canvas, tokens, sections, layers, assets, components."
-    },
-    editor: {
-      title: "Operators edit copy, color, assets, and section order.",
-      detail: "No freeform vector surface. Every control writes LayerDoc."
-    },
-    export: {
-      title: "React + Tailwind export preserves structure",
-      detail: "data-layer-id and data-section-id survive export."
-    },
-    verifier: {
-      title: "Screenshot diff joins structural validation.",
-      detail: "Visual, structure, component, and project-fit scores."
-    },
-    "final-cta": {
-      title: "Turn the approved visual into a project package.",
-      detail: "Export React",
-      detailKind: "button"
-    }
-  };
-
-  return copy[sectionId] ?? {
-    title: `${sectionName} becomes editable`,
-    detail: "Classified layer ready for LayerDoc export."
-  };
-}
-
-function seededSectionLayer(plan: HomepageAnalysisPlan, sectionId: string, kind: "title" | "detail"): PngIntakeLayerPlan {
-  const section = sectionById(plan, sectionId);
-  const copy = seededSectionCopy(sectionId, section.name);
-  const gutter = Math.min(80, Math.max(24, Math.round(section.bounds.width * 0.055)));
-  const titleBounds = clampRectToSection(
-    {
-      x: section.bounds.x + gutter,
-      y: section.bounds.y + Math.min(36, Math.max(14, Math.round(section.bounds.height * 0.14))),
-      width: Math.min(560, section.bounds.width - gutter * 2),
-      height: 34
-    },
-    section.bounds
-  );
-  const detailBounds = clampRectToSection(
-    {
-      x: titleBounds.x,
-      y: titleBounds.y + titleBounds.height + 10,
-      width: kind === "detail" && copy.detailKind === "button" ? Math.min(184, titleBounds.width) : Math.min(540, titleBounds.width),
-      height: kind === "detail" && copy.detailKind === "button" ? 44 : 36
-    },
-    section.bounds
-  );
-
-  if (kind === "title") {
-    return {
-      id: `${sectionId}-title`,
-      kind: "text",
-      bounds: titleBounds,
-      text: copy.title
-    };
-  }
-
-  return {
-    id: `${sectionId}-${copy.detailKind === "button" ? "button" : "card"}`,
-    kind: copy.detailKind ?? "text",
-    bounds: detailBounds,
-    text: copy.detail
-  };
-}
-
 function toManifest(intake: IntakeWorkspace): ImageAnalysisManifest {
   return {
     name: intake.analysisPlan.name,
@@ -319,71 +234,11 @@ export function updateManualAnalysisLayer(workspace: IntakeWorkspace, layerId: s
 }
 
 export function addHeroAnnotationSet(workspace: IntakeWorkspace): IntakeWorkspace {
-  const sectionId = "hero";
-  const canvasWidth = workspace.sourceImage.width;
-  const gutter = Math.min(96, Math.max(24, Math.round(canvasWidth * 0.067)));
-  const heroHeight = workspace.analysisPlan.sections[0].bounds.height;
-  const imageWidth = Math.min(420, Math.max(120, Math.round(canvasWidth * 0.28)));
-  const imageHeight = Math.min(164, Math.max(56, heroHeight - 64));
-  const imageX = Math.min(Math.round(canvasWidth * 0.62), canvasWidth - imageWidth - gutter);
-  const imageY = Math.min(48, Math.max(16, heroHeight - imageHeight - 12));
-  const textWidth = Math.min(620, Math.max(140, imageX - gutter - 24));
-  const titleY = Math.min(52, Math.max(16, Math.round(heroHeight * 0.16)));
-  const titleHeight = Math.min(72, Math.max(34, Math.round(heroHeight * 0.3)));
-  const copyY = Math.min(titleY + titleHeight + 10, Math.max(16, heroHeight - 72));
-  const copyHeight = Math.min(48, Math.max(24, heroHeight - copyY - 32));
-  const ctaY = Math.min(copyY + copyHeight + 10, Math.max(16, heroHeight - 56));
-  const ctaWidth = Math.min(184, textWidth);
-  let plan = workspace.analysisPlan;
-
-  plan = addLayerIfMissing(plan, sectionId, {
-    id: "hero-title",
-    kind: "text",
-    bounds: { x: gutter, y: titleY, width: textWidth, height: titleHeight },
-    text: "Imported hero headline"
-  });
-  plan = addLayerIfMissing(plan, sectionId, {
-    id: "hero-copy",
-    kind: "text",
-    bounds: { x: gutter, y: copyY, width: textWidth, height: copyHeight },
-    text: "Annotated from the PNG analysis plan before code export."
-  });
-  plan = addLayerIfMissing(plan, sectionId, {
-    id: "hero-cta",
-    kind: "button",
-    bounds: { x: gutter, y: ctaY, width: ctaWidth, height: 44 },
-    text: "Generate LayerDoc"
-  });
-  plan = addLayerIfMissing(plan, sectionId, {
-    id: "hero-image",
-    kind: "image",
-    bounds: { x: imageX, y: imageY, width: imageWidth, height: imageHeight },
-    alt: "Hero visual crop",
-    asset: {
-      id: "hero-crop",
-      uri: "/assets/hero-reference.svg",
-      source: "reference-crop",
-      cropBounds: { x: imageX, y: imageY, width: imageWidth, height: imageHeight }
-    }
-  });
-
-  return materialize(workspace.sourceImage, plan, sectionId, "hero-title");
+  return materialize(workspace.sourceImage, addHeroAnnotationSetToPlan(workspace.analysisPlan), "hero", "hero-title");
 }
 
 export function seedHomepageAnnotations(workspace: IntakeWorkspace): IntakeWorkspace {
-  let next = addHeroAnnotationSet(workspace);
-  let plan = next.analysisPlan;
-
-  for (const section of plan.sections) {
-    if (section.id === "hero") {
-      continue;
-    }
-
-    plan = addLayerIfMissing(plan, section.id, seededSectionLayer(plan, section.id, "title"));
-    plan = addLayerIfMissing(plan, section.id, seededSectionLayer(plan, section.id, "detail"));
-  }
-
-  return materialize(workspace.sourceImage, plan, "hero", "hero-title");
+  return materialize(workspace.sourceImage, seedHomepageAnalysisPlan(workspace.analysisPlan), "hero", "hero-title");
 }
 
 export function buildWorkspaceFromIntake(workspace: IntakeWorkspace): EditorWorkspace {

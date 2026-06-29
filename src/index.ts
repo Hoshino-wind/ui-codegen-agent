@@ -18,6 +18,8 @@ export {
   updateAnalysisLayer,
   validateHomepageAnalysisPlan
 } from "./importers/homepageAnalysisPlan.js";
+export { createHomepageLayerDocFromPng } from "./importers/homepagePngPipeline.js";
+export { addHeroAnnotationSetToPlan, seedHomepageAnalysisPlan } from "./importers/homepageSeed.js";
 export { createLayerDocFromImageManifest } from "./importers/imageManifest.js";
 export { createImageManifestFromPng } from "./importers/pngIntake.js";
 export { classifyLayer } from "./layerdoc/classification.js";
@@ -81,6 +83,10 @@ export type {
   CreateHomepageAnalysisPlanInput,
   HomepageAnalysisPlan
 } from "./importers/homepageAnalysisPlan.js";
+export type {
+  HomepagePngPipelineInput,
+  HomepagePngPipelineResult
+} from "./importers/homepagePngPipeline.js";
 export type {
   ImageAnalysisManifest,
   ImageManifestAssetInput,

@@ -9,6 +9,7 @@
     "build:app": "vite build",
     "build:lib": "tsc -p tsconfig.json",
     "dev": "vite --host 127.0.0.1",
+    "intake:png": "node dist/cli/intakePng.js",
     "export:project": "node dist/cli/exportProject.js",
     "verify:layerdoc": "node dist/cli/verifyLayerDoc.js",
     "test": "npm run build:lib && node --test test/*.test.mjs",
