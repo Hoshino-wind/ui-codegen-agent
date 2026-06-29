@@ -70,3 +70,11 @@ export function createReactExportDownload(workspace: EditorWorkspace): LayerDocD
     contents: workspace.reactExport.code
   };
 }
+
+export function createVerificationReportDownload(workspace: EditorWorkspace): LayerDocDownloadArtifact {
+  return {
+    fileName: "verification-report.json",
+    mimeType: "application/json",
+    contents: `${JSON.stringify(workspace.report, null, 2)}\n`
+  };
+}

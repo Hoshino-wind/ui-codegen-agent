@@ -44,7 +44,13 @@ import {
   type IntakeWorkspace,
   type ManualAnalysisLayerKind
 } from "./intakeWorkspace.js";
-import { createLayerDocDownload, createReactExportDownload, createWorkspaceFromLayerDocJson, type LayerDocDownloadArtifact } from "./layerDocFile.js";
+import {
+  createLayerDocDownload,
+  createReactExportDownload,
+  createVerificationReportDownload,
+  createWorkspaceFromLayerDocJson,
+  type LayerDocDownloadArtifact
+} from "./layerDocFile.js";
 import { createPreviewViewport, type PreviewMode } from "./previewViewport.js";
 import { createSampleHomepageLayerDoc } from "./sampleDocument.js";
 import { createWorkflowSummary, type WorkflowSummaryItem } from "./workflowSummary.js";
@@ -702,6 +708,12 @@ export function App() {
     setLastAction(`Exported ${artifact.fileName}`);
   }
 
+  function runVerifierReport() {
+    const artifact = createVerificationReportDownload(workspace);
+    downloadArtifact(artifact);
+    setLastAction(`Saved ${artifact.fileName}; use pipeline CLI for screenshot diff`);
+  }
+
   function buildFromAnalysisPlan() {
     const nextWorkspace = buildWorkspaceFromIntake(intake);
     setWorkspace(nextWorkspace);
@@ -744,7 +756,7 @@ export function App() {
             <Upload size={16} />
             Load LayerDoc
           </label>
-          <button className="secondary-action" type="button" onClick={() => setLastAction("Preview verifier ready: export package and run with reference PNG")}>
+          <button className="secondary-action" type="button" onClick={runVerifierReport}>
             <Play size={16} />
             Run Verifier
           </button>

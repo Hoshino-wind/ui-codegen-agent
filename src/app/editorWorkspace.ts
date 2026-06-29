@@ -29,7 +29,7 @@ function selectedLayerExists(doc: LayerDoc, layerId: string): boolean {
 }
 
 function materialize(doc: LayerDoc, selectedLayerId: string): EditorWorkspace {
-  const report = createVerificationReport(doc, { visualSimilarity: 94.8 });
+  const report = createVerificationReport(doc);
 
   return {
     doc,

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createLayerDocDownload, createReactExportDownload, createWorkspaceFromLayerDocJson } from "../dist/app/layerDocFile.js";
+import { createLayerDocDownload, createReactExportDownload, createVerificationReportDownload, createWorkspaceFromLayerDocJson } from "../dist/app/layerDocFile.js";
 import { createSampleHomepageLayerDoc } from "../dist/app/sampleDocument.js";
 
 test("createWorkspaceFromLayerDocJson imports a valid LayerDoc into the editor workspace", () => {
@@ -48,5 +48,19 @@ test("createReactExportDownload serializes the current React Tailwind export as 
   assert.equal(artifact.mimeType, "text/plain;charset=utf-8");
   assert.match(artifact.contents, /export function ProductionHomepage/);
   assert.match(artifact.contents, /data-layerdoc-version/);
+  assert.equal(artifact.contents.endsWith("\n"), true);
+});
+
+test("createVerificationReportDownload serializes verifier scores without inventing screenshot similarity", () => {
+  const workspace = createWorkspaceFromLayerDocJson(JSON.stringify(createSampleHomepageLayerDoc()));
+  const artifact = createVerificationReportDownload(workspace);
+  const report = JSON.parse(artifact.contents);
+
+  assert.equal(artifact.fileName, "verification-report.json");
+  assert.equal(artifact.mimeType, "application/json");
+  assert.equal(report.visualSimilarity, null);
+  assert.equal(report.structureScore, 100);
+  assert.equal(report.componentScore, 100);
+  assert.equal(report.visualDiff, null);
   assert.equal(artifact.contents.endsWith("\n"), true);
 });
