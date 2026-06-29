@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createLayerDocDownload, createWorkspaceFromLayerDocJson } from "../dist/app/layerDocFile.js";
+import { createLayerDocDownload, createReactExportDownload, createWorkspaceFromLayerDocJson } from "../dist/app/layerDocFile.js";
 import { createSampleHomepageLayerDoc } from "../dist/app/sampleDocument.js";
 
 test("createWorkspaceFromLayerDocJson imports a valid LayerDoc into the editor workspace", () => {
@@ -37,5 +37,16 @@ test("createLayerDocDownload serializes the current editable LayerDoc as a stabl
   assert.equal(parsed.schema, "layerdoc");
   assert.equal(parsed.layers.length, doc.layers.length);
   assert.match(artifact.contents, /"schema": "layerdoc"/);
+  assert.equal(artifact.contents.endsWith("\n"), true);
+});
+
+test("createReactExportDownload serializes the current React Tailwind export as a TSX artifact", () => {
+  const workspace = createWorkspaceFromLayerDocJson(JSON.stringify(createSampleHomepageLayerDoc()));
+  const artifact = createReactExportDownload(workspace);
+
+  assert.equal(artifact.fileName, "ProductionHomepage.tsx");
+  assert.equal(artifact.mimeType, "text/plain;charset=utf-8");
+  assert.match(artifact.contents, /export function ProductionHomepage/);
+  assert.match(artifact.contents, /data-layerdoc-version/);
   assert.equal(artifact.contents.endsWith("\n"), true);
 });

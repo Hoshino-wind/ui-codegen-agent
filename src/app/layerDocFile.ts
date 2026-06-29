@@ -4,7 +4,7 @@ import { createEditorWorkspace, type EditorWorkspace } from "./editorWorkspace.j
 
 export interface LayerDocDownloadArtifact {
   fileName: string;
-  mimeType: "application/json";
+  mimeType: "application/json" | "text/plain;charset=utf-8";
   contents: string;
 }
 
@@ -60,5 +60,13 @@ export function createLayerDocDownload(doc: LayerDoc, fileName = "layerdoc.json"
     fileName,
     mimeType: "application/json",
     contents: `${JSON.stringify(doc, null, 2)}\n`
+  };
+}
+
+export function createReactExportDownload(workspace: EditorWorkspace): LayerDocDownloadArtifact {
+  return {
+    fileName: workspace.reactExport.fileName,
+    mimeType: "text/plain;charset=utf-8",
+    contents: workspace.reactExport.code
   };
 }

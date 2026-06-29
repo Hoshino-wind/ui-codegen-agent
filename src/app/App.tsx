@@ -44,7 +44,7 @@ import {
   type IntakeWorkspace,
   type ManualAnalysisLayerKind
 } from "./intakeWorkspace.js";
-import { createLayerDocDownload, createWorkspaceFromLayerDocJson } from "./layerDocFile.js";
+import { createLayerDocDownload, createReactExportDownload, createWorkspaceFromLayerDocJson, type LayerDocDownloadArtifact } from "./layerDocFile.js";
 import { createPreviewViewport, type PreviewMode } from "./previewViewport.js";
 import { createSampleHomepageLayerDoc } from "./sampleDocument.js";
 import { createWorkflowSummary, type WorkflowSummaryItem } from "./workflowSummary.js";
@@ -679,8 +679,7 @@ export function App() {
     }
   }
 
-  function saveLayerDocFile() {
-    const artifact = createLayerDocDownload(workspace.doc);
+  function downloadArtifact(artifact: LayerDocDownloadArtifact) {
     const blob = new Blob([artifact.contents], { type: artifact.mimeType });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -689,7 +688,18 @@ export function App() {
     anchor.download = artifact.fileName;
     anchor.click();
     URL.revokeObjectURL(url);
+  }
+
+  function saveLayerDocFile() {
+    const artifact = createLayerDocDownload(workspace.doc);
+    downloadArtifact(artifact);
     setLastAction(`Saved ${artifact.fileName}`);
+  }
+
+  function exportReactFile() {
+    const artifact = createReactExportDownload(workspace);
+    downloadArtifact(artifact);
+    setLastAction(`Exported ${artifact.fileName}`);
   }
 
   function buildFromAnalysisPlan() {
@@ -742,7 +752,7 @@ export function App() {
             <Download size={16} />
             Save LayerDoc
           </button>
-          <button className="primary-action" type="button" onClick={() => setLastAction(`Project package ready: ${workspace.projectExport.files.length} files`)}>
+          <button className="primary-action" type="button" onClick={exportReactFile}>
             <Code2 size={16} />
             Export React
           </button>
