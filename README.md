@@ -108,6 +108,26 @@ resulting LayerDoc.
 For the homepage MVP, ingestion enforces 8-15 sections so the product stays
 focused on real page structure rather than single-canvas bitmap conversion.
 
+When the source is a real PNG, `createImageManifestFromPng` owns the file
+boundary: it reads dimensions, writes deterministic reference crops for asset
+layers, and returns the same manifest shape:
+
+```ts
+const manifest = createImageManifestFromPng({
+  name: "AI homepage",
+  sourcePngPath: "references/homepage.png",
+  assetOutputDir: "public/assets/imported",
+  publicAssetBaseUri: "/assets/imported",
+  sections: analysisPlan.sections
+});
+
+const layerDoc = createLayerDocFromImageManifest(manifest);
+```
+
+The analysis plan can come from a vision model, a crop workbench, or manual
+review. The PNG intake module deliberately does not invent semantics by itself;
+it only turns confirmed section/layer structure into project assets.
+
 ## Verification Dimensions
 
 Verifier output must stay split by concern:

@@ -8,6 +8,7 @@ export {
 export { renderHtmlPreview } from "./exporters/htmlPreview.js";
 export { exportReactTailwind } from "./exporters/reactTailwind.js";
 export { createLayerDocFromImageManifest } from "./importers/imageManifest.js";
+export { createImageManifestFromPng } from "./importers/pngIntake.js";
 export { classifyLayer } from "./layerdoc/classification.js";
 export { createLayerDoc } from "./layerdoc/factory.js";
 export { scoreProjectFit } from "./layerdoc/scoring.js";
@@ -47,3 +48,9 @@ export type {
   ImageManifestLayerInput,
   ImageManifestSectionInput
 } from "./importers/imageManifest.js";
+export type {
+  PngIntakeAssetPlan,
+  PngIntakeInput,
+  PngIntakeLayerPlan,
+  PngIntakeSectionPlan
+} from "./importers/pngIntake.js";
