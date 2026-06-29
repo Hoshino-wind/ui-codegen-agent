@@ -7,6 +7,13 @@ export {
 } from "./editor/operations.js";
 export { renderHtmlPreview } from "./exporters/htmlPreview.js";
 export { exportReactTailwind } from "./exporters/reactTailwind.js";
+export {
+  addAnalysisLayer,
+  createHomepageAnalysisPlan,
+  toPngIntakeSections,
+  updateAnalysisLayer,
+  validateHomepageAnalysisPlan
+} from "./importers/homepageAnalysisPlan.js";
 export { createLayerDocFromImageManifest } from "./importers/imageManifest.js";
 export { createImageManifestFromPng } from "./importers/pngIntake.js";
 export { classifyLayer } from "./layerdoc/classification.js";
@@ -41,6 +48,11 @@ export type { ImageAssetPatch, LayerBoundsPatch } from "./editor/operations.js";
 export type { VerificationInput, VerificationReport } from "./verifier/report.js";
 export type { PngSnapshotComparisonInput, PngSnapshotComparisonResult } from "./verifier/visualDiff.js";
 export type { ReactTailwindExportOptions, ReactTailwindExportResult } from "./exporters/reactTailwind.js";
+export type {
+  AnalysisLayerPatch,
+  CreateHomepageAnalysisPlanInput,
+  HomepageAnalysisPlan
+} from "./importers/homepageAnalysisPlan.js";
 export type {
   ImageAnalysisManifest,
   ImageManifestAssetInput,

@@ -71,7 +71,27 @@ sections/layers.
 ## Image Ingestion Boundary
 
 The system does not let raw pixels leak into the editor or exporter. A visual
-analysis pass first produces an `ImageAnalysisManifest`:
+analysis pass first produces a controlled `HomepageAnalysisPlan`:
+
+```ts
+const plan = createHomepageAnalysisPlan({
+  name: "AI homepage",
+  canvas: { width: 1440, height: 1200 }
+});
+
+const annotated = addAnalysisLayer(plan, "hero", {
+  id: "hero-title",
+  kind: "text",
+  bounds: { x: 120, y: 96, width: 620, height: 80 },
+  text: "Launch faster"
+});
+```
+
+The plan is the editable annotation artifact. A vision model, crop workbench,
+or human operator can refine it without touching LayerDoc or generated code.
+
+After the plan is confirmed, PNG intake turns it into an
+`ImageAnalysisManifest`:
 
 ```ts
 {
@@ -101,9 +121,7 @@ analysis pass first produces an `ImageAnalysisManifest`:
 }
 ```
 
-That manifest can come from a vision model, a manual review tool, a crop
-workbench, or a future detector. The rest of the system only consumes the
-resulting LayerDoc.
+The rest of the system consumes the resulting LayerDoc.
 
 For the homepage MVP, ingestion enforces 8-15 sections so the product stays
 focused on real page structure rather than single-canvas bitmap conversion.
@@ -118,7 +136,7 @@ const manifest = createImageManifestFromPng({
   sourcePngPath: "references/homepage.png",
   assetOutputDir: "public/assets/imported",
   publicAssetBaseUri: "/assets/imported",
-  sections: analysisPlan.sections
+  sections: toPngIntakeSections(annotated)
 });
 
 const layerDoc = createLayerDocFromImageManifest(manifest);
