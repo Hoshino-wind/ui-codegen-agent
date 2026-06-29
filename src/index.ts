@@ -7,6 +7,7 @@ export { createLayerDoc } from "./layerdoc/factory.js";
 export { scoreProjectFit } from "./layerdoc/scoring.js";
 export { validateLayerDoc } from "./layerdoc/validation.js";
 export { createVerificationReport } from "./verifier/report.js";
+export { comparePngSnapshots } from "./verifier/visualDiff.js";
 export type {
   AssetNode,
   Canvas,
@@ -28,6 +29,7 @@ export type {
   VerificationScores
 } from "./layerdoc/types.js";
 export type { VerificationInput, VerificationReport } from "./verifier/report.js";
+export type { PngSnapshotComparisonInput, PngSnapshotComparisonResult } from "./verifier/visualDiff.js";
 export type { ReactTailwindExportOptions, ReactTailwindExportResult } from "./exporters/reactTailwind.js";
 export type {
   ImageAnalysisManifest,

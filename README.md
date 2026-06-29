@@ -60,6 +60,7 @@ The repository currently implements the core LayerDoc domain layer:
 - Apply controlled editor operations without mutating the original document.
 - Render a deterministic HTML preview with `data-layer-id` markers.
 - Export a React + Tailwind component that preserves LayerDoc traceability.
+- Compare reference and candidate PNG screenshots and write a pixel diff image.
 - Produce a verifier report with separate score dimensions.
 
 The first target page type is an AI-generated marketing homepage with 8-15
@@ -118,6 +119,23 @@ project_fit_score   readiness for target project integration
 
 Pixel similarity alone is not enough. A bitmap can look perfect while being a
 poor engineering asset.
+
+The visual score comes from real PNG comparison:
+
+```ts
+const visualDiff = comparePngSnapshots({
+  referencePath: "artifacts/reference.png",
+  candidatePath: "artifacts/candidate.png",
+  diffPath: "artifacts/diff.png",
+  threshold: 0.1
+});
+
+const report = createVerificationReport(layerDoc, { visualDiff });
+```
+
+Playwright or another renderer should own screenshot capture. The verifier only
+compares stable files and merges the resulting visual score with LayerDoc graph
+checks.
 
 ## Development
 

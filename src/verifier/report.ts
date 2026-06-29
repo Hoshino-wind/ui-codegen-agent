@@ -1,9 +1,11 @@
 import { scoreProjectFit } from "../layerdoc/scoring.js";
 import { validateLayerDoc } from "../layerdoc/validation.js";
 import type { LayerDoc, VerificationIssue } from "../layerdoc/types.js";
+import type { PngSnapshotComparisonResult } from "./visualDiff.js";
 
 export interface VerificationInput {
   visualSimilarity?: number;
+  visualDiff?: PngSnapshotComparisonResult;
 }
 
 export interface VerificationReport {
@@ -41,9 +43,10 @@ function componentScore(doc: LayerDoc): number {
 export function createVerificationReport(doc: LayerDoc, input: VerificationInput = {}): VerificationReport {
   const validation = validateLayerDoc(doc);
   const projectFit = scoreProjectFit(doc);
+  const visualSimilarity = input.visualSimilarity ?? input.visualDiff?.visualSimilarity ?? null;
 
   return {
-    visualSimilarity: input.visualSimilarity ?? null,
+    visualSimilarity,
     structureScore: structureScore(doc, validation.issues),
     componentScore: componentScore(doc),
     projectFitScore: projectFit.projectFitScore,

@@ -45,3 +45,36 @@ test("createVerificationReport separates visual, structure, component, and proje
   assert.equal(report.projectFitScore, 75);
   assert.deepEqual(report.issues, []);
 });
+
+test("createVerificationReport can consume a PNG visual diff result", () => {
+  const doc = createLayerDoc({
+    name: "Visual diff report",
+    canvas: { width: 300, height: 200 },
+    layers: [
+      {
+        id: "headline",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 24, y: 24, width: 180, height: 32 },
+        content: { text: "Production UI" }
+      }
+    ],
+    components: [{ id: "Headline", layerIds: ["headline"], exportable: true }]
+  });
+
+  const report = createVerificationReport(doc, {
+    visualDiff: {
+      visualSimilarity: 96.5,
+      mismatchedPixels: 14,
+      comparedPixels: 400,
+      dimensions: { width: 20, height: 20 },
+      diffPath: "/tmp/diff.png",
+      threshold: 0.1
+    }
+  });
+
+  assert.equal(report.visualSimilarity, 96.5);
+  assert.equal(report.structureScore, 100);
+  assert.equal(report.componentScore, 100);
+});
