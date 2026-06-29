@@ -53,6 +53,7 @@ shipping a full-page image while calling it a component implementation.
 
 The repository currently implements the core LayerDoc domain layer:
 
+- Convert an image-analysis manifest into LayerDoc.
 - Create a complete LayerDoc shell.
 - Classify layer kinds into production tracks.
 - Validate graph references and canvas geometry.
@@ -63,6 +64,46 @@ The repository currently implements the core LayerDoc domain layer:
 
 The first target page type is an AI-generated marketing homepage with 8-15
 sections/layers.
+
+## Image Ingestion Boundary
+
+The system does not let raw pixels leak into the editor or exporter. A visual
+analysis pass first produces an `ImageAnalysisManifest`:
+
+```ts
+{
+  name: "AI homepage",
+  sourceImage: { uri: "/references/home.png", width: 1440, height: 1200 },
+  sections: [
+    {
+      id: "hero",
+      name: "Hero",
+      bounds: { x: 0, y: 0, width: 1440, height: 640 },
+      layers: [
+        {
+          id: "hero-title",
+          kind: "text",
+          bounds: { x: 120, y: 96, width: 620, height: 80 },
+          text: "Launch faster"
+        },
+        {
+          id: "hero-art",
+          kind: "image",
+          bounds: { x: 820, y: 72, width: 420, height: 280 },
+          asset: { id: "hero-crop", uri: "/assets/hero.png" }
+        }
+      ]
+    }
+  ]
+}
+```
+
+That manifest can come from a vision model, a manual review tool, a crop
+workbench, or a future detector. The rest of the system only consumes the
+resulting LayerDoc.
+
+For the homepage MVP, ingestion enforces 8-15 sections so the product stays
+focused on real page structure rather than single-canvas bitmap conversion.
 
 ## Verification Dimensions
 
@@ -94,6 +135,7 @@ behavior should be added test-first.
 
 ```text
 src/layerdoc/   schema, classification, validation, scoring
+src/importers/  image-analysis manifest to LayerDoc conversion
 src/editor/     controlled LayerDoc edit operations
 src/exporters/  HTML preview and React/Tailwind projection
 src/verifier/   score aggregation and issue reporting
