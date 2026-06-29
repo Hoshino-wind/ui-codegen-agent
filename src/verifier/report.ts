@@ -10,6 +10,7 @@ export interface VerificationInput {
 
 export interface VerificationReport {
   visualSimilarity: number | null;
+  visualDiff: PngSnapshotComparisonResult | null;
   structureScore: number;
   componentScore: number;
   projectFitScore: number;
@@ -47,6 +48,7 @@ export function createVerificationReport(doc: LayerDoc, input: VerificationInput
 
   return {
     visualSimilarity,
+    visualDiff: input.visualDiff ?? null,
     structureScore: structureScore(doc, validation.issues),
     componentScore: componentScore(doc),
     projectFitScore: projectFit.projectFitScore,

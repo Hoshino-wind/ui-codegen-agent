@@ -69,12 +69,16 @@ test("createVerificationReport can consume a PNG visual diff result", () => {
       mismatchedPixels: 14,
       comparedPixels: 400,
       dimensions: { width: 20, height: 20 },
+      mismatchBounds: { x: 4, y: 8, width: 6, height: 3 },
+      problemAreas: [{ x: 4, y: 8, width: 6, height: 3 }],
       diffPath: "/tmp/diff.png",
       threshold: 0.1
     }
   });
 
   assert.equal(report.visualSimilarity, 96.5);
+  assert.deepEqual(report.visualDiff?.mismatchBounds, { x: 4, y: 8, width: 6, height: 3 });
+  assert.deepEqual(report.visualDiff?.problemAreas, [{ x: 4, y: 8, width: 6, height: 3 }]);
   assert.equal(report.structureScore, 100);
   assert.equal(report.componentScore, 100);
 });

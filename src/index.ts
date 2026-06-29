@@ -21,6 +21,7 @@ export { createLayerDoc } from "./layerdoc/factory.js";
 export { scoreProjectFit } from "./layerdoc/scoring.js";
 export { validateLayerDoc } from "./layerdoc/validation.js";
 export { createVerificationReport } from "./verifier/report.js";
+export { runLayerDocVerification } from "./verifier/run.js";
 export { comparePngSnapshots } from "./verifier/visualDiff.js";
 export type {
   AssetNode,
@@ -46,6 +47,11 @@ export type {
 } from "./layerdoc/types.js";
 export type { ImageAssetPatch, LayerBoundsPatch } from "./editor/operations.js";
 export type { VerificationInput, VerificationReport } from "./verifier/report.js";
+export type {
+  LayerDocVerificationRun,
+  RunLayerDocVerificationInput,
+  VerificationGates
+} from "./verifier/run.js";
 export type { PngSnapshotComparisonInput, PngSnapshotComparisonResult } from "./verifier/visualDiff.js";
 export type { ReactTailwindExportOptions, ReactTailwindExportResult } from "./exporters/reactTailwind.js";
 export type {

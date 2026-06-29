@@ -541,6 +541,7 @@ function AnalysisPlanPanel({
 }
 
 function VerifierStrip({ workspace }: { workspace: EditorWorkspace }) {
+  const visualDiff = workspace.report.visualDiff;
   const scores = [
     ["visual_similarity", workspace.report.visualSimilarity, 85],
     ["structure_score", workspace.report.structureScore, 90],
@@ -553,11 +554,15 @@ function VerifierStrip({ workspace }: { workspace: EditorWorkspace }) {
       <div className="verifier-head">
         <div>
           <strong>Verifier</strong>
-          <span>Fresh LayerDoc report</span>
+          <span>{visualDiff ? `${visualDiff.problemAreas.length} problem areas` : "Structure report, awaiting screenshot diff"}</span>
         </div>
         <button className="secondary-action" type="button">
           View report
         </button>
+      </div>
+      <div className="verifier-artifact">
+        <span>Diff artifact</span>
+        <strong>{visualDiff?.diffPath ?? "not generated"}</strong>
       </div>
       <div className="score-grid">
         {scores.map(([label, value, threshold]) => (

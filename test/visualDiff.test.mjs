@@ -46,6 +46,8 @@ test("comparePngSnapshots scores identical PNG screenshots as a perfect visual m
   assert.equal(result.mismatchedPixels, 0);
   assert.equal(result.comparedPixels, 6);
   assert.deepEqual(result.dimensions, { width: 3, height: 2 });
+  assert.equal(result.mismatchBounds, null);
+  assert.deepEqual(result.problemAreas, []);
   assert.equal(result.diffPath, null);
 });
 
@@ -63,10 +65,34 @@ test("comparePngSnapshots writes a diff PNG and reports mismatched pixels", () =
   assert.equal(result.visualSimilarity, 83.33);
   assert.equal(result.mismatchedPixels, 1);
   assert.equal(result.comparedPixels, 6);
+  assert.deepEqual(result.mismatchBounds, { x: 2, y: 1, width: 1, height: 1 });
+  assert.deepEqual(result.problemAreas, [{ x: 2, y: 1, width: 1, height: 1 }]);
   assert.equal(result.diffPath, diffPath);
   assert.equal(existsSync(diffPath), true);
 
   const diff = PNG.sync.read(readFileSync(diffPath));
   assert.equal(diff.width, 3);
   assert.equal(diff.height, 2);
+});
+
+test("comparePngSnapshots groups separate mismatch clusters into problem areas", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-visual-diff-"));
+  const referencePath = join(directory, "reference.png");
+  const candidatePath = join(directory, "candidate.png");
+
+  writeSolidPng(referencePath, 6, 4, [248, 250, 252, 255]);
+  writeSolidPng(candidatePath, 6, 4, [248, 250, 252, 255], [
+    { x: 1, y: 1, color: [15, 23, 42, 255] },
+    { x: 2, y: 1, color: [15, 23, 42, 255] },
+    { x: 5, y: 3, color: [20, 184, 166, 255] }
+  ]);
+
+  const result = comparePngSnapshots({ referencePath, candidatePath, threshold: 0 });
+
+  assert.equal(result.mismatchedPixels, 3);
+  assert.deepEqual(result.mismatchBounds, { x: 1, y: 1, width: 5, height: 3 });
+  assert.deepEqual(result.problemAreas, [
+    { x: 1, y: 1, width: 2, height: 1 },
+    { x: 5, y: 3, width: 1, height: 1 }
+  ]);
 });
