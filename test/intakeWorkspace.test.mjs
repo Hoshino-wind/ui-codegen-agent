@@ -67,3 +67,20 @@ test("buildWorkspaceFromIntake converts annotations into the editable LayerDoc w
   assert.match(workspace.previewHtml, /Imported hero headline/);
   assert.equal(workspace.report.structureScore, 100);
 });
+
+test("addHeroAnnotationSet keeps generated bounds inside narrower uploaded PNG canvases", () => {
+  const intake = addHeroAnnotationSet(
+    createIntakeWorkspace({
+      uri: "/uploads/narrow-homepage.png",
+      width: 640,
+      height: 960
+    })
+  );
+  const heroImage = intake.analysisPlan.sections[0].layers.find((layer) => layer.id === "hero-image");
+  const workspace = buildWorkspaceFromIntake(intake);
+
+  assert.equal(intake.ready, true);
+  assert.equal(heroImage.bounds.x + heroImage.bounds.width <= intake.sourceImage.width, true);
+  assert.equal(heroImage.asset.cropBounds.x + heroImage.asset.cropBounds.width <= intake.sourceImage.width, true);
+  assert.match(workspace.previewHtml, /Imported hero headline/);
+});

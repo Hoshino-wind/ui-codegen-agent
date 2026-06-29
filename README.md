@@ -61,6 +61,7 @@ The repository currently implements the core LayerDoc domain layer:
   copy, layer style, image assets, bounds, and section order.
 - Run a React/Vite controlled editor console for the sample homepage LayerDoc.
 - Edit an Analysis Plan panel that scaffolds homepage sections before building LayerDoc.
+- Upload a PNG in the browser to initialize Analysis Plan dimensions.
 - Render a deterministic HTML preview with `data-layer-id` markers.
 - Export a React + Tailwind component that preserves LayerDoc traceability.
 - Compare reference and candidate PNG screenshots and write a pixel diff image.

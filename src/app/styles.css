@@ -233,6 +233,28 @@ button {
   border-top: 1px solid #e2e8f0;
 }
 
+.upload-control {
+  display: grid;
+  min-height: 32px;
+  place-items: center;
+  margin-bottom: 9px;
+  border: 1px solid #047857;
+  border-radius: 7px;
+  color: #ffffff;
+  background: #047857;
+  font-size: 12px;
+  font-weight: 820;
+  cursor: pointer;
+}
+
+.upload-control input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .analysis-source {
   display: grid;
   grid-template-columns: 28px 1fr;

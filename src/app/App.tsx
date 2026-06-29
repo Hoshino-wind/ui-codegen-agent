@@ -29,6 +29,7 @@ import {
   updateSelectedText,
   type EditorWorkspace
 } from "./editorWorkspace.js";
+import { createIntakeWorkspaceFromBrowserFile } from "./imageFileIntake.js";
 import { addHeroAnnotationSet, buildWorkspaceFromIntake, createIntakeWorkspace, selectIntakeSection, type IntakeWorkspace } from "./intakeWorkspace.js";
 import { createSampleHomepageLayerDoc } from "./sampleDocument.js";
 import { createWorkflowSummary, type WorkflowSummaryItem } from "./workflowSummary.js";
@@ -330,15 +331,34 @@ function SectionOrder({ workspace, onChange }: { workspace: EditorWorkspace; onC
 function AnalysisPlanPanel({
   intake,
   onChange,
-  onBuild
+  onBuild,
+  onUploadFile,
+  uploadError
 }: {
   intake: IntakeWorkspace;
   onChange: (workspace: IntakeWorkspace) => void;
   onBuild: () => void;
+  onUploadFile: (file: File) => void;
+  uploadError: string | null;
 }) {
   return (
     <div className="analysis-panel">
       <div className="sidebar-title">Analysis Plan</div>
+      <label className="upload-control">
+        <input
+          aria-label="Upload PNG"
+          accept="image/png"
+          type="file"
+          onChange={(event) => {
+            const file = event.currentTarget.files?.[0];
+            if (file) {
+              onUploadFile(file);
+              event.currentTarget.value = "";
+            }
+          }}
+        />
+        Upload PNG
+      </label>
       <div className="analysis-source">
         <FlaskConical size={16} />
         <div>
@@ -373,7 +393,13 @@ function AnalysisPlanPanel({
           Build LayerDoc
         </button>
       </div>
-      {intake.issues.length > 0 ? <div className="analysis-issues">{intake.issues.join(" ")}</div> : <div className="analysis-ready">Plan valid for intake</div>}
+      {uploadError ? (
+        <div className="analysis-issues">{uploadError}</div>
+      ) : intake.issues.length > 0 ? (
+        <div className="analysis-issues">{intake.issues.join(" ")}</div>
+      ) : (
+        <div className="analysis-ready">Plan valid for intake</div>
+      )}
     </div>
   );
 }
@@ -418,6 +444,7 @@ export function App() {
   const [intake, setIntake] = useState(() => createIntakeWorkspace({ uri: "homepage_source.png", width: 1440, height: 1760 }));
   const [showLabels, setShowLabels] = useState(true);
   const [lastAction, setLastAction] = useState("Auto-saved LayerDoc state");
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const workflow = createWorkflowSummary({
     sourceUri: intake.sourceImage.uri,
     intakeSectionCount: intake.analysisPlan.sections.length,
@@ -435,7 +462,21 @@ export function App() {
 
   function updateIntake(next: IntakeWorkspace, message = "Analysis plan updated") {
     setIntake(next);
+    setUploadError(null);
     setLastAction(message);
+  }
+
+  async function importPngFile(file: File) {
+    try {
+      const nextIntake = await createIntakeWorkspaceFromBrowserFile(file);
+      setIntake(nextIntake);
+      setUploadError(null);
+      setLastAction(`Loaded PNG: ${file.name}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to import PNG.";
+      setUploadError(message);
+      setLastAction("PNG import failed");
+    }
   }
 
   function buildFromAnalysisPlan() {
@@ -479,7 +520,7 @@ export function App() {
         {workflow.map((item, index) => (
           <WorkspaceStep item={item} index={index} key={item.label} />
         ))}
-        <AnalysisPlanPanel intake={intake} onChange={updateIntake} onBuild={buildFromAnalysisPlan} />
+        <AnalysisPlanPanel intake={intake} onChange={updateIntake} onBuild={buildFromAnalysisPlan} onUploadFile={(file) => void importPngFile(file)} uploadError={uploadError} />
         <SectionOrder workspace={workspace} onChange={(next) => updateWorkspace(next, "Section order updated")} />
       </aside>
 

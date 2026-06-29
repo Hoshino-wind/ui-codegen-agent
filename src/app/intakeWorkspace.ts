@@ -83,38 +83,50 @@ export function selectIntakeSection(workspace: IntakeWorkspace, sectionId: strin
 
 export function addHeroAnnotationSet(workspace: IntakeWorkspace): IntakeWorkspace {
   const sectionId = "hero";
-  const imageRight = Math.round(workspace.sourceImage.width * 0.62);
+  const canvasWidth = workspace.sourceImage.width;
+  const gutter = Math.min(96, Math.max(24, Math.round(canvasWidth * 0.067)));
   const heroHeight = workspace.analysisPlan.sections[0].bounds.height;
+  const imageWidth = Math.min(420, Math.max(120, Math.round(canvasWidth * 0.28)));
+  const imageHeight = Math.min(164, Math.max(56, heroHeight - 64));
+  const imageX = Math.min(Math.round(canvasWidth * 0.62), canvasWidth - imageWidth - gutter);
+  const imageY = Math.min(48, Math.max(16, heroHeight - imageHeight - 12));
+  const textWidth = Math.min(620, Math.max(140, imageX - gutter - 24));
+  const titleY = Math.min(52, Math.max(16, Math.round(heroHeight * 0.16)));
+  const titleHeight = Math.min(72, Math.max(34, Math.round(heroHeight * 0.3)));
+  const copyY = Math.min(titleY + titleHeight + 10, Math.max(16, heroHeight - 72));
+  const copyHeight = Math.min(48, Math.max(24, heroHeight - copyY - 32));
+  const ctaY = Math.min(copyY + copyHeight + 10, Math.max(16, heroHeight - 56));
+  const ctaWidth = Math.min(184, textWidth);
   let plan = workspace.analysisPlan;
 
   plan = addLayerIfMissing(plan, sectionId, {
     id: "hero-title",
     kind: "text",
-    bounds: { x: 96, y: 52, width: 620, height: 72 },
+    bounds: { x: gutter, y: titleY, width: textWidth, height: titleHeight },
     text: "Imported hero headline"
   });
   plan = addLayerIfMissing(plan, sectionId, {
     id: "hero-copy",
     kind: "text",
-    bounds: { x: 96, y: 130, width: 660, height: 48 },
+    bounds: { x: gutter, y: copyY, width: textWidth, height: copyHeight },
     text: "Annotated from the PNG analysis plan before code export."
   });
   plan = addLayerIfMissing(plan, sectionId, {
     id: "hero-cta",
     kind: "button",
-    bounds: { x: 96, y: Math.min(188, heroHeight - 56), width: 184, height: 44 },
+    bounds: { x: gutter, y: ctaY, width: ctaWidth, height: 44 },
     text: "Generate LayerDoc"
   });
   plan = addLayerIfMissing(plan, sectionId, {
     id: "hero-image",
     kind: "image",
-    bounds: { x: imageRight, y: 48, width: 420, height: Math.min(164, heroHeight - 64) },
+    bounds: { x: imageX, y: imageY, width: imageWidth, height: imageHeight },
     alt: "Hero visual crop",
     asset: {
       id: "hero-crop",
       uri: "/assets/hero-reference.svg",
       source: "reference-crop",
-      cropBounds: { x: imageRight, y: 48, width: 420, height: Math.min(164, heroHeight - 64) }
+      cropBounds: { x: imageX, y: imageY, width: imageWidth, height: imageHeight }
     }
   });
 
