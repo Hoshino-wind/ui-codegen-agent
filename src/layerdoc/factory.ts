@@ -1,0 +1,51 @@
+import type { CreateLayerDocInput, LayerDoc, TokenSet, VerificationScores } from "./types.js";
+
+const emptyTokens: TokenSet = {
+  colors: {},
+  typography: {},
+  spacing: {},
+  radii: {}
+};
+
+const emptyScores: VerificationScores = {
+  visualSimilarity: null,
+  structureScore: null,
+  componentScore: null,
+  projectFitScore: null
+};
+
+/**
+ * Create a complete LayerDoc shell from partial product data.
+ * Consumers should never branch on missing top-level arrays; the editor,
+ * exporter, and verifier all get the same stable document shape.
+ */
+export function createLayerDoc(input: CreateLayerDocInput): LayerDoc {
+  return {
+    schema: "layerdoc",
+    version: "0.1.0",
+    metadata: {
+      name: input.name,
+      createdAt: new Date(0).toISOString()
+    },
+    canvas: { ...input.canvas },
+    tokens: {
+      colors: { ...emptyTokens.colors, ...input.tokens?.colors },
+      typography: { ...emptyTokens.typography, ...input.tokens?.typography },
+      spacing: { ...emptyTokens.spacing, ...input.tokens?.spacing },
+      radii: { ...emptyTokens.radii, ...input.tokens?.radii }
+    },
+    sections: [...(input.sections ?? [])],
+    layers: [...(input.layers ?? [])],
+    assets: [...(input.assets ?? [])],
+    components: [...(input.components ?? [])],
+    interactions: [...(input.interactions ?? [])],
+    responsive: {
+      breakpoints: { ...(input.responsive?.breakpoints ?? {}) },
+      rules: [...(input.responsive?.rules ?? [])]
+    },
+    verification: {
+      scores: { ...emptyScores },
+      issues: []
+    }
+  };
+}

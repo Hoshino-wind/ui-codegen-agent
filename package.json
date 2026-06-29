@@ -1,14 +1,15 @@
 {
-  "name": "ui-codegen-agent",
+  "name": "ai-ui-production-system",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Design IR-first agent for turning AI-generated UI metadata into production-grade frontend code.",
+  "description": "LayerDoc-first pipeline for turning AI UI visuals into editable, verifiable, project-ready engineering assets.",
   "scripts": {
+    "build": "tsc",
+    "test": "npm run build && node --test test/*.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "typescript": "^5.8.3"
   }
 }
-

@@ -1,60 +1,110 @@
-# UI Codegen Agent
+# AI UI Production System
 
-UI Codegen Agent turns AI-generated UI metadata into production-grade frontend code.
+LayerDoc-first tooling for turning AI-generated UI visuals into editable,
+verifiable, project-ready engineering assets.
 
-The core idea is **Design IR first**:
-
-```text
-AI UI metadata + preview image
-  -> Design IR review and confirmation
-  -> target project scanner
-  -> component and token mapper
-  -> production code generator
-  -> build, typecheck, and screenshot QA
-```
-
-The preview image is not the source of truth. The source of truth is a structured Design IR that records layout, layers, component semantics, design tokens, data contracts, interactions, assets, and codegen targets.
-
-Pixel Twin Lab can be used later as a visual QA engine, but it is not part of the primary generation path.
-
-## Goals
-
-- Generate maintainable project-native React/Vue/Next code from confirmed Design IR.
-- Map UI intent to existing project components, tokens, routes, and style conventions.
-- Keep repeated content data-driven instead of hard-coded as duplicated markup.
-- Make human review explicit before code generation.
-- Verify generated output with lint, typecheck, build, and optional screenshot comparison.
-
-## Non-Goals
-
-- Reverse-engineering production code from a flat screenshot as the primary workflow.
-- Claiming one-pixel fidelity from visual inspection alone.
-- Shipping full-page bitmap overlays as UI implementation.
-
-## Current Status
-
-This repository is an initial agent project scaffold. It defines the product direction, architecture, and TypeScript contracts for the Design IR-first workflow.
-
-## Repository Layout
+The project is intentionally not a generic "UI generator". The core product
+idea is a production chain:
 
 ```text
-docs/
-  architecture.md
-  design-ir.md
-  roadmap.md
-  superpowers/specs/2026-06-24-ui-codegen-agent-design.md
-examples/
-  sample-design-ir.json
-src/
-  ir/
-  pipeline/
-  project/
-  codegen/
+Image / AI Visual
+  -> LayerDoc
+  -> Controlled Editor
+  -> HTML Preview
+  -> React/Tailwind Export
+  -> Verifier
+  -> Project Integration
 ```
 
-## Scripts
+## Why LayerDoc
+
+Text-to-image output only produces pixels. It does not produce real buttons,
+text nodes, components, data contracts, responsive behavior, interactions, or
+project code. LayerDoc is the intermediate asset that makes those objects
+explicit before code generation.
+
+LayerDoc owns:
+
+- `canvas`: the source surface dimensions and background.
+- `tokens`: colors, typography, spacing, and radii used by renderers.
+- `sections`: high-level page regions such as hero, proof, pricing, and CTA.
+- `layers`: editable objects inside sections.
+- `assets`: images, crops, generated media, models, and other external files.
+- `components`: exportable component groupings.
+- `interactions`: controlled behavior attached to layers.
+- `responsive`: breakpoint rules and layout changes.
+- `verification`: visual, structural, component, and project-fit evidence.
+
+## Classification Tracks
+
+The first step after image analysis is classification, not code generation.
+
+```text
+component      text, buttons, cards, nav, forms, lists, tables
+asset          illustrations, backgrounds, product images, textures
+approximation  charts, maps, 3D, canvas, complex visualizations
+layout         sections, groups, spacing, hierarchy, responsive rules
+```
+
+This prevents dishonest output, such as hand-drawing a chart as static SVG or
+shipping a full-page image while calling it a component implementation.
+
+## Current MVP Surface
+
+The repository currently implements the core LayerDoc domain layer:
+
+- Create a complete LayerDoc shell.
+- Classify layer kinds into production tracks.
+- Validate graph references and canvas geometry.
+- Apply controlled editor operations without mutating the original document.
+- Render a deterministic HTML preview with `data-layer-id` markers.
+- Export a React + Tailwind component that preserves LayerDoc traceability.
+- Produce a verifier report with separate score dimensions.
+
+The first target page type is an AI-generated marketing homepage with 8-15
+sections/layers.
+
+## Verification Dimensions
+
+Verifier output must stay split by concern:
+
+```text
+visual_similarity   screenshot similarity against the reference
+structure_score     editable structure and reference integrity
+component_score     component grouping and exportability
+project_fit_score   readiness for target project integration
+```
+
+Pixel similarity alone is not enough. A bitmap can look perfect while being a
+poor engineering asset.
+
+## Development
 
 ```bash
+npm install
+npm test
 npm run typecheck
+npm run build
 ```
 
+The codebase is TypeScript-first and uses Node's built-in test runner. New
+behavior should be added test-first.
+
+## Package Layout
+
+```text
+src/layerdoc/   schema, classification, validation, scoring
+src/editor/     controlled LayerDoc edit operations
+src/exporters/  HTML preview and React/Tailwind projection
+src/verifier/   score aggregation and issue reporting
+test/           behavior tests for the production chain
+```
+
+## Product Boundary
+
+The editor should be a controlled AI UI production console, not a Figma clone.
+The MVP edits copy, colors, images, spacing, radius, buttons, section order,
+visibility, preview modes, regeneration requests, export, and verifier runs.
+
+Freeform vector editing, multiplayer design collaboration, and plugin
+ecosystems are intentionally out of scope.

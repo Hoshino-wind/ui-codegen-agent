@@ -1,8 +1,4 @@
-node_modules/
 dist/
-coverage/
+node_modules/
+*.tsbuildinfo
 .DS_Store
-.env
-.env.*
-!.env.example
-

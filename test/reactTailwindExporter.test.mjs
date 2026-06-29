@@ -1,0 +1,65 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { createLayerDoc, exportReactTailwind } from "../dist/index.js";
+
+test("exportReactTailwind turns LayerDoc sections into a React component with Tailwind classes", () => {
+  const doc = createLayerDoc({
+    name: "Marketing home",
+    canvas: { width: 1440, height: 1200, background: "#f8fafc" },
+    sections: [
+      { id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 1440, height: 640 }, layerIds: ["headline", "cta", "cover"] }
+    ],
+    assets: [{ id: "cover-image", type: "image", source: "reference-crop", uri: "/assets/cover.png" }],
+    layers: [
+      {
+        id: "headline",
+        sectionId: "hero",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 120, y: 120, width: 620, height: 96 },
+        content: { text: "Turn AI visuals into production UI" }
+      },
+      {
+        id: "cta",
+        sectionId: "hero",
+        kind: "button",
+        track: "component",
+        editable: true,
+        bounds: { x: 120, y: 260, width: 180, height: 48 },
+        content: { text: "Start workflow" }
+      },
+      {
+        id: "cover",
+        sectionId: "hero",
+        kind: "image",
+        track: "asset",
+        editable: true,
+        bounds: { x: 820, y: 100, width: 420, height: 320 },
+        assetId: "cover-image",
+        content: { alt: "Generated landing page preview" }
+      }
+    ]
+  });
+
+  const output = exportReactTailwind(doc, { componentName: "MarketingHome" });
+
+  assert.equal(output.fileName, "MarketingHome.tsx");
+  assert.match(output.code, /export function MarketingHome/);
+  assert.match(output.code, /data-section-id="hero"/);
+  assert.match(output.code, /data-layer-id="headline"/);
+  assert.match(output.code, /Turn AI visuals into production UI/);
+  assert.match(output.code, /className="absolute/);
+  assert.match(output.code, /src="\/assets\/cover\.png"/);
+  assert.match(output.code, /alt="Generated landing page preview"/);
+});
+
+test("exportReactTailwind rejects invalid component names before writing project files", () => {
+  const doc = createLayerDoc({ name: "Bad export", canvas: { width: 320, height: 240 } });
+
+  assert.throws(
+    () => exportReactTailwind(doc, { componentName: "marketing-home" }),
+    /componentName must be a PascalCase identifier/
+  );
+});

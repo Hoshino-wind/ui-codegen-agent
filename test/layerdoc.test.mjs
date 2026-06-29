@@ -1,0 +1,117 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  classifyLayer,
+  createLayerDoc,
+  scoreProjectFit,
+  validateLayerDoc
+} from "../dist/index.js";
+
+test("createLayerDoc returns a complete editable production asset shell", () => {
+  const doc = createLayerDoc({
+    name: "Landing page concept",
+    canvas: { width: 1440, height: 1200 }
+  });
+
+  assert.equal(doc.schema, "layerdoc");
+  assert.equal(doc.version, "0.1.0");
+  assert.deepEqual(Object.keys(doc).sort(), [
+    "assets",
+    "canvas",
+    "components",
+    "interactions",
+    "layers",
+    "metadata",
+    "responsive",
+    "schema",
+    "sections",
+    "tokens",
+    "verification",
+    "version"
+  ]);
+  assert.equal(doc.metadata.name, "Landing page concept");
+  assert.equal(doc.verification.scores.visualSimilarity, null);
+});
+
+test("classifyLayer maps production layer kinds to controlled tracks", () => {
+  assert.equal(classifyLayer({ kind: "text" }), "component");
+  assert.equal(classifyLayer({ kind: "button" }), "component");
+  assert.equal(classifyLayer({ kind: "image" }), "asset");
+  assert.equal(classifyLayer({ kind: "chart" }), "approximation");
+  assert.equal(classifyLayer({ kind: "section" }), "layout");
+});
+
+test("validateLayerDoc rejects missing references and out-of-canvas geometry", () => {
+  const doc = createLayerDoc({
+    name: "Broken doc",
+    canvas: { width: 320, height: 240 },
+    sections: [
+      { id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 320, height: 240 }, layerIds: ["headline", "cover"] }
+    ],
+    layers: [
+      {
+        id: "headline",
+        sectionId: "hero",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 20, y: 20, width: 800, height: 32 },
+        content: { text: "Hello" }
+      },
+      {
+        id: "cover",
+        sectionId: "hero",
+        kind: "image",
+        track: "asset",
+        editable: true,
+        bounds: { x: 20, y: 80, width: 120, height: 120 },
+        assetId: "missing-asset"
+      }
+    ]
+  });
+
+  const result = validateLayerDoc(doc);
+
+  assert.equal(result.valid, false);
+  assert.deepEqual(
+    result.issues.map((issue) => issue.code).sort(),
+    ["asset_missing", "bounds_outside_canvas"]
+  );
+});
+
+test("scoreProjectFit rewards reusable components and penalizes full-page bitmap output", () => {
+  const doc = createLayerDoc({
+    name: "Project fit",
+    canvas: { width: 1000, height: 1000 },
+    assets: [{ id: "hero-art", type: "image", source: "generated", bounds: { x: 100, y: 100, width: 200, height: 200 } }],
+    components: [
+      { id: "HeroSection", layerIds: ["headline"], exportable: true },
+      { id: "CTAButton", layerIds: ["cta"], exportable: true }
+    ],
+    layers: [
+      {
+        id: "headline",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 120, y: 120, width: 300, height: 48 },
+        content: { text: "Ship UI" }
+      },
+      {
+        id: "cta",
+        kind: "button",
+        track: "component",
+        editable: true,
+        bounds: { x: 120, y: 190, width: 140, height: 44 },
+        content: { text: "Start" }
+      }
+    ]
+  });
+
+  const score = scoreProjectFit(doc);
+
+  assert.equal(score.projectFitScore, 90);
+  assert.equal(score.assetCoverageRatio, 0.04);
+  assert.equal(score.fullPageBitmapRisk, false);
+});

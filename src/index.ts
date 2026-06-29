@@ -1,40 +1,30 @@
+export { moveSection, updateTextLayer } from "./editor/operations.js";
+export { renderHtmlPreview } from "./exporters/htmlPreview.js";
+export { exportReactTailwind } from "./exporters/reactTailwind.js";
+export { classifyLayer } from "./layerdoc/classification.js";
+export { createLayerDoc } from "./layerdoc/factory.js";
+export { scoreProjectFit } from "./layerdoc/scoring.js";
+export { validateLayerDoc } from "./layerdoc/validation.js";
+export { createVerificationReport } from "./verifier/report.js";
 export type {
-  AssetContract,
-  CodegenIntent,
-  ComponentKind,
+  AssetNode,
+  Canvas,
   ComponentNode,
-  DataContract,
-  DesignIR,
-  DesignMeta,
-  DesignTokens,
-  Frame,
-  InteractionContract,
+  CreateLayerDocInput,
+  InteractionNode,
+  LayerDoc,
+  LayerKind,
   LayerNode,
-  LayerType,
+  LayerTrack,
+  ProjectFitScore,
   Rect,
-  ReviewState,
-  ReviewStatus,
-  TypographyToken
-} from "./ir/types.js";
-
-export type {
-  CodegenPlan,
-  CodegenPlanner,
-  ComponentMapping,
-  WriteAction,
-  WriteActionKind
-} from "./codegen/types.js";
-
-export type {
-  PackageManager,
-  ProjectComponent,
-  ProjectProfile,
-  StyleSystem
-} from "./project/types.js";
-
-export type {
-  PipelineInput,
-  PipelineResult,
-  PipelineStage
-} from "./pipeline/types.js";
-
+  ResponsiveRule,
+  SectionNode,
+  TokenSet,
+  ValidationResult,
+  VerificationIssue,
+  VerificationIssueCode,
+  VerificationScores
+} from "./layerdoc/types.js";
+export type { VerificationInput, VerificationReport } from "./verifier/report.js";
+export type { ReactTailwindExportOptions, ReactTailwindExportResult } from "./exporters/reactTailwind.js";
