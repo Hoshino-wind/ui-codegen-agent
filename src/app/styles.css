@@ -699,6 +699,8 @@ button {
 .zoom-chip {
   display: inline-flex;
   align-items: center;
+  min-width: 96px;
+  justify-content: center;
   height: 32px;
   padding: 0 10px;
   border: 1px solid #d7dee8;
@@ -725,6 +727,12 @@ button {
   overflow: hidden;
   border: 1px solid #cbd5e1;
   background: #f8fafc;
+}
+
+.layerdoc-canvas.mobile {
+  border-color: #0f766e;
+  border-radius: 18px;
+  box-shadow: 0 12px 24px rgba(15, 118, 110, 0.12);
 }
 
 .canvas-section {

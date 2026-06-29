@@ -43,11 +43,10 @@ import {
   type IntakeWorkspace,
   type ManualAnalysisLayerKind
 } from "./intakeWorkspace.js";
+import { createPreviewViewport, type PreviewMode } from "./previewViewport.js";
 import { createSampleHomepageLayerDoc } from "./sampleDocument.js";
 import { createWorkflowSummary, type WorkflowSummaryItem } from "./workflowSummary.js";
 import type { PngIntakeLayerPlan } from "../importers/pngIntake.js";
-
-const canvasScale = 0.46;
 
 const workflowIcons = {
   Image: FileImage,
@@ -116,23 +115,25 @@ function CanvasLayer({
   layer,
   assetUri,
   isSelected,
+  scale,
   showLabels,
   onSelect
 }: {
   layer: LayerNode;
   assetUri?: string;
   isSelected: boolean;
+  scale: number;
   showLabels: boolean;
   onSelect: () => void;
 }) {
   const style = {
-    left: layer.bounds.x * canvasScale,
-    top: layer.bounds.y * canvasScale,
-    width: layer.bounds.width * canvasScale,
-    height: layer.bounds.height * canvasScale,
+    left: layer.bounds.x * scale,
+    top: layer.bounds.y * scale,
+    width: layer.bounds.width * scale,
+    height: layer.bounds.height * scale,
     backgroundColor: layer.style?.backgroundColor,
     color: layer.style?.textColor,
-    borderRadius: layer.style?.borderRadius ? layer.style.borderRadius * canvasScale : undefined
+    borderRadius: layer.style?.borderRadius ? layer.style.borderRadius * scale : undefined
   };
 
   return (
@@ -154,15 +155,20 @@ function CanvasLayer({
 }
 
 function CanvasPreview({
+  previewMode,
   workspace,
   showLabels,
+  onPreviewModeChange,
   onSelectLayer
 }: {
+  previewMode: PreviewMode;
   workspace: EditorWorkspace;
   showLabels: boolean;
+  onPreviewModeChange: (mode: PreviewMode) => void;
   onSelectLayer: (layerId: string) => void;
 }) {
   const assetById = useMemo(() => new Map(workspace.doc.assets.map((asset) => [asset.id, asset])), [workspace.doc.assets]);
+  const viewport = createPreviewViewport({ mode: previewMode, canvas: workspace.doc.canvas });
 
   return (
     <section className="canvas-panel">
@@ -175,27 +181,38 @@ function CanvasPreview({
           <button className="tool active" type="button" aria-label="Select">
             <MousePointer2 size={16} />
           </button>
-          <button className="tool" type="button" aria-label="Desktop preview">
+          <button
+            className={`tool ${previewMode === "desktop" ? "active" : ""}`}
+            type="button"
+            aria-label="Desktop preview"
+            aria-pressed={previewMode === "desktop"}
+            onClick={() => onPreviewModeChange("desktop")}
+          >
             <Monitor size={16} />
           </button>
-          <button className="tool" type="button" aria-label="Mobile preview">
+          <button
+            className={`tool ${previewMode === "mobile" ? "active" : ""}`}
+            type="button"
+            aria-label="Mobile preview"
+            aria-pressed={previewMode === "mobile"}
+            onClick={() => onPreviewModeChange("mobile")}
+          >
             <Smartphone size={16} />
           </button>
-          <span className="zoom-chip">{Math.round(canvasScale * 100)}%</span>
+          <span className="zoom-chip">{previewMode} / {Math.round(viewport.scale * 100)}%</span>
         </div>
       </div>
 
-      <div className="canvas-rulers">
-        <span>0</span>
-        <span>480</span>
-        <span>960</span>
-        <span>1440</span>
+      <div className="canvas-rulers" style={{ width: viewport.display.width }}>
+        {viewport.rulerTicks.map((tick) => (
+          <span key={tick}>{tick}</span>
+        ))}
       </div>
       <div
-        className="layerdoc-canvas"
+        className={`layerdoc-canvas ${previewMode}`}
         style={{
-          width: workspace.doc.canvas.width * canvasScale,
-          height: workspace.doc.canvas.height * canvasScale,
+          width: viewport.display.width,
+          height: viewport.display.height,
           background: workspace.doc.canvas.background ?? "#ffffff"
         }}
       >
@@ -204,10 +221,10 @@ function CanvasPreview({
             className="canvas-section"
             key={section.id}
             style={{
-              left: section.bounds.x * canvasScale,
-              top: section.bounds.y * canvasScale,
-              width: section.bounds.width * canvasScale,
-              height: section.bounds.height * canvasScale
+              left: section.bounds.x * viewport.scale,
+              top: section.bounds.y * viewport.scale,
+              width: section.bounds.width * viewport.scale,
+              height: section.bounds.height * viewport.scale
             }}
           >
             {showLabels ? <span className="section-badge">{section.name}</span> : null}
@@ -219,6 +236,7 @@ function CanvasPreview({
             layer={layer}
             assetUri={assetById.get(layer.assetId ?? "")?.uri}
             isSelected={workspace.selectedLayerId === layer.id}
+            scale={viewport.scale}
             showLabels={showLabels}
             onSelect={() => onSelectLayer(layer.id)}
           />
@@ -606,6 +624,7 @@ function VerifierStrip({ workspace }: { workspace: EditorWorkspace }) {
 export function App() {
   const [workspace, setWorkspace] = useState(() => createEditorWorkspace(createSampleHomepageLayerDoc()));
   const [intake, setIntake] = useState(() => createIntakeWorkspace({ uri: "homepage_source.png", width: 1440, height: 1760 }));
+  const [previewMode, setPreviewMode] = useState<PreviewMode>("desktop");
   const [showLabels, setShowLabels] = useState(true);
   const [lastAction, setLastAction] = useState("Auto-saved LayerDoc state");
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -701,8 +720,13 @@ export function App() {
           </label>
         </div>
         <CanvasPreview
+          previewMode={previewMode}
           workspace={workspace}
           showLabels={showLabels}
+          onPreviewModeChange={(mode) => {
+            setPreviewMode(mode);
+            setLastAction(`${mode === "mobile" ? "Mobile" : "Desktop"} preview selected`);
+          }}
           onSelectLayer={(layerId) => updateWorkspace(selectWorkspaceLayer(workspace, layerId), `Selected ${layerId}`)}
         />
       </section>
