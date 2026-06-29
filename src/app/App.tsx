@@ -4,6 +4,7 @@ import {
   Download,
   Eye,
   FileImage,
+  FlaskConical,
   Layers3,
   Monitor,
   MousePointer2,
@@ -28,18 +29,20 @@ import {
   updateSelectedText,
   type EditorWorkspace
 } from "./editorWorkspace.js";
+import { addHeroAnnotationSet, buildWorkspaceFromIntake, createIntakeWorkspace, selectIntakeSection, type IntakeWorkspace } from "./intakeWorkspace.js";
 import { createSampleHomepageLayerDoc } from "./sampleDocument.js";
+import { createWorkflowSummary, type WorkflowSummaryItem } from "./workflowSummary.js";
 
 const canvasScale = 0.46;
 
-const workflow = [
-  { label: "Image", detail: "homepage_source.png", icon: FileImage, done: true },
-  { label: "LayerDoc", detail: "8 sections / 18 layers", icon: Layers3, done: true },
-  { label: "Editor", detail: "Fix and refine layers", icon: SquareDashedMousePointer, active: true },
-  { label: "Preview", detail: "Compare output", icon: Eye },
-  { label: "Export", detail: "Generate React", icon: Code2 },
-  { label: "Verifier", detail: "Quality and fit check", icon: CheckCircle2 }
-];
+const workflowIcons = {
+  Image: FileImage,
+  LayerDoc: Layers3,
+  Editor: SquareDashedMousePointer,
+  Preview: Eye,
+  Export: Code2,
+  Verifier: CheckCircle2
+};
 
 function formatScore(value: number | null): string {
   return value === null ? "n/a" : String(value);
@@ -62,8 +65,8 @@ function layerKindLabel(layer: LayerNode): string {
   return `${layer.kind} / ${layer.track}`;
 }
 
-function WorkspaceStep({ index, item }: { index: number; item: (typeof workflow)[number] }) {
-  const Icon = item.icon;
+function WorkspaceStep({ index, item }: { index: number; item: WorkflowSummaryItem }) {
+  const Icon = workflowIcons[item.label];
   return (
     <div className={`workflow-step ${item.active ? "active" : ""}`}>
       <div className="workflow-index">{index + 1}</div>
@@ -324,6 +327,57 @@ function SectionOrder({ workspace, onChange }: { workspace: EditorWorkspace; onC
   );
 }
 
+function AnalysisPlanPanel({
+  intake,
+  onChange,
+  onBuild
+}: {
+  intake: IntakeWorkspace;
+  onChange: (workspace: IntakeWorkspace) => void;
+  onBuild: () => void;
+}) {
+  return (
+    <div className="analysis-panel">
+      <div className="sidebar-title">Analysis Plan</div>
+      <div className="analysis-source">
+        <FlaskConical size={16} />
+        <div>
+          <strong>{intake.sourceImage.uri}</strong>
+          <span>
+            {intake.sourceImage.width} x {intake.sourceImage.height}
+          </span>
+        </div>
+      </div>
+      <div className="analysis-stats">
+        <span>{intake.analysisPlan.sections.length} sections</span>
+        <span>{intake.layerCount} layers</span>
+      </div>
+      <div className="analysis-section-list">
+        {intake.analysisPlan.sections.map((section) => (
+          <button
+            className={section.id === intake.selectedSectionId ? "selected" : ""}
+            key={section.id}
+            type="button"
+            onClick={() => onChange(selectIntakeSection(intake, section.id))}
+          >
+            <span>{section.name}</span>
+            <small>{section.layers.length}</small>
+          </button>
+        ))}
+      </div>
+      <div className="analysis-actions">
+        <button type="button" onClick={() => onChange(addHeroAnnotationSet(intake))}>
+          Add hero layers
+        </button>
+        <button type="button" onClick={onBuild}>
+          Build LayerDoc
+        </button>
+      </div>
+      {intake.issues.length > 0 ? <div className="analysis-issues">{intake.issues.join(" ")}</div> : <div className="analysis-ready">Plan valid for intake</div>}
+    </div>
+  );
+}
+
 function VerifierStrip({ workspace }: { workspace: EditorWorkspace }) {
   const scores = [
     ["visual_similarity", workspace.report.visualSimilarity, 85],
@@ -361,12 +415,33 @@ function VerifierStrip({ workspace }: { workspace: EditorWorkspace }) {
 
 export function App() {
   const [workspace, setWorkspace] = useState(() => createEditorWorkspace(createSampleHomepageLayerDoc()));
+  const [intake, setIntake] = useState(() => createIntakeWorkspace({ uri: "homepage_source.png", width: 1440, height: 1760 }));
   const [showLabels, setShowLabels] = useState(true);
   const [lastAction, setLastAction] = useState("Auto-saved LayerDoc state");
+  const workflow = createWorkflowSummary({
+    sourceUri: intake.sourceImage.uri,
+    intakeSectionCount: intake.analysisPlan.sections.length,
+    intakeLayerCount: intake.layerCount,
+    layerDocSectionCount: workspace.doc.sections.length,
+    layerDocLayerCount: workspace.doc.layers.length,
+    exportFileName: workspace.reactExport.fileName,
+    issueCount: workspace.report.issues.length
+  });
 
   function updateWorkspace(next: EditorWorkspace, message = "LayerDoc updated") {
     setWorkspace(next);
     setLastAction(message);
+  }
+
+  function updateIntake(next: IntakeWorkspace, message = "Analysis plan updated") {
+    setIntake(next);
+    setLastAction(message);
+  }
+
+  function buildFromAnalysisPlan() {
+    const nextWorkspace = buildWorkspaceFromIntake(intake);
+    setWorkspace(nextWorkspace);
+    setLastAction(`LayerDoc built from ${intake.layerCount} planned layers`);
   }
 
   return (
@@ -404,6 +479,7 @@ export function App() {
         {workflow.map((item, index) => (
           <WorkspaceStep item={item} index={index} key={item.label} />
         ))}
+        <AnalysisPlanPanel intake={intake} onChange={updateIntake} onBuild={buildFromAnalysisPlan} />
         <SectionOrder workspace={workspace} onChange={(next) => updateWorkspace(next, "Section order updated")} />
       </aside>
 

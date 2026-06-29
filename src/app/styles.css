@@ -227,6 +227,141 @@ button {
   border-top: 1px solid #e2e8f0;
 }
 
+.analysis-panel {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.analysis-source {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 9px 8px;
+  border: 1px solid #d7dee8;
+  border-radius: 8px;
+  color: #0f766e;
+  background: #ffffff;
+}
+
+.analysis-source strong,
+.analysis-source span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analysis-source strong {
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.analysis-source span {
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.analysis-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.analysis-stats span,
+.analysis-ready,
+.analysis-issues {
+  min-height: 26px;
+  padding: 6px 7px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.analysis-stats span {
+  color: #334155;
+  background: #eef4fb;
+}
+
+.analysis-section-list {
+  display: grid;
+  gap: 5px;
+}
+
+.analysis-section-list button {
+  display: grid;
+  grid-template-columns: 1fr 24px;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 7px;
+  border: 1px solid #d7dee8;
+  border-radius: 7px;
+  color: #334155;
+  background: #ffffff;
+  text-align: left;
+}
+
+.analysis-section-list button.selected {
+  border-color: #99f6e4;
+  background: #f0fdfa;
+}
+
+.analysis-section-list span {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 760;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analysis-section-list small {
+  justify-self: end;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.analysis-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.analysis-actions button {
+  min-height: 31px;
+  border: 1px solid #99f6e4;
+  border-radius: 7px;
+  color: #047857;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 820;
+}
+
+.analysis-actions button:last-child {
+  border-color: #047857;
+  color: #ffffff;
+  background: #047857;
+}
+
+.analysis-ready {
+  margin-top: 8px;
+  color: #047857;
+  background: #ecfdf5;
+}
+
+.analysis-issues {
+  margin-top: 8px;
+  color: #b45309;
+  background: #fffbeb;
+}
+
 .section-row {
   display: grid;
   grid-template-columns: 34px 44px 1fr;
