@@ -356,6 +356,25 @@ function SectionOrder({ workspace, onChange }: { workspace: EditorWorkspace; onC
   );
 }
 
+function ProjectExportPanel({ workspace }: { workspace: EditorWorkspace }) {
+  return (
+    <div className="project-export-panel">
+      <div className="sidebar-title">Project Package</div>
+      <div className="export-package-head">
+        <strong>{workspace.projectExport.manifest.packageName}</strong>
+        <span>{workspace.projectExport.files.length} files</span>
+      </div>
+      <div className="export-file-list">
+        {workspace.projectExport.files.map((file) => (
+          <div className="export-file-row" key={file.path}>
+            {file.path}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AnalysisPlanPanel({
   intake,
   onChange,
@@ -649,7 +668,7 @@ export function App() {
             <Play size={16} />
             Run Verifier
           </button>
-          <button className="primary-action" type="button" onClick={() => setLastAction(`Export ready: ${workspace.reactExport.fileName}`)}>
+          <button className="primary-action" type="button" onClick={() => setLastAction(`Project package ready: ${workspace.projectExport.files.length} files`)}>
             <Download size={16} />
             Export React
           </button>
@@ -662,6 +681,7 @@ export function App() {
           <WorkspaceStep item={item} index={index} key={item.label} />
         ))}
         <AnalysisPlanPanel intake={intake} onChange={updateIntake} onBuild={buildFromAnalysisPlan} onUploadFile={(file) => void importPngFile(file)} uploadError={uploadError} />
+        <ProjectExportPanel workspace={workspace} />
         <SectionOrder workspace={workspace} onChange={(next) => updateWorkspace(next, "Section order updated")} />
       </aside>
 

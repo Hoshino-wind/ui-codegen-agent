@@ -6,6 +6,10 @@ export {
   updateTextLayer
 } from "./editor/operations.js";
 export { renderHtmlPreview } from "./exporters/htmlPreview.js";
+export {
+  createProjectExportPackage
+} from "./exporters/projectPackage.js";
+export { writeProjectExportPackage } from "./exporters/projectPackageWriter.js";
 export { exportReactTailwind } from "./exporters/reactTailwind.js";
 export {
   addAnalysisLayer,
@@ -53,6 +57,16 @@ export type {
   VerificationGates
 } from "./verifier/run.js";
 export type { PngSnapshotComparisonInput, PngSnapshotComparisonResult } from "./verifier/visualDiff.js";
+export type {
+  ProjectExportFile,
+  ProjectExportManifest,
+  ProjectExportPackage,
+  ProjectExportPackageOptions
+} from "./exporters/projectPackage.js";
+export type {
+  WrittenProjectExportFile,
+  WrittenProjectExportPackage
+} from "./exporters/projectPackageWriter.js";
 export type { ReactTailwindExportOptions, ReactTailwindExportResult } from "./exporters/reactTailwind.js";
 export type {
   AnalysisLayerPatch,

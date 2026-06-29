@@ -19,6 +19,9 @@ test("createEditorWorkspace derives preview, export, and verifier output from on
   assert.equal(workspace.selectedLayerId, "hero-title");
   assert.match(workspace.previewHtml, /data-layer-id="hero-title"/);
   assert.match(workspace.reactExport.code, /export function ProductionHomepage/);
+  assert.equal(workspace.projectExport.manifest.componentName, "ProductionHomepage");
+  assert.equal(workspace.projectExport.files.length, 5);
+  assert.equal(workspace.projectExport.files.some((file) => file.path === "layerdoc.json"), true);
   assert.equal(workspace.report.structureScore, 100);
   assert.equal(workspace.report.componentScore, 100);
 });

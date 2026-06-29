@@ -1,6 +1,7 @@
 import { updateImageLayerAsset, updateLayerBounds, updateLayerStyle, updateTextLayer } from "../editor/operations.js";
 import { moveSection } from "../editor/operations.js";
 import { renderHtmlPreview } from "../exporters/htmlPreview.js";
+import { createProjectExportPackage, type ProjectExportPackage } from "../exporters/projectPackage.js";
 import { exportReactTailwind, type ReactTailwindExportResult } from "../exporters/reactTailwind.js";
 import type { ImageAssetPatch, LayerBoundsPatch } from "../editor/operations.js";
 import type { LayerDoc, LayerNode, LayerStyle } from "../layerdoc/types.js";
@@ -11,6 +12,7 @@ export interface EditorWorkspace {
   selectedLayerId: string;
   previewHtml: string;
   reactExport: ReactTailwindExportResult;
+  projectExport: ProjectExportPackage;
   report: VerificationReport;
 }
 
@@ -27,12 +29,15 @@ function selectedLayerExists(doc: LayerDoc, layerId: string): boolean {
 }
 
 function materialize(doc: LayerDoc, selectedLayerId: string): EditorWorkspace {
+  const report = createVerificationReport(doc, { visualSimilarity: 94.8 });
+
   return {
     doc,
     selectedLayerId,
     previewHtml: renderHtmlPreview(doc),
     reactExport: exportReactTailwind(doc, { componentName: "ProductionHomepage" }),
-    report: createVerificationReport(doc, { visualSimilarity: 94.8 })
+    projectExport: createProjectExportPackage(doc, { componentName: "ProductionHomepage", report }),
+    report
   };
 }
 
