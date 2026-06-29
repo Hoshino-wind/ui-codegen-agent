@@ -1,29 +1,16 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import process from "node:process";
 
 import { createProjectExportPackage } from "../exporters/projectPackage.js";
 import { writeProjectExportPackage } from "../exporters/projectPackageWriter.js";
-import type { LayerDoc } from "../layerdoc/types.js";
-import { validateLayerDoc } from "../layerdoc/validation.js";
+import { CliError, readLayerDocFile, readOptionValue } from "./shared.js";
 
 interface ExportProjectCliOptions {
   inputPath: string;
   outputDir: string;
   componentName: string;
   packageName?: string;
-}
-
-interface ParsedArgs {
-  options?: ExportProjectCliOptions;
-  help: boolean;
-}
-
-class CliError extends Error {
-  constructor(message: string, readonly showUsage = false) {
-    super(message);
-  }
 }
 
 const usage = `Usage: layerdoc-export-project --input <layerdoc.json> --out <directory> --component <ComponentName> [--package <package-name>]
@@ -37,19 +24,9 @@ Options:
   -h, --help                Show this help.
 `;
 
-function readOptionValue(args: string[], index: number, name: string): { value: string; nextIndex: number } {
-  const equalsPrefix = `${name}=`;
-  const current = args[index];
-  if (current.startsWith(equalsPrefix)) {
-    return { value: current.slice(equalsPrefix.length), nextIndex: index + 1 };
-  }
-
-  const value = args[index + 1];
-  if (!value || value.startsWith("--")) {
-    throw new CliError(`Missing value for ${name}.`, true);
-  }
-
-  return { value, nextIndex: index + 2 };
+interface ParsedArgs {
+  options?: ExportProjectCliOptions;
+  help: boolean;
 }
 
 function parseArgs(args: string[]): ParsedArgs {
@@ -117,43 +94,6 @@ function parseArgs(args: string[]): ParsedArgs {
   };
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isLayerDocCandidate(value: unknown): value is LayerDoc {
-  return (
-    isRecord(value) &&
-    value.schema === "layerdoc" &&
-    value.version === "0.1.0" &&
-    isRecord(value.canvas) &&
-    Array.isArray(value.sections) &&
-    Array.isArray(value.layers) &&
-    Array.isArray(value.assets) &&
-    Array.isArray(value.components) &&
-    Array.isArray(value.interactions) &&
-    isRecord(value.responsive) &&
-    isRecord(value.verification)
-  );
-}
-
-function readLayerDoc(inputPath: string): LayerDoc {
-  const raw = readFileSync(inputPath, "utf8");
-  const parsed = JSON.parse(raw) as unknown;
-
-  if (!isLayerDocCandidate(parsed)) {
-    throw new CliError("Input file is not a LayerDoc 0.1.0 document.");
-  }
-
-  const validation = validateLayerDoc(parsed);
-  if (!validation.valid) {
-    const messages = validation.issues.map((issue) => `- ${issue.path}: ${issue.message}`).join("\n");
-    throw new CliError(`LayerDoc validation failed:\n${messages}`);
-  }
-
-  return parsed;
-}
-
 export function runExportProjectCli(args: string[]): number {
   try {
     const parsed = parseArgs(args);
@@ -169,7 +109,7 @@ export function runExportProjectCli(args: string[]): number {
 
     const inputPath = resolve(options.inputPath);
     const outputDir = resolve(options.outputDir);
-    const doc = readLayerDoc(inputPath);
+    const doc = readLayerDocFile(inputPath);
     const projectPackage = createProjectExportPackage(doc, {
       componentName: options.componentName,
       packageName: options.packageName
