@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Smartphone,
   SquareDashedMousePointer,
+  Type,
   WandSparkles
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -30,9 +31,20 @@ import {
   type EditorWorkspace
 } from "./editorWorkspace.js";
 import { createIntakeWorkspaceFromBrowserFile } from "./imageFileIntake.js";
-import { addHeroAnnotationSet, buildWorkspaceFromIntake, createIntakeWorkspace, selectIntakeSection, type IntakeWorkspace } from "./intakeWorkspace.js";
+import {
+  addHeroAnnotationSet,
+  addManualAnalysisLayer,
+  buildWorkspaceFromIntake,
+  createIntakeWorkspace,
+  selectIntakeLayer,
+  selectIntakeSection,
+  updateManualAnalysisLayer,
+  type IntakeWorkspace,
+  type ManualAnalysisLayerKind
+} from "./intakeWorkspace.js";
 import { createSampleHomepageLayerDoc } from "./sampleDocument.js";
 import { createWorkflowSummary, type WorkflowSummaryItem } from "./workflowSummary.js";
+import type { PngIntakeLayerPlan } from "../importers/pngIntake.js";
 
 const canvasScale = 0.46;
 
@@ -64,6 +76,22 @@ function numberFromInput(value: string): number {
 
 function layerKindLabel(layer: LayerNode): string {
   return `${layer.kind} / ${layer.track}`;
+}
+
+function selectedAnalysisSection(intake: IntakeWorkspace) {
+  return intake.analysisPlan.sections.find((section) => section.id === intake.selectedSectionId);
+}
+
+function selectedAnalysisLayer(intake: IntakeWorkspace): PngIntakeLayerPlan | null {
+  if (!intake.selectedLayerId) {
+    return null;
+  }
+
+  return intake.analysisPlan.sections.flatMap((section) => section.layers).find((layer) => layer.id === intake.selectedLayerId) ?? null;
+}
+
+function planLayerContent(layer: PngIntakeLayerPlan): string {
+  return layer.kind === "image" ? (layer.alt ?? "") : (layer.text ?? "");
 }
 
 function WorkspaceStep({ index, item }: { index: number; item: WorkflowSummaryItem }) {
@@ -341,6 +369,51 @@ function AnalysisPlanPanel({
   onUploadFile: (file: File) => void;
   uploadError: string | null;
 }) {
+  const section = selectedAnalysisSection(intake);
+  const layer = selectedAnalysisLayer(intake);
+  const cropBounds = layer?.asset?.cropBounds ?? layer?.bounds ?? { x: 0, y: 0, width: 1, height: 1 };
+
+  function addLayer(kind: ManualAnalysisLayerKind) {
+    onChange(addManualAnalysisLayer(intake, { kind }));
+  }
+
+  function patchLayerText(value: string) {
+    if (!layer) {
+      return;
+    }
+
+    onChange(updateManualAnalysisLayer(intake, layer.id, layer.kind === "image" ? { alt: value } : { text: value }));
+  }
+
+  function patchLayerBound(key: "x" | "y" | "width" | "height", value: string) {
+    if (!layer) {
+      return;
+    }
+
+    const number = numberFromInput(value);
+    if (Number.isFinite(number)) {
+      onChange(updateManualAnalysisLayer(intake, layer.id, { bounds: { ...layer.bounds, [key]: number } }));
+    }
+  }
+
+  function patchLayerCropBound(key: "x" | "y" | "width" | "height", value: string) {
+    if (!layer?.asset) {
+      return;
+    }
+
+    const number = numberFromInput(value);
+    if (Number.isFinite(number)) {
+      onChange(
+        updateManualAnalysisLayer(intake, layer.id, {
+          asset: {
+            ...layer.asset,
+            cropBounds: { ...cropBounds, [key]: number }
+          }
+        })
+      );
+    }
+  }
+
   return (
     <div className="analysis-panel">
       <div className="sidebar-title">Analysis Plan</div>
@@ -384,6 +457,69 @@ function AnalysisPlanPanel({
             <small>{section.layers.length}</small>
           </button>
         ))}
+      </div>
+      <div className="manual-layer-tools">
+        <div className="manual-tool-head">
+          <strong>{section?.name ?? "Section"}</strong>
+          <span>{section?.bounds.width ?? 0} x {section?.bounds.height ?? 0}</span>
+        </div>
+        <div className="manual-add-grid" aria-label="Add analysis layers">
+          <button type="button" onClick={() => addLayer("text")}>
+            <Type size={13} />
+            Text
+          </button>
+          <button type="button" onClick={() => addLayer("button")}>
+            <MousePointer2 size={13} />
+            Button
+          </button>
+          <button type="button" onClick={() => addLayer("image")}>
+            <FileImage size={13} />
+            Image
+          </button>
+        </div>
+        <div className="analysis-layer-list">
+          {(section?.layers ?? []).map((candidate) => (
+            <button
+              className={candidate.id === intake.selectedLayerId ? "selected" : ""}
+              key={candidate.id}
+              type="button"
+              onClick={() => onChange(selectIntakeLayer(intake, candidate.id))}
+            >
+              <span>{candidate.id}</span>
+              <small>{candidate.kind}</small>
+            </button>
+          ))}
+          {section?.layers.length === 0 ? <div className="analysis-layer-empty">No layers in selected section</div> : null}
+        </div>
+        {layer ? (
+          <div className="analysis-layer-editor">
+            <label className="field">
+              <span>{layer.kind === "image" ? "Alt" : "Text"}</span>
+              <input value={planLayerContent(layer)} onChange={(event) => patchLayerText(event.target.value)} />
+            </label>
+            <div className="mini-bounds-grid">
+              {(["x", "y", "width", "height"] as const).map((key) => (
+                <label className="field" key={key}>
+                  <span>{key === "width" ? "W" : key === "height" ? "H" : key.toUpperCase()}</span>
+                  <input type="number" value={layer.bounds[key]} onChange={(event) => patchLayerBound(key, event.target.value)} />
+                </label>
+              ))}
+            </div>
+            {layer.kind === "image" ? (
+              <div className="crop-editor">
+                <div className="crop-title">Crop</div>
+                <div className="mini-bounds-grid">
+                  {(["x", "y", "width", "height"] as const).map((key) => (
+                    <label className="field" key={key}>
+                      <span>{key === "width" ? "W" : key === "height" ? "H" : key.toUpperCase()}</span>
+                      <input type="number" value={cropBounds[key]} onChange={(event) => patchLayerCropBound(key, event.target.value)} />
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
       <div className="analysis-actions">
         <button type="button" onClick={() => onChange(addHeroAnnotationSet(intake))}>

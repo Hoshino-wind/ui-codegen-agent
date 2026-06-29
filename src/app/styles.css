@@ -13,7 +13,7 @@
 
 body {
   margin: 0;
-  min-width: 1180px;
+  min-width: 1260px;
 }
 
 button,
@@ -27,7 +27,7 @@ button {
 
 .studio-shell {
   display: grid;
-  grid-template-columns: 228px minmax(660px, 1fr) 344px;
+  grid-template-columns: 292px minmax(620px, 1fr) 344px;
   grid-template-rows: 58px minmax(0, 1fr) 168px;
   height: 100vh;
   color: #111827;
@@ -347,6 +347,148 @@ button {
   color: #64748b;
   font-size: 11px;
   font-weight: 800;
+}
+
+.manual-layer-tools {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid #dbe4ee;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.manual-tool-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.manual-tool-head strong {
+  overflow: hidden;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 820;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.manual-tool-head span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.manual-add-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 9px;
+}
+
+.manual-add-grid button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  height: 28px;
+  border: 1px solid #ccfbf1;
+  border-radius: 7px;
+  color: #0f766e;
+  background: #f0fdfa;
+  font-size: 11px;
+  font-weight: 820;
+}
+
+.analysis-layer-list {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.analysis-layer-list button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 7px;
+  border: 1px solid #d7dee8;
+  border-radius: 7px;
+  color: #334155;
+  background: #f8fafc;
+  text-align: left;
+}
+
+.analysis-layer-list button.selected {
+  border-color: #0f766e;
+  background: #ecfdf5;
+}
+
+.analysis-layer-list span {
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 780;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analysis-layer-list small {
+  justify-self: end;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.analysis-layer-empty {
+  min-height: 28px;
+  padding: 7px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 7px;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 740;
+  text-align: center;
+}
+
+.analysis-layer-editor {
+  padding-top: 10px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.manual-layer-tools .field {
+  margin-bottom: 8px;
+}
+
+.manual-layer-tools .field input {
+  height: 30px;
+  font-size: 12px;
+}
+
+.mini-bounds-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.mini-bounds-grid .field {
+  margin-bottom: 0;
+}
+
+.mini-bounds-grid .field input {
+  padding: 0 6px;
+}
+
+.crop-editor {
+  margin-top: 10px;
+}
+
+.crop-title {
+  margin-bottom: 7px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 820;
 }
 
 .analysis-actions {
