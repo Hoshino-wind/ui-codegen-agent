@@ -59,6 +59,7 @@ The repository currently implements the core LayerDoc domain layer:
 - Validate graph references and canvas geometry.
 - Apply controlled editor operations without mutating the original document:
   copy, layer style, image assets, bounds, and section order.
+- Run a React/Vite controlled editor console for the sample homepage LayerDoc.
 - Render a deterministic HTML preview with `data-layer-id` markers.
 - Export a React + Tailwind component that preserves LayerDoc traceability.
 - Compare reference and candidate PNG screenshots and write a pixel diff image.
@@ -142,6 +143,7 @@ checks.
 
 ```bash
 npm install
+npm run dev
 npm test
 npm run typecheck
 npm run build
@@ -150,9 +152,17 @@ npm run build
 The codebase is TypeScript-first and uses Node's built-in test runner. New
 behavior should be added test-first.
 
+The current editor concept and implementation screenshots live in:
+
+```text
+docs/concepts/editor-console-concept.png
+docs/concepts/editor-console-implementation.png
+```
+
 ## Package Layout
 
 ```text
+src/app/        React editor console and sample homepage LayerDoc
 src/layerdoc/   schema, classification, validation, scoring
 src/importers/  image-analysis manifest to LayerDoc conversion
 src/editor/     controlled LayerDoc edit operations

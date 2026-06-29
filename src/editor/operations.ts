@@ -68,8 +68,8 @@ export function updateTextLayer(doc: LayerDoc, layerId: string, text: string): L
   const next = cloneDoc(doc);
   const layer = findEditableLayer(next, layerId);
 
-  if (layer.kind !== "text") {
-    throw new Error(`Layer "${layerId}" is "${layer.kind}", not text.`);
+  if (layer.kind !== "text" && layer.kind !== "button") {
+    throw new Error(`Layer "${layerId}" is "${layer.kind}", not editable copy.`);
   }
 
   layer.content = { ...(layer.content ?? {}), text };
