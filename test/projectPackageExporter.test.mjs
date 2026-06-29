@@ -57,6 +57,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "layerdoc.json").contents, /"schema": "layerdoc"/);
   assert.match(output.files.find((file) => file.path === "preview.html").contents, /data-layerdoc="0.1.0"/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /LayerDoc source of truth/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /runLayerDocPreviewVerification/);
 });
 
 test("writeProjectExportPackage writes every package file under the target directory", () => {

@@ -664,7 +664,7 @@ export function App() {
             <RefreshCw size={16} />
             Reset
           </button>
-          <button className="secondary-action" type="button" onClick={() => setLastAction("Verifier report regenerated")}>
+          <button className="secondary-action" type="button" onClick={() => setLastAction("Preview verifier ready: export package and run with reference PNG")}>
             <Play size={16} />
             Run Verifier
           </button>

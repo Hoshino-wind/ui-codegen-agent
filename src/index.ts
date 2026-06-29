@@ -25,6 +25,7 @@ export { createLayerDoc } from "./layerdoc/factory.js";
 export { scoreProjectFit } from "./layerdoc/scoring.js";
 export { validateLayerDoc } from "./layerdoc/validation.js";
 export { createVerificationReport } from "./verifier/report.js";
+export { runLayerDocPreviewVerification } from "./verifier/previewRun.js";
 export { runLayerDocVerification } from "./verifier/run.js";
 export { comparePngSnapshots } from "./verifier/visualDiff.js";
 export type {
@@ -51,6 +52,13 @@ export type {
 } from "./layerdoc/types.js";
 export type { ImageAssetPatch, LayerBoundsPatch } from "./editor/operations.js";
 export type { VerificationInput, VerificationReport } from "./verifier/report.js";
+export type {
+  LayerDocPreviewVerificationRun,
+  PreviewSnapshotRenderer,
+  PreviewSnapshotRenderInput,
+  PreviewViewport,
+  RunLayerDocPreviewVerificationInput
+} from "./verifier/previewRun.js";
 export type {
   LayerDocVerificationRun,
   RunLayerDocVerificationInput,

@@ -49,6 +49,9 @@ Generated assets:
 - \`preview.html\`: deterministic HTML verification preview
 - \`manifest.json\`: project package manifest and quality scores
 
+Verification:
+- Use \`runLayerDocPreviewVerification\` with the original reference PNG to render \`preview.html\`, capture a candidate PNG, and produce \`diff.png\`.
+
 Verifier scores:
 - visual_similarity: ${manifest.scores.visualSimilarity ?? "n/a"}
 - structure_score: ${manifest.scores.structureScore}
