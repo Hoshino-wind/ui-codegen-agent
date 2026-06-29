@@ -8,6 +8,7 @@ import {
   createIntakeWorkspace,
   selectIntakeLayer,
   selectIntakeSection,
+  seedHomepageAnnotations,
   updateManualAnalysisLayer
 } from "../dist/app/intakeWorkspace.js";
 
@@ -209,4 +210,60 @@ test("manual analysis layers build into the editable LayerDoc workspace", () => 
   assert.equal(workspace.selectedLayerId, "export-button-1");
   assert.match(workspace.previewHtml, /Ship React component/);
   assert.match(workspace.reactExport.code, /Ship React component/);
+});
+
+test("seedHomepageAnnotations adds editable layers across every homepage section without mutating the prior workspace", () => {
+  const intake = createIntakeWorkspace({
+    uri: "/uploads/homepage.png",
+    width: 1440,
+    height: 1760
+  });
+
+  const seeded = seedHomepageAnnotations(intake);
+
+  assert.equal(intake.layerCount, 0);
+  assert.equal(seeded.layerCount, 18);
+  assert.equal(seeded.ready, true);
+  assert.deepEqual(seeded.analysisPlan.sections.map((section) => section.layers.length), [4, 2, 2, 2, 2, 2, 2, 2]);
+  assert.equal(seeded.selectedSectionId, "hero");
+  assert.equal(seeded.selectedLayerId, "hero-title");
+});
+
+test("seedHomepageAnnotations is idempotent and keeps seeded bounds inside narrow PNG canvases", () => {
+  const once = seedHomepageAnnotations(
+    createIntakeWorkspace({
+      uri: "/uploads/narrow-homepage.png",
+      width: 640,
+      height: 960
+    })
+  );
+  const twice = seedHomepageAnnotations(once);
+
+  assert.equal(twice.layerCount, 18);
+  for (const section of twice.analysisPlan.sections) {
+    for (const layer of section.layers) {
+      assert.equal(layer.bounds.x >= 0, true);
+      assert.equal(layer.bounds.y >= 0, true);
+      assert.equal(layer.bounds.x + layer.bounds.width <= twice.sourceImage.width, true);
+      assert.equal(layer.bounds.y + layer.bounds.height <= twice.sourceImage.height, true);
+    }
+  }
+});
+
+test("seedHomepageAnnotations builds into a LayerDoc with component and asset tracks", () => {
+  const intake = seedHomepageAnnotations(
+    createIntakeWorkspace({
+      uri: "/uploads/homepage.png",
+      width: 1440,
+      height: 1760
+    })
+  );
+
+  const workspace = buildWorkspaceFromIntake(intake);
+
+  assert.equal(workspace.doc.layers.length, 18);
+  assert.equal(workspace.doc.layers.filter((layer) => layer.track === "component").length, 17);
+  assert.equal(workspace.doc.layers.filter((layer) => layer.track === "asset").length, 1);
+  assert.match(workspace.previewHtml, /LayerDoc source of truth/);
+  assert.match(workspace.reactExport.code, /Screenshot diff joins structural validation/);
 });

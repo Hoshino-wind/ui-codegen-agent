@@ -181,6 +181,85 @@ function createManualLayer(plan: HomepageAnalysisPlan, sectionId: string, kind: 
   };
 }
 
+function seededSectionCopy(sectionId: string, sectionName: string): { title: string; detail: string; detailKind?: ManualAnalysisLayerKind } {
+  const copy: Record<string, { title: string; detail: string; detailKind?: ManualAnalysisLayerKind }> = {
+    proof: {
+      title: "Structure score is separated from visual",
+      detail: "100 structure / 100 component / tracked assets"
+    },
+    workflow: {
+      title: "Image analysis becomes an editable graph",
+      detail: "8 sections, 18 layers, one source of truth."
+    },
+    features: {
+      title: "LayerDoc source of truth",
+      detail: "Canvas, tokens, sections, layers, assets, components."
+    },
+    editor: {
+      title: "Operators edit copy, color, assets, and section order.",
+      detail: "No freeform vector surface. Every control writes LayerDoc."
+    },
+    export: {
+      title: "React + Tailwind export preserves structure",
+      detail: "data-layer-id and data-section-id survive export."
+    },
+    verifier: {
+      title: "Screenshot diff joins structural validation.",
+      detail: "Visual, structure, component, and project-fit scores."
+    },
+    "final-cta": {
+      title: "Turn the approved visual into a project package.",
+      detail: "Export React",
+      detailKind: "button"
+    }
+  };
+
+  return copy[sectionId] ?? {
+    title: `${sectionName} becomes editable`,
+    detail: "Classified layer ready for LayerDoc export."
+  };
+}
+
+function seededSectionLayer(plan: HomepageAnalysisPlan, sectionId: string, kind: "title" | "detail"): PngIntakeLayerPlan {
+  const section = sectionById(plan, sectionId);
+  const copy = seededSectionCopy(sectionId, section.name);
+  const gutter = Math.min(80, Math.max(24, Math.round(section.bounds.width * 0.055)));
+  const titleBounds = clampRectToSection(
+    {
+      x: section.bounds.x + gutter,
+      y: section.bounds.y + Math.min(36, Math.max(14, Math.round(section.bounds.height * 0.14))),
+      width: Math.min(560, section.bounds.width - gutter * 2),
+      height: 34
+    },
+    section.bounds
+  );
+  const detailBounds = clampRectToSection(
+    {
+      x: titleBounds.x,
+      y: titleBounds.y + titleBounds.height + 10,
+      width: kind === "detail" && copy.detailKind === "button" ? Math.min(184, titleBounds.width) : Math.min(540, titleBounds.width),
+      height: kind === "detail" && copy.detailKind === "button" ? 44 : 36
+    },
+    section.bounds
+  );
+
+  if (kind === "title") {
+    return {
+      id: `${sectionId}-title`,
+      kind: "text",
+      bounds: titleBounds,
+      text: copy.title
+    };
+  }
+
+  return {
+    id: `${sectionId}-${copy.detailKind === "button" ? "button" : "card"}`,
+    kind: copy.detailKind ?? "text",
+    bounds: detailBounds,
+    text: copy.detail
+  };
+}
+
 function toManifest(intake: IntakeWorkspace): ImageAnalysisManifest {
   return {
     name: intake.analysisPlan.name,
@@ -289,6 +368,22 @@ export function addHeroAnnotationSet(workspace: IntakeWorkspace): IntakeWorkspac
   });
 
   return materialize(workspace.sourceImage, plan, sectionId, "hero-title");
+}
+
+export function seedHomepageAnnotations(workspace: IntakeWorkspace): IntakeWorkspace {
+  let next = addHeroAnnotationSet(workspace);
+  let plan = next.analysisPlan;
+
+  for (const section of plan.sections) {
+    if (section.id === "hero") {
+      continue;
+    }
+
+    plan = addLayerIfMissing(plan, section.id, seededSectionLayer(plan, section.id, "title"));
+    plan = addLayerIfMissing(plan, section.id, seededSectionLayer(plan, section.id, "detail"));
+  }
+
+  return materialize(workspace.sourceImage, plan, "hero", "hero-title");
 }
 
 export function buildWorkspaceFromIntake(workspace: IntakeWorkspace): EditorWorkspace {

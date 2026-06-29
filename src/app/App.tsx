@@ -38,6 +38,7 @@ import {
   createIntakeWorkspace,
   selectIntakeLayer,
   selectIntakeSection,
+  seedHomepageAnnotations,
   updateManualAnalysisLayer,
   type IntakeWorkspace,
   type ManualAnalysisLayerKind
@@ -541,6 +542,9 @@ function AnalysisPlanPanel({
         ) : null}
       </div>
       <div className="analysis-actions">
+        <button type="button" onClick={() => onChange(seedHomepageAnnotations(intake))}>
+          Seed homepage
+        </button>
         <button type="button" onClick={() => onChange(addHeroAnnotationSet(intake))}>
           Add hero layers
         </button>
