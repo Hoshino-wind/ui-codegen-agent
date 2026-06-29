@@ -1,4 +1,10 @@
-export { moveSection, updateTextLayer } from "./editor/operations.js";
+export {
+  moveSection,
+  updateImageLayerAsset,
+  updateLayerBounds,
+  updateLayerStyle,
+  updateTextLayer
+} from "./editor/operations.js";
 export { renderHtmlPreview } from "./exporters/htmlPreview.js";
 export { exportReactTailwind } from "./exporters/reactTailwind.js";
 export { createLayerDocFromImageManifest } from "./importers/imageManifest.js";
@@ -17,6 +23,8 @@ export type {
   LayerDoc,
   LayerKind,
   LayerNode,
+  LayerSpacing,
+  LayerStyle,
   LayerTrack,
   ProjectFitScore,
   Rect,
@@ -28,6 +36,7 @@ export type {
   VerificationIssueCode,
   VerificationScores
 } from "./layerdoc/types.js";
+export type { ImageAssetPatch, LayerBoundsPatch } from "./editor/operations.js";
 export type { VerificationInput, VerificationReport } from "./verifier/report.js";
 export type { PngSnapshotComparisonInput, PngSnapshotComparisonResult } from "./verifier/visualDiff.js";
 export type { ReactTailwindExportOptions, ReactTailwindExportResult } from "./exporters/reactTailwind.js";

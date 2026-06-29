@@ -57,7 +57,8 @@ The repository currently implements the core LayerDoc domain layer:
 - Create a complete LayerDoc shell.
 - Classify layer kinds into production tracks.
 - Validate graph references and canvas geometry.
-- Apply controlled editor operations without mutating the original document.
+- Apply controlled editor operations without mutating the original document:
+  copy, layer style, image assets, bounds, and section order.
 - Render a deterministic HTML preview with `data-layer-id` markers.
 - Export a React + Tailwind component that preserves LayerDoc traceability.
 - Compare reference and candidate PNG screenshots and write a pixel diff image.
@@ -168,3 +169,22 @@ visibility, preview modes, regeneration requests, export, and verifier runs.
 
 Freeform vector editing, multiplayer design collaboration, and plugin
 ecosystems are intentionally out of scope.
+
+Controlled editor operations are plain LayerDoc transforms:
+
+```ts
+const styled = updateLayerStyle(layerDoc, "cta", {
+  backgroundColor: "#111827",
+  textColor: "#ffffff",
+  borderRadius: 16,
+  padding: { x: 24, y: 12 }
+});
+
+const swapped = updateImageLayerAsset(styled, "hero-image", {
+  uri: "/assets/hero-v2.png",
+  source: "uploaded"
+});
+```
+
+Because these edits update LayerDoc, the same state can feed preview, export,
+verification, and future undo/history without separate UI-specific state.

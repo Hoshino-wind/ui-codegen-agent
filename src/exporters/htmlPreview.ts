@@ -9,13 +9,39 @@ function escapeHtml(value: string): string {
 }
 
 function styleFor(layer: LayerNode): string {
-  return [
+  const declarations = [
     "position:absolute",
     `left:${layer.bounds.x}px`,
     `top:${layer.bounds.y}px`,
     `width:${layer.bounds.width}px`,
     `height:${layer.bounds.height}px`
-  ].join(";");
+  ];
+
+  if (layer.style?.backgroundColor) {
+    declarations.push(`background-color:${escapeHtml(layer.style.backgroundColor)}`);
+  }
+  if (layer.style?.textColor) {
+    declarations.push(`color:${escapeHtml(layer.style.textColor)}`);
+  }
+  if (layer.style?.borderColor) {
+    declarations.push(`border-color:${escapeHtml(layer.style.borderColor)}`);
+  }
+  if (layer.style?.borderRadius !== undefined) {
+    declarations.push(`border-radius:${layer.style.borderRadius}px`);
+  }
+  if (layer.style?.padding) {
+    const vertical = layer.style.padding.y ?? layer.style.padding.top ?? layer.style.padding.bottom ?? 0;
+    const horizontal = layer.style.padding.x ?? layer.style.padding.left ?? layer.style.padding.right ?? 0;
+    declarations.push(`padding:${vertical}px ${horizontal}px`);
+  }
+  if (layer.style?.gap !== undefined) {
+    declarations.push(`gap:${layer.style.gap}px`);
+  }
+  if (layer.style?.opacity !== undefined) {
+    declarations.push(`opacity:${layer.style.opacity}`);
+  }
+
+  return declarations.join(";");
 }
 
 function assetById(doc: LayerDoc, assetId: string | undefined): AssetNode | undefined {

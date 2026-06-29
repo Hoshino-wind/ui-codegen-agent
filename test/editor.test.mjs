@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createLayerDoc, moveSection, updateTextLayer } from "../dist/index.js";
+import {
+  createLayerDoc,
+  moveSection,
+  updateImageLayerAsset,
+  updateLayerBounds,
+  updateLayerStyle,
+  updateTextLayer
+} from "../dist/index.js";
 
 test("updateTextLayer changes copy without mutating the original LayerDoc", () => {
   const doc = createLayerDoc({
@@ -40,4 +47,87 @@ test("moveSection reorders sections while keeping layer membership intact", () =
 
   assert.deepEqual(next.sections.map((section) => section.id), ["cta", "hero", "proof"]);
   assert.deepEqual(next.sections[0].layerIds, ["button"]);
+});
+
+test("updateLayerStyle merges controlled visual style without mutating the original LayerDoc", () => {
+  const doc = createLayerDoc({
+    name: "Style controls",
+    canvas: { width: 800, height: 600 },
+    layers: [
+      {
+        id: "cta",
+        kind: "button",
+        track: "component",
+        editable: true,
+        bounds: { x: 40, y: 40, width: 160, height: 48 },
+        style: { backgroundColor: "#e2e8f0", borderRadius: 8 },
+        content: { text: "Start" }
+      }
+    ]
+  });
+
+  const next = updateLayerStyle(doc, "cta", {
+    backgroundColor: "#111827",
+    textColor: "#ffffff",
+    borderRadius: 16,
+    padding: { x: 24, y: 12 }
+  });
+
+  assert.equal(doc.layers[0].style.backgroundColor, "#e2e8f0");
+  assert.equal(doc.layers[0].style.borderRadius, 8);
+  assert.deepEqual(next.layers[0].style, {
+    backgroundColor: "#111827",
+    borderRadius: 16,
+    textColor: "#ffffff",
+    padding: { x: 24, y: 12 }
+  });
+});
+
+test("updateImageLayerAsset replaces an image layer asset without mutating the original LayerDoc", () => {
+  const doc = createLayerDoc({
+    name: "Image controls",
+    canvas: { width: 800, height: 600 },
+    assets: [{ id: "hero-crop", type: "image", source: "reference-crop", uri: "/old.png" }],
+    layers: [
+      {
+        id: "hero-image",
+        kind: "image",
+        track: "asset",
+        editable: true,
+        bounds: { x: 420, y: 40, width: 280, height: 180 },
+        assetId: "hero-crop"
+      }
+    ]
+  });
+
+  const next = updateImageLayerAsset(doc, "hero-image", {
+    uri: "/new.png",
+    source: "uploaded"
+  });
+
+  assert.equal(doc.assets[0].uri, "/old.png");
+  assert.equal(doc.assets[0].source, "reference-crop");
+  assert.equal(next.assets[0].uri, "/new.png");
+  assert.equal(next.assets[0].source, "uploaded");
+});
+
+test("updateLayerBounds patches geometry for spacing controls while preserving existing dimensions", () => {
+  const doc = createLayerDoc({
+    name: "Bounds controls",
+    canvas: { width: 800, height: 600 },
+    layers: [
+      {
+        id: "card",
+        kind: "card",
+        track: "component",
+        editable: true,
+        bounds: { x: 40, y: 40, width: 240, height: 160 }
+      }
+    ]
+  });
+
+  const next = updateLayerBounds(doc, "card", { x: 72, y: 96 });
+
+  assert.deepEqual(doc.layers[0].bounds, { x: 40, y: 40, width: 240, height: 160 });
+  assert.deepEqual(next.layers[0].bounds, { x: 72, y: 96, width: 240, height: 160 });
 });

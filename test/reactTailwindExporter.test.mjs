@@ -63,3 +63,33 @@ test("exportReactTailwind rejects invalid component names before writing project
     /componentName must be a PascalCase identifier/
   );
 });
+
+test("exportReactTailwind preserves controlled layer styles in React style props", () => {
+  const doc = createLayerDoc({
+    name: "Styled export",
+    canvas: { width: 640, height: 480 },
+    layers: [
+      {
+        id: "cta",
+        kind: "button",
+        track: "component",
+        editable: true,
+        bounds: { x: 24, y: 32, width: 160, height: 48 },
+        style: {
+          backgroundColor: "#111827",
+          textColor: "#ffffff",
+          borderRadius: 16,
+          padding: { x: 24, y: 12 }
+        },
+        content: { text: "Export" }
+      }
+    ]
+  });
+
+  const output = exportReactTailwind(doc, { componentName: "StyledExport" });
+
+  assert.match(output.code, /backgroundColor: "#111827"/);
+  assert.match(output.code, /color: "#ffffff"/);
+  assert.match(output.code, /borderRadius: 16/);
+  assert.match(output.code, /padding: "12px 24px"/);
+});

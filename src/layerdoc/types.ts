@@ -45,12 +45,32 @@ export interface SectionNode {
   layerIds: string[];
 }
 
+export interface LayerSpacing {
+  x?: number;
+  y?: number;
+  top?: number;
+  right?: number;
+  bottom?: number;
+  left?: number;
+}
+
+export interface LayerStyle {
+  backgroundColor?: string;
+  textColor?: string;
+  borderColor?: string;
+  borderRadius?: number;
+  padding?: LayerSpacing;
+  gap?: number;
+  opacity?: number;
+}
+
 export interface LayerNode {
   id: string;
   kind: LayerKind;
   track: LayerTrack;
   editable: boolean;
   bounds: Rect;
+  style?: LayerStyle;
   sectionId?: string;
   assetId?: string;
   componentId?: string;
