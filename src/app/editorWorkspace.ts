@@ -6,6 +6,7 @@ import { exportReactTailwind, type ReactTailwindExportResult } from "../exporter
 import type { ImageAssetPatch, LayerBoundsPatch } from "../editor/operations.js";
 import type { LayerDoc, LayerNode, LayerStyle } from "../layerdoc/types.js";
 import { createVerificationReport, type VerificationReport } from "../verifier/report.js";
+import type { PngSnapshotComparisonResult } from "../verifier/visualDiff.js";
 
 export interface EditorWorkspace {
   doc: LayerDoc;
@@ -58,6 +59,16 @@ export function selectWorkspaceLayer(workspace: EditorWorkspace, layerId: string
     throw new Error(`Layer "${layerId}" was not found.`);
   }
   return materialize(workspace.doc, layerId);
+}
+
+export function applyWorkspaceVisualDiff(workspace: EditorWorkspace, visualDiff: PngSnapshotComparisonResult): EditorWorkspace {
+  const report = createVerificationReport(workspace.doc, { visualDiff });
+
+  return {
+    ...workspace,
+    report,
+    projectExport: createProjectExportPackage(workspace.doc, { componentName: "ProductionHomepage", report })
+  };
 }
 
 export function updateSelectedText(workspace: EditorWorkspace, text: string): EditorWorkspace {

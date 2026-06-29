@@ -22,11 +22,13 @@ export { createHomepageLayerDocFromPng } from "./importers/homepagePngPipeline.j
 export { addHeroAnnotationSetToPlan, seedHomepageAnalysisPlan } from "./importers/homepageSeed.js";
 export { createLayerDocFromImageManifest } from "./importers/imageManifest.js";
 export { createImageManifestFromPng } from "./importers/pngIntake.js";
+export { runWorkspaceVisualVerification } from "./app/workspaceVerifier.js";
 export { classifyLayer } from "./layerdoc/classification.js";
 export { createLayerDoc } from "./layerdoc/factory.js";
 export { scoreProjectFit } from "./layerdoc/scoring.js";
 export { validateLayerDoc } from "./layerdoc/validation.js";
 export { createVerificationReport } from "./verifier/report.js";
+export { compareImageDataSnapshots } from "./verifier/imageDataDiff.js";
 export { runLayerDocPreviewVerification } from "./verifier/previewRun.js";
 export { runLayerDocVerification } from "./verifier/run.js";
 export { comparePngSnapshots } from "./verifier/visualDiff.js";
@@ -55,6 +57,11 @@ export type {
 export type { ImageAssetPatch, LayerBoundsPatch } from "./editor/operations.js";
 export type { VerificationInput, VerificationReport } from "./verifier/report.js";
 export type {
+  ImageDataSnapshot,
+  ImageDataSnapshotComparisonInput,
+  ImageDataSnapshotComparisonResult
+} from "./verifier/imageDataDiff.js";
+export type {
   LayerDocPreviewVerificationRun,
   PreviewSnapshotRenderer,
   PreviewSnapshotRenderInput,
@@ -67,6 +74,7 @@ export type {
   VerificationGates
 } from "./verifier/run.js";
 export type { PngSnapshotComparisonInput, PngSnapshotComparisonResult } from "./verifier/visualDiff.js";
+export type { WorkspaceVisualVerificationInput } from "./app/workspaceVerifier.js";
 export type {
   ProjectExportFile,
   ProjectExportManifest,

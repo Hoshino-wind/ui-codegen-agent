@@ -53,8 +53,10 @@ import {
 } from "./layerDocFile.js";
 import { createPreviewViewport, type PreviewMode } from "./previewViewport.js";
 import { createSampleHomepageLayerDoc } from "./sampleDocument.js";
+import { runWorkspaceVisualVerification } from "./workspaceVerifier.js";
 import { createWorkflowSummary, type WorkflowSummaryItem } from "./workflowSummary.js";
 import type { PngIntakeLayerPlan } from "../importers/pngIntake.js";
+import type { ImageDataSnapshot } from "../verifier/imageDataDiff.js";
 
 const workflowIcons = {
   Image: FileImage,
@@ -96,6 +98,46 @@ function selectedAnalysisLayer(intake: IntakeWorkspace): PngIntakeLayerPlan | nu
   }
 
   return intake.analysisPlan.sections.flatMap((section) => section.layers).find((layer) => layer.id === intake.selectedLayerId) ?? null;
+}
+
+interface VerifierSnapshot {
+  fileName: string;
+  image: ImageDataSnapshot;
+}
+
+async function readBrowserImageSnapshot(file: File): Promise<ImageDataSnapshot> {
+  const bitmap = await createImageBitmap(file);
+
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      throw new Error("Browser canvas is unavailable.");
+    }
+
+    context.drawImage(bitmap, 0, 0);
+    const imageData = context.getImageData(0, 0, bitmap.width, bitmap.height);
+    return {
+      width: imageData.width,
+      height: imageData.height,
+      data: imageData.data
+    };
+  } finally {
+    bitmap.close();
+  }
+}
+
+async function createVerifierSnapshot(file: File): Promise<VerifierSnapshot> {
+  if (file.type !== "image/png" && !file.name.toLowerCase().endsWith(".png")) {
+    throw new Error("Verifier snapshots must be PNG files.");
+  }
+
+  return {
+    fileName: file.name,
+    image: await readBrowserImageSnapshot(file)
+  };
 }
 
 function planLayerContent(layer: PngIntakeLayerPlan): string {
@@ -589,7 +631,23 @@ function AnalysisPlanPanel({
   );
 }
 
-function VerifierStrip({ workspace }: { workspace: EditorWorkspace }) {
+function VerifierStrip({
+  workspace,
+  referenceName,
+  candidateName,
+  verifierError,
+  onReferenceFile,
+  onCandidateFile,
+  onDownloadReport
+}: {
+  workspace: EditorWorkspace;
+  referenceName: string | null;
+  candidateName: string | null;
+  verifierError: string | null;
+  onReferenceFile: (file: File) => void;
+  onCandidateFile: (file: File) => void;
+  onDownloadReport: () => void;
+}) {
   const visualDiff = workspace.report.visualDiff;
   const scores = [
     ["visual_similarity", workspace.report.visualSimilarity, 85],
@@ -603,15 +661,46 @@ function VerifierStrip({ workspace }: { workspace: EditorWorkspace }) {
       <div className="verifier-head">
         <div>
           <strong>Verifier</strong>
-          <span>{visualDiff ? `${visualDiff.problemAreas.length} problem areas` : "Structure report, awaiting screenshot diff"}</span>
+          <span>{visualDiff ? `${visualDiff.problemAreas.length} problem areas` : "Awaiting screenshot diff"}</span>
         </div>
-        <button className="secondary-action" type="button">
+        <button className="secondary-action" type="button" onClick={onDownloadReport}>
           View report
         </button>
       </div>
-      <div className="verifier-artifact">
-        <span>Diff artifact</span>
-        <strong>{visualDiff?.diffPath ?? "not generated"}</strong>
+      <div className="verifier-inputs">
+        <label className="verifier-upload">
+          <input
+            aria-label="Load verifier reference PNG"
+            accept="image/png"
+            type="file"
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              if (file) {
+                onReferenceFile(file);
+                event.currentTarget.value = "";
+              }
+            }}
+          />
+          <span>Reference PNG</span>
+          <strong>{referenceName ?? "not loaded"}</strong>
+        </label>
+        <label className="verifier-upload">
+          <input
+            aria-label="Load verifier candidate PNG"
+            accept="image/png"
+            type="file"
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              if (file) {
+                onCandidateFile(file);
+                event.currentTarget.value = "";
+              }
+            }}
+          />
+          <span>Candidate PNG</span>
+          <strong>{candidateName ?? "not loaded"}</strong>
+        </label>
+        {verifierError ? <div className="verifier-error">{verifierError}</div> : null}
       </div>
       <div className="score-grid">
         {scores.map(([label, value, threshold]) => (
@@ -637,6 +726,9 @@ export function App() {
   const [lastAction, setLastAction] = useState("Auto-saved LayerDoc state");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  const [verifierReference, setVerifierReference] = useState<VerifierSnapshot | null>(null);
+  const [verifierCandidate, setVerifierCandidate] = useState<VerifierSnapshot | null>(null);
+  const [verifierError, setVerifierError] = useState<string | null>(null);
   const workflow = createWorkflowSummary({
     sourceUri: intake.sourceImage.uri,
     intakeSectionCount: intake.analysisPlan.sections.length,
@@ -708,10 +800,50 @@ export function App() {
     setLastAction(`Exported ${artifact.fileName}`);
   }
 
-  function runVerifierReport() {
-    const artifact = createVerificationReportDownload(workspace);
+  function downloadVerifierReport(sourceWorkspace = workspace) {
+    const artifact = createVerificationReportDownload(sourceWorkspace);
     downloadArtifact(artifact);
-    setLastAction(`Saved ${artifact.fileName}; use pipeline CLI for screenshot diff`);
+    setLastAction(`Saved ${artifact.fileName}`);
+  }
+
+  async function importVerifierSnapshot(file: File, kind: "reference" | "candidate") {
+    try {
+      const snapshot = await createVerifierSnapshot(file);
+      if (kind === "reference") {
+        setVerifierReference(snapshot);
+      } else {
+        setVerifierCandidate(snapshot);
+      }
+      setVerifierError(null);
+      setLastAction(`Loaded ${kind} snapshot: ${file.name}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to load verifier PNG.";
+      setVerifierError(message);
+      setLastAction("Verifier snapshot import failed");
+    }
+  }
+
+  function runVerifierReport() {
+    if (!verifierReference || !verifierCandidate) {
+      setVerifierError("Load reference and candidate PNG before running screenshot diff.");
+      setLastAction("Verifier needs reference and candidate PNG");
+      return;
+    }
+
+    try {
+      const nextWorkspace = runWorkspaceVisualVerification(workspace, {
+        reference: verifierReference.image,
+        candidate: verifierCandidate.image
+      });
+      setWorkspace(nextWorkspace);
+      setVerifierError(null);
+      downloadVerifierReport(nextWorkspace);
+      setLastAction(`Verifier ran: ${formatScore(nextWorkspace.report.visualSimilarity)} visual similarity`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to run verifier.";
+      setVerifierError(message);
+      setLastAction("Verifier run failed");
+    }
   }
 
   function buildFromAnalysisPlan() {
@@ -805,7 +937,15 @@ export function App() {
       </section>
 
       <Inspector workspace={workspace} onChange={(next) => updateWorkspace(next)} />
-      <VerifierStrip workspace={workspace} />
+      <VerifierStrip
+        workspace={workspace}
+        referenceName={verifierReference?.fileName ?? null}
+        candidateName={verifierCandidate?.fileName ?? null}
+        verifierError={verifierError}
+        onReferenceFile={(file) => void importVerifierSnapshot(file, "reference")}
+        onCandidateFile={(file) => void importVerifierSnapshot(file, "candidate")}
+        onDownloadReport={downloadVerifierReport}
+      />
     </main>
   );
 }

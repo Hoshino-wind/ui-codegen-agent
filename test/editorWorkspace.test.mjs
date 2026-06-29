@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  applyWorkspaceVisualDiff,
   createEditorWorkspace,
   moveWorkspaceSection,
   selectWorkspaceLayer,
@@ -26,6 +27,27 @@ test("createEditorWorkspace derives preview, export, and verifier output from on
   assert.equal(workspace.projectExport.manifest.scores.visualSimilarity, null);
   assert.equal(workspace.report.structureScore, 100);
   assert.equal(workspace.report.componentScore, 100);
+});
+
+test("applyWorkspaceVisualDiff updates verifier scores without mutating the LayerDoc", () => {
+  const workspace = createEditorWorkspace(createSampleHomepageLayerDoc());
+  const next = applyWorkspaceVisualDiff(workspace, {
+    visualSimilarity: 97.5,
+    mismatchedPixels: 25,
+    comparedPixels: 1000,
+    dimensions: { width: 1440, height: 1760 },
+    mismatchBounds: { x: 20, y: 30, width: 40, height: 50 },
+    problemAreas: [{ x: 20, y: 30, width: 40, height: 50 }],
+    diffPath: null,
+    threshold: 0.1
+  });
+
+  assert.equal(workspace.report.visualSimilarity, null);
+  assert.equal(next.doc, workspace.doc);
+  assert.equal(next.previewHtml, workspace.previewHtml);
+  assert.equal(next.report.visualSimilarity, 97.5);
+  assert.equal(next.report.visualDiff.mismatchedPixels, 25);
+  assert.equal(next.projectExport.manifest.scores.visualSimilarity, 97.5);
 });
 
 test("updateSelectedText changes selected editable copy and refreshes preview output", () => {
