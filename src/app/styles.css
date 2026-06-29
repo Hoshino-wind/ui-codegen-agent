@@ -135,6 +135,15 @@ button {
   padding: 0 10px;
   color: #475569;
   background: transparent;
+  cursor: pointer;
+}
+
+.file-input-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .workflow-sidebar {
@@ -634,6 +643,12 @@ button {
   background: #f0fdfa;
   font-size: 12px;
   font-weight: 760;
+}
+
+.status-pill.error {
+  border-color: #fecaca;
+  color: #991b1b;
+  background: #fef2f2;
 }
 
 .toggle {

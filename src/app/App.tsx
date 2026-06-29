@@ -14,6 +14,7 @@ import {
   Smartphone,
   SquareDashedMousePointer,
   Type,
+  Upload,
   WandSparkles
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -43,6 +44,7 @@ import {
   type IntakeWorkspace,
   type ManualAnalysisLayerKind
 } from "./intakeWorkspace.js";
+import { createLayerDocDownload, createWorkspaceFromLayerDocJson } from "./layerDocFile.js";
 import { createPreviewViewport, type PreviewMode } from "./previewViewport.js";
 import { createSampleHomepageLayerDoc } from "./sampleDocument.js";
 import { createWorkflowSummary, type WorkflowSummaryItem } from "./workflowSummary.js";
@@ -628,6 +630,7 @@ export function App() {
   const [showLabels, setShowLabels] = useState(true);
   const [lastAction, setLastAction] = useState("Auto-saved LayerDoc state");
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const workflow = createWorkflowSummary({
     sourceUri: intake.sourceImage.uri,
     intakeSectionCount: intake.analysisPlan.sections.length,
@@ -640,6 +643,7 @@ export function App() {
 
   function updateWorkspace(next: EditorWorkspace, message = "LayerDoc updated") {
     setWorkspace(next);
+    setWorkspaceError(null);
     setLastAction(message);
   }
 
@@ -660,6 +664,32 @@ export function App() {
       setUploadError(message);
       setLastAction("PNG import failed");
     }
+  }
+
+  async function importLayerDocFile(file: File) {
+    try {
+      const nextWorkspace = createWorkspaceFromLayerDocJson(await file.text());
+      setWorkspace(nextWorkspace);
+      setWorkspaceError(null);
+      setLastAction(`Loaded LayerDoc: ${file.name}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to import LayerDoc.";
+      setWorkspaceError(message);
+      setLastAction("LayerDoc import failed");
+    }
+  }
+
+  function saveLayerDocFile() {
+    const artifact = createLayerDocDownload(workspace.doc);
+    const blob = new Blob([artifact.contents], { type: artifact.mimeType });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+
+    anchor.href = url;
+    anchor.download = artifact.fileName;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    setLastAction(`Saved ${artifact.fileName}`);
   }
 
   function buildFromAnalysisPlan() {
@@ -687,12 +717,33 @@ export function App() {
             <RefreshCw size={16} />
             Reset
           </button>
+          <label className="ghost-action">
+            <input
+              aria-label="Load LayerDoc JSON"
+              accept="application/json,.json"
+              className="file-input-hidden"
+              type="file"
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0];
+                if (file) {
+                  void importLayerDocFile(file);
+                  event.currentTarget.value = "";
+                }
+              }}
+            />
+            <Upload size={16} />
+            Load LayerDoc
+          </label>
           <button className="secondary-action" type="button" onClick={() => setLastAction("Preview verifier ready: export package and run with reference PNG")}>
             <Play size={16} />
             Run Verifier
           </button>
-          <button className="primary-action" type="button" onClick={() => setLastAction(`Project package ready: ${workspace.projectExport.files.length} files`)}>
+          <button className="secondary-action" type="button" onClick={saveLayerDocFile}>
             <Download size={16} />
+            Save LayerDoc
+          </button>
+          <button className="primary-action" type="button" onClick={() => setLastAction(`Project package ready: ${workspace.projectExport.files.length} files`)}>
+            <Code2 size={16} />
             Export React
           </button>
         </div>
@@ -710,9 +761,9 @@ export function App() {
 
       <section className="studio-main">
         <div className="main-controls">
-          <div className="status-pill">
+          <div className={`status-pill ${workspaceError ? "error" : ""}`}>
             <WandSparkles size={15} />
-            {lastAction}
+            {workspaceError ?? lastAction}
           </div>
           <label className="toggle">
             <input type="checkbox" checked={showLabels} onChange={(event) => setShowLabels(event.target.checked)} />

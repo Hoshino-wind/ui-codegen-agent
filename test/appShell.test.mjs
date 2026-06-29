@@ -12,3 +12,11 @@ test("index.html references an existing favicon asset", () => {
   assert.match(html, /href="\/favicon\.svg"/);
   assert.equal(existsSync(join(rootDir, "public", "favicon.svg")), true);
 });
+
+test("app shell exposes LayerDoc load and save actions", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /Load LayerDoc/);
+  assert.match(source, /Save LayerDoc/);
+  assert.match(source, /accept="application\/json,\.json"/);
+});
