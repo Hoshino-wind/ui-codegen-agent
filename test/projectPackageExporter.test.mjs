@@ -241,6 +241,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_responsive_css_missing/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_asset_uri_missing/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_layer_copy_missing/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_layer_bounds_missing/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-layerdoc.mjs").contents, /layerdoc\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /preview\.html/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /verification-report\.json/);
@@ -336,6 +337,48 @@ test("exported integration contract verifier checks preview selectors", () => {
   assert.match(failed.stdout, /preview_selector_missing/);
   assert.match(failed.stdout, /preview\.html/);
   assert.match(failed.stdout, /data-layer-id=\\"headline\\"/);
+});
+
+test("exported integration contract verifier checks project layer bounds", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-bounds-verifier-"));
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const componentPath = join(directory, "src", "ProductionHomepage.tsx");
+  const componentSource = readFileSync(componentPath, "utf8");
+  const validHeadlineStart =
+    'data-layer-id="headline" data-kind="text" data-track="component" className="absolute" style={{ left: 120';
+  const staleHeadlineStart =
+    'data-layer-id="headline" data-kind="text" data-track="component" className="absolute" style={{ left: 121';
+  writeFileSync(componentPath, componentSource.replace(validHeadlineStart, staleHeadlineStart));
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /project_layer_bounds_missing/);
+  assert.match(failed.stdout, /src\/ProductionHomepage\.tsx/);
+  assert.match(failed.stdout, /data-layer-id=\\"headline\\"/);
+  assert.match(failed.stdout, /left: 120/);
+});
+
+test("exported integration contract verifier checks preview layer bounds", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-preview-bounds-verifier-"));
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const previewPath = join(directory, "preview.html");
+  const previewSource = readFileSync(previewPath, "utf8");
+  const validHeadlineStart =
+    'data-layer-id="headline" data-kind="text" data-track="component" style="position:absolute;left:120px';
+  const staleHeadlineStart =
+    'data-layer-id="headline" data-kind="text" data-track="component" style="position:absolute;left:121px';
+  writeFileSync(previewPath, previewSource.replace(validHeadlineStart, staleHeadlineStart));
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /preview_layer_bounds_missing/);
+  assert.match(failed.stdout, /preview\.html/);
+  assert.match(failed.stdout, /data-layer-id=\\"headline\\"/);
+  assert.match(failed.stdout, /left:120px/);
 });
 
 test("exported integration contract verifier checks project interaction metadata", () => {

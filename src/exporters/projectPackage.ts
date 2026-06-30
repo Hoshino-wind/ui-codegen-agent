@@ -572,6 +572,106 @@ function layerCopyRequirements(layerDoc, format) {
     }));
 }
 
+function finiteRect(rect) {
+  return isRecord(rect) &&
+    Number.isFinite(rect.x) &&
+    Number.isFinite(rect.y) &&
+    Number.isFinite(rect.width) &&
+    Number.isFinite(rect.height);
+}
+
+function relativeLayerBounds(layerDoc, layer) {
+  if (!finiteRect(layer.bounds)) {
+    return null;
+  }
+
+  const section = (layerDoc.sections ?? []).find((candidate) => candidate.id === layer.sectionId);
+  if (!finiteRect(section?.bounds)) {
+    return { ...layer.bounds };
+  }
+
+  return {
+    x: layer.bounds.x - section.bounds.x,
+    y: layer.bounds.y - section.bounds.y,
+    width: layer.bounds.width,
+    height: layer.bounds.height
+  };
+}
+
+function boundsFragments(bounds, format) {
+  if (format === "react") {
+    return [
+      \`left: \${bounds.x}\`,
+      \`top: \${bounds.y}\`,
+      \`width: \${bounds.width}\`,
+      \`height: \${bounds.height}\`
+    ];
+  }
+
+  return [
+    \`left:\${bounds.x}px\`,
+    \`top:\${bounds.y}px\`,
+    \`width:\${bounds.width}px\`,
+    \`height:\${bounds.height}px\`
+  ];
+}
+
+function layerBoundsRequirements(layerDoc, format) {
+  return (layerDoc.layers ?? []).flatMap((layer, index) => {
+    const bounds = relativeLayerBounds(layerDoc, layer);
+    if (!bounds || typeof layer.id !== "string" || layer.id.length === 0) {
+      return [];
+    }
+
+    const selector = selectorFor("data-layer-id", layer.id);
+    return boundsFragments(bounds, format).map((fragment) => ({
+      path: \`layers[\${index}].bounds\`,
+      selector,
+      fragment
+    }));
+  });
+}
+
+// Contract checks must bind fragments to real DOM/TSX nodes, not matching CSS selectors in media queries.
+function findDomAttribute(source, attributeFragment, fromIndex = 0) {
+  const marker = \` \${attributeFragment}\`;
+  let start = source.indexOf(marker, fromIndex);
+  while (start !== -1) {
+    const tagStart = source.lastIndexOf("<", start);
+    const tagEnd = source.lastIndexOf(">", start);
+    if (tagStart !== -1 && tagStart > tagEnd) {
+      return start + 1;
+    }
+
+    start = source.indexOf(marker, start + marker.length);
+  }
+
+  return -1;
+}
+
+function scopedSourceSegment(source, selector) {
+  const needle = selectorAttributeNeedle(selector);
+  if (!needle) {
+    return "";
+  }
+
+  const start = findDomAttribute(source, needle);
+  if (start === -1) {
+    return "";
+  }
+
+  const nextMarkers = ["data-layer-id=", "data-section-id=", "data-component-id="];
+  const endCandidates = nextMarkers
+    .map((marker) => findDomAttribute(source, marker, start + needle.length))
+    .filter((index) => index !== -1);
+  const end = endCandidates.length > 0 ? Math.min(...endCandidates) : source.length;
+  return source.slice(start, end);
+}
+
+function sourceHasScopedFragment(source, selector, fragment) {
+  return scopedSourceSegment(source, selector).includes(fragment);
+}
+
 function responsiveCssRequirements(contract) {
   return (contract.responsiveRules ?? []).flatMap((rule, index) => {
     const fragments = [
@@ -709,6 +809,15 @@ try {
       ));
     }
   }
+  for (const entry of layerBoundsRequirements(layerDoc, "react")) {
+    if (!sourceHasScopedFragment(componentSource, entry.selector, entry.fragment)) {
+      issues.push(issue(
+        "project_layer_bounds_missing",
+        entry.path,
+        \`Project file \${componentPath} does not contain \${entry.selector} bounds fragment \${entry.fragment}.\`
+      ));
+    }
+  }
   for (const entry of layerCopyRequirements(layerDoc, "react")) {
     if (!componentSource.includes(entry.text)) {
       issues.push(issue(
@@ -764,6 +873,15 @@ try {
         "preview_selector_missing",
         entry.path,
         \`Preview file \${previewPath} does not contain selector \${entry.selector}.\`
+      ));
+    }
+  }
+  for (const entry of layerBoundsRequirements(layerDoc, "html")) {
+    if (!sourceHasScopedFragment(previewSource, entry.selector, entry.fragment)) {
+      issues.push(issue(
+        "preview_layer_bounds_missing",
+        entry.path,
+        \`Preview file \${previewPath} does not contain \${entry.selector} bounds fragment \${entry.fragment}.\`
       ));
     }
   }
@@ -1422,7 +1540,7 @@ Generated assets:
 
 Verification:
 - Run \`npm run verify:layerdoc\` after editing \`layerdoc.json\` to catch broken graph references before integration.
-- Run \`npm run verify:contract\` to confirm \`integration-contract.json\` still matches the LayerDoc source, project selectors, and preview selectors.
+- Run \`npm run verify:contract\` to confirm \`integration-contract.json\` still matches the LayerDoc source, project selectors, preview selectors, layer bounds, layer copy, assets, responsive CSS, and interaction metadata.
 - Put the original target visual at \`reference.png\`.
 - Run \`npm run verify:preview -- --reference ./reference.png\` to render \`preview.html\`, capture \`verification-artifacts/candidate.png\`, produce \`verification-artifacts/diff.png\`, and update \`verification-report.json\`.
 - Run \`npm run verify:gates\` after preview verification to enforce score thresholds and LayerDoc asset compliance.
