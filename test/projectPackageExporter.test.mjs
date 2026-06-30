@@ -141,6 +141,22 @@ function createHiddenSectionExportDoc() {
   return createLayerDoc({
     name: "Visibility Homepage",
     canvas: { width: 1440, height: 900, background: "#ffffff" },
+    responsive: {
+      rules: [
+        {
+          id: "hero-mobile",
+          query: "(max-width: 640px)",
+          target: { type: "layer", id: "headline" },
+          changes: { bounds: { x: 24, y: 80, width: 280, height: 72 } }
+        },
+        {
+          id: "pricing-mobile",
+          query: "(max-width: 640px)",
+          target: { type: "layer", id: "price-card" },
+          changes: { bounds: { x: 24, y: 520, width: 280, height: 160 } }
+        }
+      ]
+    },
     sections: [
       { id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 1440, height: 480 }, layerIds: ["headline"] },
       { id: "pricing", name: "Pricing", visible: false, bounds: { x: 0, y: 480, width: 1440, height: 420 }, layerIds: ["price-card"] }
@@ -402,12 +418,17 @@ test("exported integration contract verifier accepts hidden sections omitted fro
   const output = createProjectExportPackage(createHiddenSectionExportDoc(), { componentName: "VisibilityHomepage" });
   writeProjectExportPackage(output, directory);
 
+  const componentSource = readFileSync(join(directory, "src", "VisibilityHomepage.tsx"), "utf8");
+  const previewSource = readFileSync(join(directory, "preview.html"), "utf8");
   assert.match(readFileSync(join(directory, "layerdoc.json"), "utf8"), /"visible": false/);
-  assert.doesNotMatch(readFileSync(join(directory, "src", "VisibilityHomepage.tsx"), "utf8"), /Hidden pricing/);
-  assert.doesNotMatch(readFileSync(join(directory, "preview.html"), "utf8"), /Hidden pricing/);
+  assert.doesNotMatch(componentSource, /Hidden pricing/);
+  assert.doesNotMatch(componentSource, /data-layer-id="price-card"/);
+  assert.doesNotMatch(previewSource, /Hidden pricing/);
+  assert.doesNotMatch(previewSource, /data-layer-id="price-card"/);
   const contract = JSON.parse(readFileSync(join(directory, "integration-contract.json"), "utf8"));
   assert.deepEqual(contract.sections.map((section) => section.id), ["hero"]);
   assert.deepEqual(contract.layers.map((layer) => layer.id), ["headline"]);
+  assert.deepEqual(contract.responsiveRules.map((rule) => rule.id), ["hero-mobile"]);
 
   const passed = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });
   assert.equal(passed.status, 0, passed.stdout);

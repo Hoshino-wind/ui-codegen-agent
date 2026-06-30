@@ -249,11 +249,31 @@ function visibleContractComponents(doc: LayerDoc, visibleLayerIds: Set<string>):
   return doc.components.filter((component) => component.layerIds.some((layerId) => visibleLayerIds.has(layerId)));
 }
 
+function visibleContractResponsiveRules(
+  doc: LayerDoc,
+  visibleSectionIds: Set<string>,
+  visibleLayerIds: Set<string>,
+  visibleComponentIds: Set<string>
+): LayerDoc["responsive"]["rules"] {
+  return doc.responsive.rules.filter((rule) => {
+    if (rule.target.type === "section") {
+      return visibleSectionIds.has(rule.target.id);
+    }
+    if (rule.target.type === "component") {
+      return visibleComponentIds.has(rule.target.id);
+    }
+    return visibleLayerIds.has(rule.target.id);
+  });
+}
+
 function createIntegrationContract(doc: LayerDoc, componentName: string, componentFile: string, sourceHash: string): ProjectIntegrationContract {
   const sections = visibleContractSections(doc);
   const layers = visibleContractLayers(doc);
+  const visibleSectionIds = new Set(sections.map((section) => section.id));
   const visibleLayerIds = new Set(layers.map((layer) => layer.id));
   const components = visibleContractComponents(doc, visibleLayerIds);
+  const visibleComponentIds = new Set(components.map((component) => component.id));
+  const responsiveRules = visibleContractResponsiveRules(doc, visibleSectionIds, visibleLayerIds, visibleComponentIds);
   const componentIdsByLayerId = new Map<string, string[]>();
   for (const component of components) {
     for (const layerId of component.layerIds) {
@@ -314,7 +334,7 @@ function createIntegrationContract(doc: LayerDoc, componentName: string, compone
       action: interaction.action,
       selector: selectorFor("data-layer-id", interaction.layerId)
     })),
-    responsiveRules: doc.responsive.rules.map((rule) => ({
+    responsiveRules: responsiveRules.map((rule) => ({
       id: rule.id,
       query: rule.query,
       target: { ...rule.target },
@@ -600,6 +620,21 @@ function visibleLayerEntries(layerDoc) {
     .filter(({ layer }) => !layer.sectionId || !hiddenIds.has(layer.sectionId));
 }
 
+function visibleResponsiveRules(layerDoc, sections, layers, components) {
+  const sectionIds = new Set(sections.map((section) => section.id));
+  const layerIds = new Set(layers.map((layer) => layer.id));
+  const componentIds = new Set(components.map((component) => component.id));
+  return (layerDoc.responsive?.rules ?? []).filter((rule) => {
+    if (rule.target?.type === "section") {
+      return sectionIds.has(rule.target.id);
+    }
+    if (rule.target?.type === "component") {
+      return componentIds.has(rule.target.id);
+    }
+    return layerIds.has(rule.target?.id);
+  });
+}
+
 function finiteRect(rect) {
   return isRecord(rect) &&
     Number.isFinite(rect.x) &&
@@ -828,6 +863,7 @@ function expectedContractFrom(layerDoc, manifest) {
   const layers = visibleLayerEntries(layerDoc).map(({ layer }) => layer);
   const visibleLayerIds = new Set(layers.map((layer) => layer.id));
   const components = (layerDoc.components ?? []).filter((component) => (component.layerIds ?? []).some((layerId) => visibleLayerIds.has(layerId)));
+  const responsiveRules = visibleResponsiveRules(layerDoc, sections, layers, components);
   const componentIdsByLayerId = new Map();
   for (const component of components) {
     for (const layerId of component.layerIds ?? []) {
@@ -888,7 +924,7 @@ function expectedContractFrom(layerDoc, manifest) {
       action: interaction.action,
       selector: selectorFor("data-layer-id", interaction.layerId)
     })),
-    responsiveRules: (layerDoc.responsive?.rules ?? []).map((rule) => ({
+    responsiveRules: responsiveRules.map((rule) => ({
       id: rule.id,
       query: rule.query,
       target: { ...rule.target },
@@ -1705,7 +1741,7 @@ Generated assets:
 Verification:
 - Run \`npm run verify:layerdoc\` after editing \`layerdoc.json\` to catch broken graph references before integration.
 - Run \`npm run verify:contract\` to confirm \`integration-contract.json\` still matches the LayerDoc source, project selectors, preview selectors, section order, layer bounds, layer style, layer copy, assets, responsive CSS, and interaction metadata.
-- Hidden sections remain editable in \`layerdoc.json\` but are intentionally omitted from rendered project and preview contract requirements.
+- Hidden sections remain editable in \`layerdoc.json\` but are intentionally omitted from rendered project, preview, and responsive CSS contract requirements.
 - Put the original target visual at \`reference.png\`.
 - Run \`npm run verify:preview -- --reference ./reference.png\` to render \`preview.html\`, capture \`verification-artifacts/candidate.png\`, produce \`verification-artifacts/diff.png\`, and update \`verification-report.json\`.
 - Run \`npm run verify:gates\` after preview verification to enforce score thresholds and LayerDoc asset compliance.

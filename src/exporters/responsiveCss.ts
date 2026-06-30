@@ -18,6 +18,29 @@ function selectorForTarget(target: ResponsiveTarget): string {
   return `[data-layer-id="${cssAttributeValue(target.id)}"]`;
 }
 
+function visibleSectionIds(doc: LayerDoc): Set<string> {
+  return new Set(doc.sections.filter((section) => section.visible !== false).map((section) => section.id));
+}
+
+function visibleLayerIds(doc: LayerDoc): Set<string> {
+  const hiddenSectionIds = new Set(doc.sections.filter((section) => section.visible === false).map((section) => section.id));
+  return new Set(doc.layers.filter((layer) => !layer.sectionId || !hiddenSectionIds.has(layer.sectionId)).map((layer) => layer.id));
+}
+
+function visibleComponentIds(doc: LayerDoc, layerIds: Set<string>): Set<string> {
+  return new Set(doc.components.filter((component) => component.layerIds.some((layerId) => layerIds.has(layerId))).map((component) => component.id));
+}
+
+function isVisibleTarget(target: ResponsiveTarget, sectionIds: Set<string>, layerIds: Set<string>, componentIds: Set<string>): boolean {
+  if (target.type === "section") {
+    return sectionIds.has(target.id);
+  }
+  if (target.type === "component") {
+    return componentIds.has(target.id);
+  }
+  return layerIds.has(target.id);
+}
+
 function pxDeclaration(property: string, value: unknown): string | null {
   return typeof value === "number" && Number.isFinite(value) ? `${property}:${value}px !important;` : null;
 }
@@ -82,7 +105,10 @@ function declarationsForChanges(changes: Record<string, unknown>): string[] {
  * rendering adapter used by preview and generated React code.
  */
 export function renderResponsiveCss(doc: LayerDoc): string {
-  const rules = doc.responsive.rules.flatMap((rule) => {
+  const sectionIds = visibleSectionIds(doc);
+  const layerIds = visibleLayerIds(doc);
+  const componentIds = visibleComponentIds(doc, layerIds);
+  const rules = doc.responsive.rules.filter((rule) => isVisibleTarget(rule.target, sectionIds, layerIds, componentIds)).flatMap((rule) => {
     const declarations = declarationsForChanges(rule.changes);
     if (declarations.length === 0) {
       return [];
