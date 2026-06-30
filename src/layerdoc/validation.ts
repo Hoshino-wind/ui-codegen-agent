@@ -40,6 +40,7 @@ export function validateLayerDoc(doc: LayerDoc): ValidationResult {
     ...doc.layers.map((layer) => layer.id),
     ...doc.assets.map((asset) => asset.id),
     ...doc.components.map((component) => component.id),
+    ...doc.interactions.map((interaction) => interaction.id),
     ...doc.generation.sectionRequests.map((request) => request.id)
   ]);
 
@@ -80,6 +81,28 @@ export function validateLayerDoc(doc: LayerDoc): ValidationResult {
 
     if (layer.track === "asset" && (!layer.assetId || !assetIds.has(layer.assetId))) {
       issues.push(issue("asset_missing", `${path}.assetId`, `Asset layer "${layer.id}" does not point at a known asset.`));
+    }
+  }
+
+  for (const [index, component] of doc.components.entries()) {
+    for (const layerId of component.layerIds) {
+      if (!layerIds.has(layerId)) {
+        issues.push(
+          issue("layer_missing", `components[${index}].layerIds`, `Component "${component.id}" references missing layer "${layerId}".`)
+        );
+      }
+    }
+  }
+
+  for (const [index, interaction] of doc.interactions.entries()) {
+    if (!layerIds.has(interaction.layerId)) {
+      issues.push(
+        issue(
+          "layer_missing",
+          `interactions[${index}].layerId`,
+          `Interaction "${interaction.id}" references missing layer "${interaction.layerId}".`
+        )
+      );
     }
   }
 

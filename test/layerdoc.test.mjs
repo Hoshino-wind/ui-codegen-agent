@@ -106,6 +106,26 @@ test("validateLayerDoc rejects regeneration requests for missing sections", () =
   assert.equal(result.issues[0].path, "generation.sectionRequests[0].sectionId");
 });
 
+test("validateLayerDoc rejects component and interaction references to missing layers", () => {
+  const doc = createLayerDoc({
+    name: "Broken graph references",
+    canvas: { width: 320, height: 240 },
+    components: [{ id: "HeroSection", layerIds: ["missing-headline"], exportable: true }],
+    interactions: [{ id: "hero-click", layerId: "missing-cta", event: "click", action: "open-checkout" }]
+  });
+
+  const result = validateLayerDoc(doc);
+
+  assert.equal(result.valid, false);
+  assert.deepEqual(
+    result.issues.map((issue) => [issue.code, issue.path]),
+    [
+      ["layer_missing", "components[0].layerIds"],
+      ["layer_missing", "interactions[0].layerId"]
+    ]
+  );
+});
+
 test("validateLayerDoc rejects duplicate regeneration request ids", () => {
   const doc = createLayerDoc({
     name: "Duplicate regeneration",
@@ -136,6 +156,33 @@ test("validateLayerDoc rejects duplicate regeneration request ids", () => {
   assert.equal(result.valid, false);
   assert.equal(result.issues[0].code, "duplicate_id");
   assert.equal(result.issues[0].path, "regen-hero-1");
+});
+
+test("validateLayerDoc rejects duplicate interaction ids in the LayerDoc graph", () => {
+  const doc = createLayerDoc({
+    name: "Duplicate interactions",
+    canvas: { width: 320, height: 240 },
+    layers: [
+      {
+        id: "cta",
+        kind: "button",
+        track: "component",
+        editable: true,
+        bounds: { x: 24, y: 24, width: 120, height: 44 },
+        content: { text: "Start" }
+      }
+    ],
+    interactions: [
+      { id: "cta-click", layerId: "cta", event: "click", action: "open-modal" },
+      { id: "cta-click", layerId: "cta", event: "hover", action: "preview-modal" }
+    ]
+  });
+
+  const result = validateLayerDoc(doc);
+
+  assert.equal(result.valid, false);
+  assert.equal(result.issues[0].code, "duplicate_id");
+  assert.equal(result.issues[0].path, "cta-click");
 });
 
 test("scoreProjectFit rewards reusable components and penalizes full-page bitmap output", () => {
