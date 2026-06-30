@@ -23,9 +23,56 @@ export interface ProjectExportManifest {
   source: "layerdoc";
   layerDocHash: string;
   integrationContract: string;
+  handoffSummary: string;
   files: string[];
   scores: VerificationReport;
   audit: LayerDocAudit;
+}
+
+export interface ProjectHandoffCommand {
+  label: string;
+  command: string;
+}
+
+export interface ProjectHandoffSummary {
+  version: "0.1.0";
+  positioning: "AI UI Production System";
+  source: "layerdoc";
+  sourceOfTruth: {
+    file: string;
+    schemaFile: string;
+    hash: string;
+  };
+  entrypoint: {
+    component: string;
+    file: string;
+    rootSelector: string;
+  };
+  contract: {
+    file: string;
+    sections: number;
+    layers: number;
+    components: number;
+    assets: number;
+    interactions: number;
+    responsiveRules: number;
+  };
+  quality: {
+    scores: {
+      visual_similarity: number | null;
+      structure_score: number;
+      component_score: number;
+      project_fit_score: number;
+    };
+    visualEvidence: VerificationReport["evidence"]["visual"];
+    gatesFile: string;
+  };
+  audit: {
+    file: string;
+    assetCompliancePassed: boolean;
+    structureValid: boolean;
+  };
+  commands: ProjectHandoffCommand[];
 }
 
 export interface ProjectIntegrationContract {
@@ -1764,6 +1811,7 @@ Generated assets:
 - \`src/main.tsx\`, \`src/App.tsx\`, \`src/index.css\`: project entry points
 - \`src/${manifest.componentName}.tsx\`: React + Tailwind component export
 - \`preview.html\`: deterministic HTML verification preview
+- \`handoff-summary.json\`: machine-readable integration summary for CI, importers, and downstream project handoff
 - \`integration-contract.json\`: stable mapping from visible LayerDoc objects to project files and DOM selectors
 - \`manifest.json\`, \`layerdoc.schema.json\`: project package manifest and LayerDoc source contract
 - \`layerdoc-audit.json\`: structure, track, and asset-compliance audit
@@ -1786,6 +1834,65 @@ Verifier scores:
 `;
 }
 
+function handoffCommands(): ProjectHandoffCommand[] {
+  return [
+    { label: "Install dependencies", command: "npm install" },
+    { label: "Run the project", command: "npm run dev" },
+    { label: "Build the project", command: "npm run build" },
+    { label: "Verify LayerDoc source", command: "npm run verify:layerdoc" },
+    { label: "Verify integration contract", command: "npm run verify:contract" },
+    { label: "Verify visual preview", command: "npm run verify:preview -- --reference ./reference.png" },
+    { label: "Enforce quality gates", command: "npm run verify:gates" }
+  ];
+}
+
+function createHandoffSummary(
+  manifest: ProjectExportManifest,
+  contract: ProjectIntegrationContract,
+  audit: LayerDocAudit
+): ProjectHandoffSummary {
+  return {
+    version: "0.1.0",
+    positioning: "AI UI Production System",
+    source: "layerdoc",
+    sourceOfTruth: {
+      file: contract.layerDoc.file,
+      schemaFile: "layerdoc.schema.json",
+      hash: manifest.layerDocHash
+    },
+    entrypoint: {
+      component: contract.component.name,
+      file: contract.component.file,
+      rootSelector: contract.component.rootSelector
+    },
+    contract: {
+      file: manifest.integrationContract,
+      sections: contract.sections.length,
+      layers: contract.layers.length,
+      components: contract.components.length,
+      assets: contract.assets.filter((asset) => asset.usedByLayerIds.length > 0).length,
+      interactions: contract.interactions.length,
+      responsiveRules: contract.responsiveRules.length
+    },
+    quality: {
+      scores: {
+        visual_similarity: manifest.scores.visualSimilarity,
+        structure_score: manifest.scores.structureScore,
+        component_score: manifest.scores.componentScore,
+        project_fit_score: manifest.scores.projectFitScore
+      },
+      visualEvidence: manifest.scores.evidence.visual,
+      gatesFile: "quality-gates.json"
+    },
+    audit: {
+      file: "layerdoc-audit.json",
+      assetCompliancePassed: audit.assetCompliance.passed,
+      structureValid: audit.structure.valid
+    },
+    commands: handoffCommands()
+  };
+}
+
 /**
  * Package a LayerDoc into files a downstream project can commit.
  * LayerDoc remains the editable source; React, preview HTML, and reports are
@@ -1800,6 +1907,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
   const sourceHash = layerDocHash(sourceDoc);
   const files = [
     "README.md",
+    "handoff-summary.json",
     "index.html",
     "integration-contract.json",
     "layerdoc-audit.json",
@@ -1827,16 +1935,19 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     source: "layerdoc",
     layerDocHash: sourceHash,
     integrationContract: "integration-contract.json",
+    handoffSummary: "handoff-summary.json",
     files,
     scores: report,
     audit
   };
   const integrationContract = createIntegrationContract(sourceDoc, options.componentName, reactExport.fileName, sourceHash);
+  const handoffSummary = createHandoffSummary(manifest, integrationContract, audit);
 
   return {
     manifest,
     files: [
       { path: "README.md", contents: readmeFor(manifest) },
+      { path: "handoff-summary.json", contents: stableJson(handoffSummary) },
       { path: "index.html", contents: indexHtmlFor(options.componentName) },
       { path: "integration-contract.json", contents: stableJson(integrationContract) },
       { path: "layerdoc-audit.json", contents: stableJson(audit) },

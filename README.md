@@ -69,6 +69,10 @@ The repository currently implements the core LayerDoc domain layer:
   files, responsive rules, and DOM selectors for downstream integration;
   hidden sections stay editable in `layerdoc.json` without being required in
   rendered project surfaces or responsive CSS contract checks.
+- Export a `handoff-summary.json` with the source LayerDoc hash, entry
+  component, contract counts, verifier scores, audit status, and verification
+  commands so CI or downstream importers can consume the package without
+  scraping README text.
 - Verify that exported integration contracts still match the LayerDoc source, generated project selectors, preview selectors, section order, layer bounds, layer style, layer copy, asset URIs, responsive CSS, and interaction metadata.
 - Enforce Studio and exported quality gates against verifier scores and LayerDoc asset-compliance audit results, including full-page and section-sized bitmap shortcut risks.
 - Compare reference and candidate PNG screenshots and write a pixel diff image.

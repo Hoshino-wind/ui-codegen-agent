@@ -137,6 +137,7 @@ test("createProjectPackageDownload serializes every project package file in one 
     payload.files.map((file) => file.path).sort(),
     [
       "README.md",
+      "handoff-summary.json",
       "index.html",
       "integration-contract.json",
       "layerdoc-audit.json",
@@ -158,6 +159,10 @@ test("createProjectPackageDownload serializes every project package file in one 
       "verification-report.json",
       "vite.config.ts"
     ].sort()
+  );
+  assert.match(
+    payload.files.find((file) => file.path === "handoff-summary.json").contents,
+    /"source": "layerdoc"/
   );
   assert.equal(payload.manifest.integrationContract, "integration-contract.json");
   assert.match(payload.files.find((file) => file.path === "integration-contract.json").contents, /"rootSelector": "\[data-layerdoc-version=/);

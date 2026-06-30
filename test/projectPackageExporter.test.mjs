@@ -243,8 +243,10 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.equal(output.manifest.componentName, "ProductionHomepage");
   assert.match(output.manifest.layerDocHash, /^sha256:[a-f0-9]{64}$/);
   assert.equal(output.manifest.integrationContract, "integration-contract.json");
+  assert.equal(output.manifest.handoffSummary, "handoff-summary.json");
   assert.deepEqual(paths, [
     "README.md",
+    "handoff-summary.json",
     "index.html",
     "integration-contract.json",
     "layerdoc-audit.json",
@@ -342,6 +344,49 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "verification-report.json").contents, /"structureScore": 100/);
   assert.match(output.files.find((file) => file.path === "verification-report.json").contents, /"evidence"/);
   assert.match(output.files.find((file) => file.path === "quality-gates.json").contents, /"visualSimilarity": 85/);
+  const handoffSummary = JSON.parse(output.files.find((file) => file.path === "handoff-summary.json").contents);
+  assert.equal(handoffSummary.version, "0.1.0");
+  assert.equal(handoffSummary.positioning, "AI UI Production System");
+  assert.deepEqual(handoffSummary.sourceOfTruth, {
+    file: "layerdoc.json",
+    schemaFile: "layerdoc.schema.json",
+    hash: output.manifest.layerDocHash
+  });
+  assert.deepEqual(handoffSummary.entrypoint, {
+    component: "ProductionHomepage",
+    file: "src/ProductionHomepage.tsx",
+    rootSelector: '[data-layerdoc-version="0.1.0"]'
+  });
+  assert.deepEqual(handoffSummary.contract, {
+    file: "integration-contract.json",
+    sections: 1,
+    layers: 2,
+    components: 1,
+    assets: 0,
+    interactions: 0,
+    responsiveRules: 1
+  });
+  assert.deepEqual(handoffSummary.quality.scores, {
+    visual_similarity: output.manifest.scores.visualSimilarity,
+    structure_score: output.manifest.scores.structureScore,
+    component_score: output.manifest.scores.componentScore,
+    project_fit_score: output.manifest.scores.projectFitScore
+  });
+  assert.equal(handoffSummary.quality.visualEvidence.kind, "none");
+  assert.equal(handoffSummary.audit.file, "layerdoc-audit.json");
+  assert.equal(handoffSummary.audit.assetCompliancePassed, true);
+  assert.deepEqual(
+    handoffSummary.commands.map((command) => command.command),
+    [
+      "npm install",
+      "npm run dev",
+      "npm run build",
+      "npm run verify:layerdoc",
+      "npm run verify:contract",
+      "npm run verify:preview -- --reference ./reference.png",
+      "npm run verify:gates"
+    ]
+  );
   assert.match(output.files.find((file) => file.path === "scripts/verify-gates.mjs").contents, /verification-report\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-gates.mjs").contents, /layerdoc-audit\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /integration-contract\.json/);
@@ -362,6 +407,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:contract/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:layerdoc/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:preview -- --reference/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /handoff-summary\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /integration-contract\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /layerdoc\.schema\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /visual_evidence:/);
@@ -397,9 +443,10 @@ test("writeProjectExportPackage writes every package file under the target direc
 
   const written = writeProjectExportPackage(output, directory);
 
-  assert.equal(written.files.length, 21);
+  assert.equal(written.files.length, 22);
   assert.equal(existsSync(join(directory, "src", "ProductionHomepage.tsx")), true);
   assert.equal(existsSync(join(directory, "integration-contract.json")), true);
+  assert.equal(existsSync(join(directory, "handoff-summary.json")), true);
   assert.equal(existsSync(join(directory, "layerdoc-audit.json")), true);
   assert.equal(existsSync(join(directory, "layerdoc.schema.json")), true);
   assert.equal(existsSync(join(directory, "src", "main.tsx")), true);
