@@ -26,6 +26,16 @@ function createExportDoc() {
     canvas: { width: 1440, height: 900, background: "#ffffff" },
     sections: [{ id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 1440, height: 900 }, layerIds: ["headline", "cta"] }],
     components: [{ id: "HeroSection", layerIds: ["headline", "cta"], exportable: true }],
+    responsive: {
+      rules: [
+        {
+          id: "mobile-cta",
+          query: "(max-width: 640px)",
+          target: { type: "layer", id: "cta" },
+          changes: { bounds: { x: 24, y: 340, width: 280, height: 52 } }
+        }
+      ]
+    },
     layers: [
       {
         id: "headline",
@@ -149,6 +159,13 @@ test("createProjectExportPackage returns project-ready files derived from one La
     exportable: true,
     selector: '[data-component-id="HeroSection"]',
     layerIds: ["headline", "cta"]
+  });
+  assert.deepEqual(contract.responsiveRules[0], {
+    id: "mobile-cta",
+    query: "(max-width: 640px)",
+    target: { type: "layer", id: "cta" },
+    selector: '[data-layer-id="cta"]',
+    changes: { bounds: { x: 24, y: 340, width: 280, height: 52 } }
   });
   const layerDocSchema = JSON.parse(output.files.find((file) => file.path === "layerdoc.schema.json").contents);
   assert.equal(layerDocSchema.properties.schema.const, "layerdoc");

@@ -65,7 +65,7 @@ The repository currently implements the core LayerDoc domain layer:
 - Render a deterministic HTML preview with `data-layer-id` markers.
 - Export a React + Tailwind component that preserves LayerDoc traceability.
 - Export an `integration-contract.json` mapping LayerDoc objects to project
-  files and DOM selectors for downstream integration.
+  files, responsive rules, and DOM selectors for downstream integration.
 - Verify that exported integration contracts still match the LayerDoc source.
 - Compare reference and candidate PNG screenshots and write a pixel diff image.
 - Produce a verifier report with separate score dimensions.

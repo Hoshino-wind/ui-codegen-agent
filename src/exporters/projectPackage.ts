@@ -81,6 +81,13 @@ export interface ProjectIntegrationContract {
     action: string;
     selector: string;
   }>;
+  responsiveRules: Array<{
+    id: string;
+    query: string;
+    target: LayerDoc["responsive"]["rules"][number]["target"];
+    selector: string | null;
+    changes: Record<string, unknown>;
+  }>;
 }
 
 export type ProjectQualityGates = VerificationGates;
@@ -217,6 +224,18 @@ function selectorFor(attribute: string, value: string): string {
   return `[${attribute}="${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"]`;
 }
 
+function selectorForResponsiveTarget(doc: LayerDoc, target: LayerDoc["responsive"]["rules"][number]["target"]): string | null {
+  if (target.type === "section") {
+    return selectorFor("data-section-id", target.id);
+  }
+  if (target.type === "layer") {
+    return selectorFor("data-layer-id", target.id);
+  }
+
+  const component = doc.components.find((candidate) => candidate.id === target.id);
+  return component?.exportable ? selectorFor("data-component-id", target.id) : null;
+}
+
 function createIntegrationContract(doc: LayerDoc, componentName: string, componentFile: string, sourceHash: string): ProjectIntegrationContract {
   const componentIdsByLayerId = new Map<string, string[]>();
   for (const component of doc.components) {
@@ -277,6 +296,13 @@ function createIntegrationContract(doc: LayerDoc, componentName: string, compone
       event: interaction.event,
       action: interaction.action,
       selector: selectorFor("data-layer-id", interaction.layerId)
+    })),
+    responsiveRules: doc.responsive.rules.map((rule) => ({
+      id: rule.id,
+      query: rule.query,
+      target: { ...rule.target },
+      selector: selectorForResponsiveTarget(doc, rule.target),
+      changes: { ...rule.changes }
     }))
   };
 }
@@ -378,6 +404,18 @@ function selectorFor(attribute, value) {
   return \`[\${attribute}="\${String(value).replace(/\\\\/g, "\\\\\\\\").replace(/"/g, '\\\\"')}"]\`;
 }
 
+function selectorForResponsiveTarget(layerDoc, target) {
+  if (target?.type === "section") {
+    return selectorFor("data-section-id", target.id);
+  }
+  if (target?.type === "layer") {
+    return selectorFor("data-layer-id", target.id);
+  }
+
+  const component = (layerDoc.components ?? []).find((candidate) => candidate.id === target?.id);
+  return component?.exportable ? selectorFor("data-component-id", target.id) : null;
+}
+
 function expectedContractFrom(layerDoc, manifest) {
   const componentIdsByLayerId = new Map();
   for (const component of layerDoc.components ?? []) {
@@ -438,6 +476,13 @@ function expectedContractFrom(layerDoc, manifest) {
       event: interaction.event,
       action: interaction.action,
       selector: selectorFor("data-layer-id", interaction.layerId)
+    })),
+    responsiveRules: (layerDoc.responsive?.rules ?? []).map((rule) => ({
+      id: rule.id,
+      query: rule.query,
+      target: { ...rule.target },
+      selector: selectorForResponsiveTarget(layerDoc, rule.target),
+      changes: { ...(rule.changes ?? {}) }
     }))
   };
 }
