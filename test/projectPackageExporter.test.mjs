@@ -59,6 +59,27 @@ function createExportDoc() {
   });
 }
 
+function createInteractiveExportDoc() {
+  return createLayerDoc({
+    name: "Interactive Homepage",
+    canvas: { width: 1440, height: 900, background: "#ffffff" },
+    sections: [{ id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 1440, height: 900 }, layerIds: ["cta"] }],
+    components: [{ id: "HeroSection", layerIds: ["cta"], exportable: true }],
+    layers: [
+      {
+        id: "cta",
+        sectionId: "hero",
+        kind: "button",
+        track: "component",
+        editable: true,
+        bounds: { x: 120, y: 260, width: 180, height: 48 },
+        content: { text: "Start checkout" }
+      }
+    ],
+    interactions: [{ id: "hero-cta-click", layerId: "cta", event: "click", action: "open-checkout" }]
+  });
+}
+
 function writeSolidPng(filePath, width, height, color, edits = []) {
   const png = new PNG({ width, height });
 
@@ -194,6 +215,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "scripts/verify-gates.mjs").contents, /verification-report\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-gates.mjs").contents, /layerdoc-audit\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /integration-contract\.json/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_interaction_metadata_missing/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-layerdoc.mjs").contents, /layerdoc\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /preview\.html/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /verification-report\.json/);
@@ -289,6 +311,38 @@ test("exported integration contract verifier checks preview selectors", () => {
   assert.match(failed.stdout, /preview_selector_missing/);
   assert.match(failed.stdout, /preview\.html/);
   assert.match(failed.stdout, /data-layer-id=\\"headline\\"/);
+});
+
+test("exported integration contract verifier checks project interaction metadata", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-interaction-verifier-"));
+  const output = createProjectExportPackage(createInteractiveExportDoc(), { componentName: "InteractiveHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const componentPath = join(directory, "src", "InteractiveHomepage.tsx");
+  const componentSource = readFileSync(componentPath, "utf8");
+  writeFileSync(componentPath, componentSource.replace('data-interaction-ids="hero-cta-click"', 'data-interaction-ids="stale-click"'));
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /project_interaction_metadata_missing/);
+  assert.match(failed.stdout, /src\/InteractiveHomepage\.tsx/);
+  assert.match(failed.stdout, /hero-cta-click/);
+});
+
+test("exported integration contract verifier checks preview interaction metadata", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-preview-interaction-verifier-"));
+  const output = createProjectExportPackage(createInteractiveExportDoc(), { componentName: "InteractiveHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const previewPath = join(directory, "preview.html");
+  const previewSource = readFileSync(previewPath, "utf8");
+  writeFileSync(previewPath, previewSource.replace('data-interaction-actions="open-checkout"', 'data-interaction-actions="stale-action"'));
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /preview_interaction_metadata_missing/);
+  assert.match(failed.stdout, /preview\.html/);
+  assert.match(failed.stdout, /open-checkout/);
 });
 
 test("exported LayerDoc verifier script validates the editable source graph", () => {

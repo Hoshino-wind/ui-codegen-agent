@@ -425,6 +425,27 @@ function selectorAttributeNeedle(selector) {
   return \`\${match[1]}="\${value}"\`;
 }
 
+function sourceHasAttributeToken(source, attribute, expected) {
+  const marker = \`\${attribute}="\`;
+  let start = source.indexOf(marker);
+  while (start !== -1) {
+    const valueStart = start + marker.length;
+    const valueEnd = source.indexOf('"', valueStart);
+    if (valueEnd === -1) {
+      return false;
+    }
+
+    const tokens = source.slice(valueStart, valueEnd).split(/\\s+/);
+    if (tokens.includes(String(expected))) {
+      return true;
+    }
+
+    start = source.indexOf(marker, valueEnd + 1);
+  }
+
+  return false;
+}
+
 function domSelectors(contract) {
   return [
     ...(contract.sections ?? []).map((section, index) => ({ path: \`sections[\${index}].selector\`, selector: section.selector })),
@@ -432,6 +453,14 @@ function domSelectors(contract) {
     ...(contract.components ?? []).map((component, index) => ({ path: \`components[\${index}].selector\`, selector: component.selector })),
     ...(contract.responsiveRules ?? []).map((rule, index) => ({ path: \`responsiveRules[\${index}].selector\`, selector: rule.selector }))
   ].filter((entry) => typeof entry.selector === "string" && entry.selector.length > 0);
+}
+
+function interactionMetadata(contract) {
+  return (contract.interactions ?? []).flatMap((interaction, index) => [
+    { path: \`interactions[\${index}].id\`, attribute: "data-interaction-ids", value: interaction.id },
+    { path: \`interactions[\${index}].event\`, attribute: "data-interaction-events", value: interaction.event },
+    { path: \`interactions[\${index}].action\`, attribute: "data-interaction-actions", value: interaction.action }
+  ]).filter((entry) => typeof entry.value === "string" && entry.value.length > 0);
 }
 
 function projectSelectors(contract) {
@@ -559,6 +588,15 @@ try {
       ));
     }
   }
+  for (const entry of interactionMetadata(contract)) {
+    if (!sourceHasAttributeToken(componentSource, entry.attribute, entry.value)) {
+      issues.push(issue(
+        "project_interaction_metadata_missing",
+        entry.path,
+        \`Project file \${componentPath} does not contain \${entry.attribute} token \${entry.value}.\`
+      ));
+    }
+  }
 } catch (error) {
   const message = error instanceof Error ? error.message : "unknown read failure";
   issues.push(issue(
@@ -578,6 +616,15 @@ try {
         "preview_selector_missing",
         entry.path,
         \`Preview file \${previewPath} does not contain selector \${entry.selector}.\`
+      ));
+    }
+  }
+  for (const entry of interactionMetadata(contract)) {
+    if (!sourceHasAttributeToken(previewSource, entry.attribute, entry.value)) {
+      issues.push(issue(
+        "preview_interaction_metadata_missing",
+        entry.path,
+        \`Preview file \${previewPath} does not contain \${entry.attribute} token \${entry.value}.\`
       ));
     }
   }
