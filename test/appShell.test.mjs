@@ -47,6 +47,7 @@ test("app shell exposes quality gate status in the verifier surface", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 
   assert.match(source, /evaluateVerificationGates/);
+  assert.match(source, /assetCompliance: workspace\.audit\.assetCompliance/);
   assert.match(source, /quality-gate-summary/);
   assert.match(source, /Quality gate/);
 });

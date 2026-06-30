@@ -61,6 +61,26 @@ function createVerifierDoc() {
   });
 }
 
+function createBitmapShortcutDoc() {
+  return createLayerDoc({
+    name: "Bitmap shortcut",
+    canvas: { width: 6, height: 4 },
+    sections: [{ id: "page", name: "Page", bounds: { x: 0, y: 0, width: 6, height: 4 }, layerIds: ["page-shot"] }],
+    assets: [{ id: "page-shot-asset", type: "image", source: "uploaded", bounds: { x: 0, y: 0, width: 6, height: 4 } }],
+    layers: [
+      {
+        id: "page-shot",
+        sectionId: "page",
+        kind: "image",
+        track: "asset",
+        editable: false,
+        bounds: { x: 0, y: 0, width: 6, height: 4 },
+        assetId: "page-shot-asset"
+      }
+    ]
+  });
+}
+
 test("runLayerDocVerification combines screenshot diff artifacts with LayerDoc quality gates", () => {
   const directory = mkdtempSync(join(tmpdir(), "layerdoc-verifier-run-"));
   const referencePath = join(directory, "reference.png");
@@ -110,4 +130,28 @@ test("runLayerDocVerification passes when all quality gates are met", () => {
   assert.equal(run.report.projectFitScore, 90);
   assert.equal(run.passed, true);
   assert.deepEqual(run.failures, []);
+});
+
+test("runLayerDocVerification blocks full-page bitmap audit failures", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-verifier-run-"));
+  const referencePath = join(directory, "reference.png");
+  const candidatePath = join(directory, "candidate.png");
+
+  writeSolidPng(referencePath, 6, 4, [15, 23, 42, 255]);
+  writeSolidPng(candidatePath, 6, 4, [15, 23, 42, 255]);
+
+  const run = runLayerDocVerification({
+    doc: createBitmapShortcutDoc(),
+    referencePath,
+    candidatePath,
+    gates: {
+      structureScore: 0,
+      componentScore: 0,
+      projectFitScore: 0
+    }
+  });
+
+  assert.equal(run.report.visualSimilarity, 100);
+  assert.equal(run.passed, false);
+  assert.deepEqual(run.failures, ["asset_compliance failed: Potential full-page bitmap shortcut: asset coverage is 1."]);
 });

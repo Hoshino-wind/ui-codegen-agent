@@ -53,3 +53,19 @@ test("evaluateVerificationGates applies custom thresholds without mutating defau
   ]);
   assert.equal(defaultVerificationGates.visualSimilarity, 85);
 });
+
+test("evaluateVerificationGates blocks failed asset compliance audits", () => {
+  const result = evaluateVerificationGates(
+    passingReport,
+    {},
+    {
+      assetCompliance: {
+        passed: false,
+        findings: ["Potential full-page bitmap shortcut: asset coverage is 1."]
+      }
+    }
+  );
+
+  assert.equal(result.passed, false);
+  assert.deepEqual(result.failures, ["asset_compliance failed: Potential full-page bitmap shortcut: asset coverage is 1."]);
+});

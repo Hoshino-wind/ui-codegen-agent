@@ -1,4 +1,5 @@
 import type { LayerDoc } from "../layerdoc/types.js";
+import { createLayerDocAudit } from "../layerdoc/audit.js";
 import {
   evaluateVerificationGates,
   type VerificationGates
@@ -54,7 +55,8 @@ export function runLayerDocVerification(input: RunLayerDocVerificationInput): La
     visualDiff,
     visualEvidence: input.visualEvidence ?? verificationVisualEvidence.imageData
   });
-  const gateResult = evaluateVerificationGates(report, input.gates);
+  const audit = createLayerDocAudit(input.doc);
+  const gateResult = evaluateVerificationGates(report, input.gates, { assetCompliance: audit.assetCompliance });
 
   return {
     report,

@@ -1,4 +1,5 @@
 import type { VerificationReport } from "./report.js";
+import type { LayerDocAssetCompliance } from "../layerdoc/audit.js";
 
 export interface VerificationGates {
   visualSimilarity: number;
@@ -11,6 +12,10 @@ export interface VerificationGateResult {
   passed: boolean;
   failures: string[];
   gates: VerificationGates;
+}
+
+export interface VerificationGateContext {
+  assetCompliance?: Pick<LayerDocAssetCompliance, "passed" | "findings">;
 }
 
 export const defaultVerificationGates: VerificationGates = {
@@ -26,7 +31,8 @@ export const defaultVerificationGates: VerificationGates = {
  */
 export function evaluateVerificationGates(
   report: VerificationReport,
-  overrides: Partial<VerificationGates> = {}
+  overrides: Partial<VerificationGates> = {},
+  context: VerificationGateContext = {}
 ): VerificationGateResult {
   const gates = { ...defaultVerificationGates, ...overrides };
   const checks = [
@@ -45,6 +51,12 @@ export function evaluateVerificationGates(
 
   if (report.issues.length > 0) {
     failures.push(`${report.issues.length} structural issue(s) reported`);
+  }
+
+  if (context.assetCompliance?.passed === false) {
+    const findings = context.assetCompliance.findings ?? [];
+    const detail = findings.length > 0 ? findings.join(" ") : "asset compliance audit did not pass";
+    failures.push(`asset_compliance failed: ${detail}`);
   }
 
   return {
