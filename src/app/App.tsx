@@ -97,6 +97,16 @@ function styleValue(style: LayerStyle | undefined, key: keyof LayerStyle, fallba
   return typeof value === "string" || typeof value === "number" ? String(value) : fallback;
 }
 
+function paddingValue(style: LayerStyle | undefined, axis: "x" | "y"): string {
+  const padding = style?.padding;
+  if (!padding) {
+    return "0";
+  }
+
+  const value = axis === "x" ? (padding.x ?? padding.left ?? padding.right) : (padding.y ?? padding.top ?? padding.bottom);
+  return typeof value === "number" ? String(value) : "0";
+}
+
 function selectedSection(doc: EditorWorkspace["doc"], layer: LayerNode): SectionNode | undefined {
   return doc.sections.find((section) => section.id === layer.sectionId);
 }
@@ -498,6 +508,33 @@ function Inspector({
             min="0"
             value={styleValue(layer.style, "borderRadius", "0")}
             onChange={(event) => patchStyle({ borderRadius: numberFromInput(event.target.value) })}
+          />
+        </label>
+        <label className="field">
+          <span>Padding X</span>
+          <input
+            type="number"
+            min="0"
+            value={paddingValue(layer.style, "x")}
+            onChange={(event) => patchStyle({ padding: { x: numberFromInput(event.target.value) } })}
+          />
+        </label>
+        <label className="field">
+          <span>Padding Y</span>
+          <input
+            type="number"
+            min="0"
+            value={paddingValue(layer.style, "y")}
+            onChange={(event) => patchStyle({ padding: { y: numberFromInput(event.target.value) } })}
+          />
+        </label>
+        <label className="field">
+          <span>Gap</span>
+          <input
+            type="number"
+            min="0"
+            value={styleValue(layer.style, "gap", "0")}
+            onChange={(event) => patchStyle({ gap: numberFromInput(event.target.value) })}
           />
         </label>
       </div>

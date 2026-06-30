@@ -97,6 +97,16 @@ test("app shell exposes controlled image alt editing", () => {
   assert.match(source, /readOnly=\{layer\.kind !== "image"\}/);
 });
 
+test("app shell exposes controlled spacing style editing", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /Padding X/);
+  assert.match(source, /Padding Y/);
+  assert.match(source, /Gap/);
+  assert.match(source, /padding: \{ x:/);
+  assert.match(source, /padding: \{ y:/);
+});
+
 test("app shell materializes uploaded PNG reference crops before building LayerDoc", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 

@@ -130,6 +130,24 @@ test("updateSelectedLayerStyle patches selected layer style for inspector contro
   assert.match(next.reactExport.code, /backgroundColor: "#0f172a"/);
 });
 
+test("updateSelectedLayerStyle patches spacing controls through preview and export outputs", () => {
+  const workspace = selectWorkspaceLayer(createEditorWorkspace(createSampleHomepageLayerDoc()), "hero-cta");
+  const next = updateSelectedLayerStyle(workspace, {
+    padding: { x: 28, y: 14 },
+    gap: 12
+  });
+  const layer = next.doc.layers.find((candidate) => candidate.id === "hero-cta");
+  const projectComponent = next.projectExport.files.find((file) => file.path === "src/ProductionHomepage.tsx").contents;
+
+  assert.deepEqual(layer.style.padding, { x: 28, y: 14 });
+  assert.equal(layer.style.gap, 12);
+  assert.match(next.previewHtml, /data-layer-id="hero-cta"[\s\S]+padding:14px 28px/);
+  assert.match(next.previewHtml, /data-layer-id="hero-cta"[\s\S]+gap:12px/);
+  assert.match(next.reactExport.code, /data-layer-id="hero-cta"[\s\S]+padding: "14px 28px"/);
+  assert.match(next.reactExport.code, /data-layer-id="hero-cta"[\s\S]+gap: 12/);
+  assert.match(projectComponent, /data-layer-id="hero-cta"[\s\S]+padding: "14px 28px"/);
+});
+
 test("updateSelectedImageAsset replaces the selected image source", () => {
   const workspace = selectWorkspaceLayer(createEditorWorkspace(createSampleHomepageLayerDoc()), "hero-image");
   const next = updateSelectedImageAsset(workspace, { uri: "/assets/hero-upload.png", source: "uploaded" });
