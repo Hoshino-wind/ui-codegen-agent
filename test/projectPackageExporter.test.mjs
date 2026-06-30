@@ -887,3 +887,83 @@ test("exported quality gate script rejects full-page bitmap audit failures", () 
   assert.match(failed.stdout, /asset_compliance failed/);
   assert.match(failed.stdout, /full-page bitmap/i);
 });
+
+test("exported quality gate script rejects section bitmap audit failures", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-section-asset-gates-"));
+  const doc = createLayerDoc({
+    name: "Section Bitmap Shortcut",
+    canvas: { width: 1000, height: 1600 },
+    sections: [
+      { id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 1000, height: 400 }, layerIds: ["hero-shot"] },
+      { id: "proof", name: "Proof", bounds: { x: 0, y: 400, width: 1000, height: 400 }, layerIds: ["proof-shot"] },
+      { id: "cta", name: "CTA", bounds: { x: 0, y: 800, width: 1000, height: 400 }, layerIds: ["cta-copy"] },
+      { id: "footer", name: "Footer", bounds: { x: 0, y: 1200, width: 1000, height: 400 }, layerIds: ["footer-copy"] }
+    ],
+    assets: [
+      { id: "hero-shot-asset", type: "image", source: "uploaded", bounds: { x: 0, y: 0, width: 1000, height: 400 } },
+      { id: "proof-shot-asset", type: "image", source: "uploaded", bounds: { x: 0, y: 400, width: 1000, height: 400 } }
+    ],
+    layers: [
+      {
+        id: "hero-shot",
+        sectionId: "hero",
+        kind: "image",
+        track: "asset",
+        editable: false,
+        bounds: { x: 0, y: 0, width: 1000, height: 400 },
+        assetId: "hero-shot-asset"
+      },
+      {
+        id: "proof-shot",
+        sectionId: "proof",
+        kind: "image",
+        track: "asset",
+        editable: false,
+        bounds: { x: 0, y: 400, width: 1000, height: 400 },
+        assetId: "proof-shot-asset"
+      },
+      {
+        id: "cta-copy",
+        sectionId: "cta",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 80, y: 920, width: 420, height: 48 },
+        content: { text: "Real editable CTA" }
+      },
+      {
+        id: "footer-copy",
+        sectionId: "footer",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 80, y: 1320, width: 420, height: 48 },
+        content: { text: "Real editable footer" }
+      }
+    ]
+  });
+  const perfectReport = {
+    ...createVerificationReport(doc, { visualSimilarity: 100 }),
+    structureScore: 100,
+    componentScore: 100,
+    projectFitScore: 100,
+    issues: []
+  };
+  const output = createProjectExportPackage(doc, {
+    componentName: "SectionBitmapShortcut",
+    report: perfectReport
+  });
+  writeProjectExportPackage(output, directory);
+
+  const audit = JSON.parse(readFileSync(join(directory, "layerdoc-audit.json"), "utf8"));
+  assert.equal(audit.assetCompliance.fullPageBitmapRisk, false);
+  assert.deepEqual(audit.assetCompliance.riskySectionAssets, [
+    { sectionId: "hero", assetId: "hero-shot-asset", coverageRatio: 1 },
+    { sectionId: "proof", assetId: "proof-shot-asset", coverageRatio: 1 }
+  ]);
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-gates.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /asset_compliance failed/);
+  assert.match(failed.stdout, /section bitmap shortcut/i);
+});

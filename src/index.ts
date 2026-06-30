@@ -48,6 +48,7 @@ export type {
   LayerDocAudit,
   LayerDocAuditSummary,
   LayerDocRiskyAsset,
+  LayerDocRiskySectionAsset,
   LayerDocSectionAudit,
   LayerDocStructureAudit,
   LayerDocTrackCounts

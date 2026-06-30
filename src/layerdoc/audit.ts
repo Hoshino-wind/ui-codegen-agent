@@ -25,11 +25,18 @@ export interface LayerDocRiskyAsset {
   coverageRatio: number;
 }
 
+export interface LayerDocRiskySectionAsset {
+  sectionId: string;
+  assetId: string;
+  coverageRatio: number;
+}
+
 export interface LayerDocAssetCompliance {
   passed: boolean;
   assetCoverageRatio: number;
   fullPageBitmapRisk: boolean;
   riskyAssets: LayerDocRiskyAsset[];
+  riskySectionAssets: LayerDocRiskySectionAsset[];
   findings: string[];
 }
 
@@ -78,6 +85,20 @@ function area(rect: Rect | undefined): number {
   return rect ? Math.max(0, rect.width) * Math.max(0, rect.height) : 0;
 }
 
+function intersection(left: Rect, right: Rect): Rect {
+  const x1 = Math.max(left.x, right.x);
+  const y1 = Math.max(left.y, right.y);
+  const x2 = Math.min(left.x + left.width, right.x + right.width);
+  const y2 = Math.min(left.y + left.height, right.y + right.height);
+
+  return {
+    x: x1,
+    y: y1,
+    width: Math.max(0, x2 - x1),
+    height: Math.max(0, y2 - y1)
+  };
+}
+
 function ratio(part: number, whole: number): number {
   return Math.round((part / Math.max(1, whole)) * 100) / 100;
 }
@@ -88,10 +109,39 @@ function riskyAssets(assets: AssetNode[], canvasArea: number): LayerDocRiskyAsse
     .filter((asset) => asset.coverageRatio > 0.5);
 }
 
-function assetFindings(fullPageBitmapRisk: boolean, assetCoverageRatio: number, assetIssues: VerificationIssue[]): string[] {
+function riskySectionAssets(doc: LayerDoc): LayerDocRiskySectionAsset[] {
+  const byId = new Map(doc.layers.map((layer) => [layer.id, layer]));
+  const threshold = 0.8;
+
+  return doc.sections.flatMap((section) =>
+    section.layerIds.flatMap((layerId) => {
+      const layer = byId.get(layerId);
+      if (!layer?.assetId || layer.kind !== "image" || layer.track !== "asset") {
+        return [];
+      }
+
+      const coverageRatio = ratio(area(intersection(layer.bounds, section.bounds)), area(section.bounds));
+      if (coverageRatio <= threshold) {
+        return [];
+      }
+
+      return [{ sectionId: section.id, assetId: layer.assetId, coverageRatio }];
+    })
+  );
+}
+
+function assetFindings(
+  fullPageBitmapRisk: boolean,
+  assetCoverageRatio: number,
+  assetIssues: VerificationIssue[],
+  sectionAssets: LayerDocRiskySectionAsset[]
+): string[] {
   const findings: string[] = [];
   if (fullPageBitmapRisk) {
     findings.push(`Potential full-page bitmap shortcut: asset coverage is ${assetCoverageRatio}.`);
+  }
+  if (sectionAssets.length > 0) {
+    findings.push(`Potential section bitmap shortcut: ${sectionAssets.length} section asset(s) cover most of their section.`);
   }
   if (assetIssues.length > 0) {
     findings.push(`${assetIssues.length} asset reference issue(s) found.`);
@@ -108,6 +158,7 @@ export function createLayerDocAudit(doc: LayerDoc): LayerDocAudit {
   const projectFit = scoreProjectFit(doc);
   const canvasArea = doc.canvas.width * doc.canvas.height;
   const assetIssues = validation.issues.filter((issue) => issue.code === "asset_missing");
+  const sectionAssets = projectFit.fullPageBitmapRisk ? [] : riskySectionAssets(doc);
 
   return {
     summary: {
@@ -126,11 +177,12 @@ export function createLayerDocAudit(doc: LayerDoc): LayerDocAudit {
       issues: validation.issues
     },
     assetCompliance: {
-      passed: !projectFit.fullPageBitmapRisk && assetIssues.length === 0,
+      passed: !projectFit.fullPageBitmapRisk && sectionAssets.length === 0 && assetIssues.length === 0,
       assetCoverageRatio: projectFit.assetCoverageRatio,
       fullPageBitmapRisk: projectFit.fullPageBitmapRisk,
       riskyAssets: riskyAssets(doc.assets, canvasArea),
-      findings: assetFindings(projectFit.fullPageBitmapRisk, projectFit.assetCoverageRatio, assetIssues)
+      riskySectionAssets: sectionAssets,
+      findings: assetFindings(projectFit.fullPageBitmapRisk, projectFit.assetCoverageRatio, assetIssues, sectionAssets)
     },
     sectionBreakdown: doc.sections.map((section) => {
       const sectionLayers = section.layerIds

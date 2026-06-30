@@ -107,3 +107,68 @@ test("createLayerDocAudit flags full-page bitmap assets as non-compliant", () =>
   assert.deepEqual(audit.assetCompliance.riskyAssets, [{ id: "page-shot-asset", coverageRatio: 1 }]);
   assert.match(audit.assetCompliance.findings[0], /full-page bitmap/i);
 });
+
+test("createLayerDocAudit flags section-sized bitmap shortcuts as non-compliant", () => {
+  const doc = createLayerDoc({
+    name: "Section bitmap shortcuts",
+    canvas: { width: 1000, height: 1600 },
+    sections: [
+      { id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 1000, height: 400 }, layerIds: ["hero-shot"] },
+      { id: "proof", name: "Proof", bounds: { x: 0, y: 400, width: 1000, height: 400 }, layerIds: ["proof-shot"] },
+      { id: "cta", name: "CTA", bounds: { x: 0, y: 800, width: 1000, height: 400 }, layerIds: ["cta-copy"] },
+      { id: "footer", name: "Footer", bounds: { x: 0, y: 1200, width: 1000, height: 400 }, layerIds: ["footer-copy"] }
+    ],
+    assets: [
+      { id: "hero-shot-asset", type: "image", source: "uploaded", bounds: { x: 0, y: 0, width: 1000, height: 400 } },
+      { id: "proof-shot-asset", type: "image", source: "uploaded", bounds: { x: 0, y: 400, width: 1000, height: 400 } }
+    ],
+    layers: [
+      {
+        id: "hero-shot",
+        sectionId: "hero",
+        kind: "image",
+        track: "asset",
+        editable: false,
+        bounds: { x: 0, y: 0, width: 1000, height: 400 },
+        assetId: "hero-shot-asset"
+      },
+      {
+        id: "proof-shot",
+        sectionId: "proof",
+        kind: "image",
+        track: "asset",
+        editable: false,
+        bounds: { x: 0, y: 400, width: 1000, height: 400 },
+        assetId: "proof-shot-asset"
+      },
+      {
+        id: "cta-copy",
+        sectionId: "cta",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 80, y: 920, width: 420, height: 48 },
+        content: { text: "Real editable CTA" }
+      },
+      {
+        id: "footer-copy",
+        sectionId: "footer",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 80, y: 1320, width: 420, height: 48 },
+        content: { text: "Real editable footer" }
+      }
+    ]
+  });
+
+  const audit = createLayerDocAudit(doc);
+
+  assert.equal(audit.assetCompliance.passed, false);
+  assert.equal(audit.assetCompliance.fullPageBitmapRisk, false);
+  assert.deepEqual(audit.assetCompliance.riskySectionAssets, [
+    { sectionId: "hero", assetId: "hero-shot-asset", coverageRatio: 1 },
+    { sectionId: "proof", assetId: "proof-shot-asset", coverageRatio: 1 }
+  ]);
+  assert.match(audit.assetCompliance.findings.join(" "), /section bitmap shortcut/i);
+});
