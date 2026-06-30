@@ -25,6 +25,39 @@ function collectDuplicateIds(ids: string[]): Set<string> {
   return duplicates;
 }
 
+const analysisPlanSources = new Set(["seeded", "provided", "editor", "manual"]);
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isNonNegativeNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function validateAnalysisPlanProvenance(doc: LayerDoc, issues: VerificationIssue[]): void {
+  const provenance = doc.metadata.analysisPlan;
+  if (!provenance) {
+    return;
+  }
+
+  if (!analysisPlanSources.has(provenance.source)) {
+    issues.push(issue("metadata_invalid", "metadata.analysisPlan.source", `Analysis Plan source "${provenance.source}" is not supported.`));
+  }
+  if (!isNonEmptyString(provenance.name)) {
+    issues.push(issue("metadata_invalid", "metadata.analysisPlan.name", "Analysis Plan name must be a non-empty string."));
+  }
+  if (!isNonNegativeNumber(provenance.sectionCount)) {
+    issues.push(issue("metadata_invalid", "metadata.analysisPlan.sectionCount", "Analysis Plan sectionCount must be a non-negative number."));
+  }
+  if (!isNonNegativeNumber(provenance.layerCount)) {
+    issues.push(issue("metadata_invalid", "metadata.analysisPlan.layerCount", "Analysis Plan layerCount must be a non-negative number."));
+  }
+  if (provenance.uri !== undefined && !isNonEmptyString(provenance.uri)) {
+    issues.push(issue("metadata_invalid", "metadata.analysisPlan.uri", "Analysis Plan uri must be a non-empty string when provided."));
+  }
+}
+
 /**
  * Validate a LayerDoc as an engineering asset, not just as JSON.
  * The checks intentionally target production risks: missing source assets,
@@ -47,6 +80,8 @@ export function validateLayerDoc(doc: LayerDoc): ValidationResult {
     ...doc.responsive.rules.map((rule) => rule.id),
     ...doc.generation.sectionRequests.map((request) => request.id)
   ]);
+
+  validateAnalysisPlanProvenance(doc, issues);
 
   for (const id of duplicateIds) {
     issues.push(issue("duplicate_id", id, `Duplicate id "${id}" appears in the LayerDoc graph.`));

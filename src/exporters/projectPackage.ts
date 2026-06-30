@@ -1300,6 +1300,16 @@ function classifyLayer(layer) {
   return "layout";
 }
 
+const analysisPlanSources = new Set(["seeded", "provided", "editor", "manual"]);
+
+function isNonEmptyString(value) {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isNonNegativeNumber(value) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
 function validateLayerDoc(doc) {
   const issues = [];
   if (doc?.schema !== "layerdoc") {
@@ -1317,6 +1327,7 @@ function validateLayerDoc(doc) {
   const responsiveRules = Array.isArray(doc?.responsive?.rules) ? doc.responsive.rules : [];
   const sectionRequests = Array.isArray(doc?.generation?.sectionRequests) ? doc.generation.sectionRequests : [];
   const canvas = doc?.canvas ?? {};
+  const analysisPlan = doc?.metadata?.analysisPlan;
 
   const sectionIds = new Set(sections.map((section) => section.id));
   const layerIds = new Set(layers.map((layer) => layer.id));
@@ -1334,6 +1345,24 @@ function validateLayerDoc(doc) {
     ...sectionRequests.map((request) => request.id)
   ])) {
     issues.push(issue("duplicate_id", id, \`Duplicate id "\${id}" appears in the LayerDoc graph.\`));
+  }
+
+  if (analysisPlan) {
+    if (!analysisPlanSources.has(analysisPlan.source)) {
+      issues.push(issue("metadata_invalid", "metadata.analysisPlan.source", \`Analysis Plan source "\${analysisPlan.source}" is not supported.\`));
+    }
+    if (!isNonEmptyString(analysisPlan.name)) {
+      issues.push(issue("metadata_invalid", "metadata.analysisPlan.name", "Analysis Plan name must be a non-empty string."));
+    }
+    if (!isNonNegativeNumber(analysisPlan.sectionCount)) {
+      issues.push(issue("metadata_invalid", "metadata.analysisPlan.sectionCount", "Analysis Plan sectionCount must be a non-negative number."));
+    }
+    if (!isNonNegativeNumber(analysisPlan.layerCount)) {
+      issues.push(issue("metadata_invalid", "metadata.analysisPlan.layerCount", "Analysis Plan layerCount must be a non-negative number."));
+    }
+    if (analysisPlan.uri !== undefined && !isNonEmptyString(analysisPlan.uri)) {
+      issues.push(issue("metadata_invalid", "metadata.analysisPlan.uri", "Analysis Plan uri must be a non-empty string when provided."));
+    }
   }
 
   for (const [index, section] of sections.entries()) {

@@ -203,6 +203,7 @@ export type VerificationIssueCode =
   | "duplicate_id"
   | "layer_missing"
   | "layer_section_mismatch"
+  | "metadata_invalid"
   | "responsive_target_missing"
   | "section_empty"
   | "section_missing"

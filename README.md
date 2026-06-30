@@ -93,6 +93,9 @@ The repository currently implements the core LayerDoc domain layer:
   exported project handoff files so downstream consumers can see whether the
   editable structure came from a seeded scaffold, provided plan, or editor
   review.
+- Validate that provenance during Studio import, package export verification,
+  and LayerDoc checks so broken source-of-structure metadata cannot silently
+  enter the production chain.
 
 The first target page type is an AI-generated marketing homepage with 8-15
 sections/layers.

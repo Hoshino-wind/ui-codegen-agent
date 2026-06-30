@@ -115,6 +115,46 @@ test("validateLayerDoc rejects visible sections without editable layers", () => 
   });
 });
 
+test("validateLayerDoc rejects invalid Analysis Plan provenance", () => {
+  const doc = createLayerDoc({
+    name: "Bad provenance",
+    canvas: { width: 320, height: 240 },
+    analysisPlan: {
+      source: "unknown",
+      name: "",
+      sectionCount: -1,
+      layerCount: -2,
+      uri: ""
+    },
+    sections: [{ id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 320, height: 240 }, layerIds: ["headline"] }],
+    layers: [
+      {
+        id: "headline",
+        sectionId: "hero",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 20, y: 20, width: 180, height: 32 },
+        content: { text: "Hello" }
+      }
+    ]
+  });
+
+  const result = validateLayerDoc(doc);
+
+  assert.equal(result.valid, false);
+  assert.deepEqual(
+    result.issues.filter((issue) => issue.code === "metadata_invalid").map((issue) => issue.path).sort(),
+    [
+      "metadata.analysisPlan.layerCount",
+      "metadata.analysisPlan.name",
+      "metadata.analysisPlan.sectionCount",
+      "metadata.analysisPlan.source",
+      "metadata.analysisPlan.uri"
+    ]
+  );
+});
+
 test("validateLayerDoc rejects mismatched section layer membership", () => {
   const doc = createLayerDoc({
     name: "Membership mismatch",

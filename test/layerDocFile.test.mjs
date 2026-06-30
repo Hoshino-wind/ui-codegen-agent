@@ -82,6 +82,22 @@ test("createWorkspaceFromLayerDocJson rejects malformed or invalid LayerDoc JSON
   assert.throws(() => createWorkspaceFromLayerDocJson(JSON.stringify(invalid)), /LayerDoc validation failed/);
 });
 
+test("createWorkspaceFromLayerDocJson rejects invalid Analysis Plan provenance", () => {
+  const invalid = createSampleHomepageLayerDoc();
+  invalid.metadata.analysisPlan = {
+    source: "unknown",
+    name: "",
+    sectionCount: -1,
+    layerCount: -2,
+    uri: ""
+  };
+
+  assert.throws(
+    () => createWorkspaceFromLayerDocJson(JSON.stringify(invalid)),
+    /LayerDoc validation failed: metadata\.analysisPlan\.source/
+  );
+});
+
 test("createLayerDocDownload serializes the current editable LayerDoc as a stable JSON artifact", () => {
   const doc = createSampleHomepageLayerDoc();
   const artifact = createLayerDocDownload(doc);
