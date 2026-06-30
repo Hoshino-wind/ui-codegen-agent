@@ -142,6 +142,36 @@ test("homepage pipeline CLI can build from a provided analysis plan", () => {
   assert.match(exportedComponent, /Provided hero headline/);
 });
 
+test("homepage pipeline CLI rejects provided analysis plans for a different PNG canvas", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-homepage-plan-canvas-mismatch-"));
+  const inputPath = join(directory, "homepage.png");
+  const candidatePath = join(directory, "candidate.png");
+  const analysisPlanPath = join(directory, "analysis-plan.json");
+  const outputDir = join(directory, "run");
+  const analysisPlan = createExternalAnalysisPlan();
+  analysisPlan.canvas.width = 800;
+  writeHomepagePng(inputPath);
+  writeHomepagePng(candidatePath);
+  writeFileSync(analysisPlanPath, JSON.stringify(analysisPlan, null, 2));
+
+  const result = spawnSync(process.execPath, [
+    cliPath,
+    "--input",
+    inputPath,
+    "--candidate",
+    candidatePath,
+    "--analysis-plan",
+    analysisPlanPath,
+    "--out",
+    outputDir,
+    "--component",
+    "ProductionHomepage"
+  ], { cwd: rootDir, encoding: "utf8" });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Analysis Plan canvas 800x960 must match source PNG 640x960/);
+});
+
 test("homepage pipeline CLI rejects missing required arguments with usage guidance", () => {
   const result = spawnSync(process.execPath, [cliPath], { cwd: rootDir, encoding: "utf8" });
 

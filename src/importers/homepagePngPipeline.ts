@@ -32,12 +32,23 @@ function readPngCanvas(path: string): { width: number; height: number } {
   };
 }
 
+function assertAnalysisPlanCanvasMatchesSource(plan: HomepageAnalysisPlan | undefined, canvas: { width: number; height: number }): void {
+  if (!plan) {
+    return;
+  }
+
+  if (plan.canvas.width !== canvas.width || plan.canvas.height !== canvas.height) {
+    throw new Error(`Analysis Plan canvas ${plan.canvas.width}x${plan.canvas.height} must match source PNG ${canvas.width}x${canvas.height}.`);
+  }
+}
+
 /**
  * Run the PNG intake half of the production chain:
  * source PNG -> analysis plan -> image manifest with crops -> LayerDoc.
  */
 export function createHomepageLayerDocFromPng(input: HomepagePngPipelineInput): HomepagePngPipelineResult {
   const canvas = readPngCanvas(input.sourcePngPath);
+  assertAnalysisPlanCanvasMatchesSource(input.analysisPlan, canvas);
   const scaffold = input.analysisPlan ?? createHomepageAnalysisPlan({
     name: input.name,
     canvas: {
