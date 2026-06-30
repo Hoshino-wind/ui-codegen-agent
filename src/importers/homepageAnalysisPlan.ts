@@ -1,4 +1,4 @@
-import type { Canvas, Rect } from "../layerdoc/types.js";
+import type { Canvas, LayerStyle, Rect } from "../layerdoc/types.js";
 import type { PngIntakeLayerPlan, PngIntakeSectionPlan } from "./pngIntake.js";
 
 export interface HomepageAnalysisPlan {
@@ -35,8 +35,18 @@ function cloneLayer(layer: PngIntakeLayerPlan): PngIntakeLayerPlan {
   return {
     ...layer,
     bounds: { ...layer.bounds },
+    style: cloneLayerStyle(layer.style),
     asset: layer.asset ? { ...layer.asset, cropBounds: layer.asset.cropBounds ? { ...layer.asset.cropBounds } : undefined } : undefined
   };
+}
+
+function cloneLayerStyle(style: LayerStyle | undefined): LayerStyle | undefined {
+  return style
+    ? {
+        ...style,
+        ...(style.padding ? { padding: { ...style.padding } } : {})
+      }
+    : undefined;
 }
 
 function cloneSection(section: PngIntakeSectionPlan): PngIntakeSectionPlan {
@@ -125,6 +135,9 @@ export function updateAnalysisLayer(plan: HomepageAnalysisPlan, layerId: string,
       }
       if (patch.editable !== undefined) {
         layer.editable = patch.editable;
+      }
+      if (patch.style !== undefined) {
+        layer.style = cloneLayerStyle(patch.style);
       }
       if (patch.asset !== undefined) {
         layer.asset = { ...patch.asset, cropBounds: patch.asset.cropBounds ? { ...patch.asset.cropBounds } : undefined };

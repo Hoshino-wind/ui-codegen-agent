@@ -3,7 +3,7 @@ import { basename, join } from "node:path";
 
 import { PNG } from "pngjs";
 
-import type { AssetNode, LayerKind, Rect } from "../layerdoc/types.js";
+import type { AssetNode, LayerKind, LayerStyle, Rect } from "../layerdoc/types.js";
 import { assertHomepageSectionCoverage, type ImageAnalysisManifest, type ImageManifestSectionInput } from "./imageManifest.js";
 
 export interface PngIntakeAssetPlan {
@@ -21,6 +21,7 @@ export interface PngIntakeLayerPlan {
   bounds: Rect;
   text?: string;
   alt?: string;
+  style?: LayerStyle;
   editable?: boolean;
   asset?: PngIntakeAssetPlan;
 }
@@ -118,6 +119,15 @@ function cropAsset(source: PNG, layer: PngIntakeLayerPlan, input: PngIntakeInput
   };
 }
 
+function cloneLayerStyle(style: LayerStyle | undefined): LayerStyle | undefined {
+  return style
+    ? {
+        ...style,
+        ...(style.padding ? { padding: { ...style.padding } } : {})
+      }
+    : undefined;
+}
+
 function createManifestSection(source: PNG, section: PngIntakeSectionPlan, input: PngIntakeInput): ImageManifestSectionInput {
   return {
     id: section.id,
@@ -131,6 +141,7 @@ function createManifestSection(source: PNG, section: PngIntakeSectionPlan, input
         bounds: { ...cropped.bounds },
         text: cropped.text,
         alt: cropped.alt,
+        style: cloneLayerStyle(cropped.style),
         editable: cropped.editable,
         asset: cropped.asset
       };

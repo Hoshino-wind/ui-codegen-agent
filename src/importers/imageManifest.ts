@@ -7,6 +7,7 @@ import type {
   LayerDoc,
   LayerKind,
   LayerNode,
+  LayerStyle,
   Rect,
   SectionNode
 } from "../layerdoc/types.js";
@@ -24,6 +25,7 @@ export interface ImageManifestLayerInput {
   bounds: Rect;
   text?: string;
   alt?: string;
+  style?: LayerStyle;
   editable?: boolean;
   asset?: ImageManifestAssetInput;
 }
@@ -72,6 +74,15 @@ function createAsset(layer: ImageManifestLayerInput): AssetNode | undefined {
   };
 }
 
+function cloneLayerStyle(style: LayerStyle | undefined): LayerStyle | undefined {
+  return style
+    ? {
+        ...style,
+        ...(style.padding ? { padding: { ...style.padding } } : {})
+      }
+    : undefined;
+}
+
 function createLayer(section: ImageManifestSectionInput, layer: ImageManifestLayerInput): LayerNode {
   const asset = createAsset(layer);
 
@@ -82,6 +93,7 @@ function createLayer(section: ImageManifestSectionInput, layer: ImageManifestLay
     track: classifyLayer(layer),
     editable: layer.editable ?? true,
     bounds: { ...layer.bounds },
+    style: cloneLayerStyle(layer.style),
     assetId: asset?.id,
     content: {
       ...(layer.text ? { text: layer.text } : {}),

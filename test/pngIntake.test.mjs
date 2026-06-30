@@ -62,7 +62,12 @@ test("createImageManifestFromPng reads PNG dimensions and crops referenced image
             id: "hero-title",
             kind: "text",
             bounds: { x: 4, y: 2, width: 30, height: 4 },
-            text: "Imported hero"
+            text: "Imported hero",
+            style: {
+              textColor: "#0f172a",
+              fontSize: 18,
+              fontWeight: 760
+            }
           },
           {
             id: "hero-image",
@@ -88,11 +93,21 @@ test("createImageManifestFromPng reads PNG dimensions and crops referenced image
   assert.equal(manifest.sourceImage.width, 80);
   assert.equal(manifest.sourceImage.height, 80);
   assert.equal(manifest.sections.length, 8);
+  assert.deepEqual(manifest.sections[0].layers[0].style, {
+    textColor: "#0f172a",
+    fontSize: 18,
+    fontWeight: 760
+  });
   assert.equal(manifest.sections[0].layers[1].asset.uri, "/assets/imported/hero-crop.png");
   assert.equal(existsSync(cropPath), true);
   assert.equal(crop.width, 20);
   assert.equal(crop.height, 20);
   assert.deepEqual([...crop.data.slice(0, 4)], [20, 184, 166, 255]);
+  assert.deepEqual(doc.layers.find((layer) => layer.id === "hero-title").style, {
+    textColor: "#0f172a",
+    fontSize: 18,
+    fontWeight: 760
+  });
   assert.equal(validateLayerDoc(doc).valid, true);
 });
 

@@ -119,6 +119,45 @@ test("homepage analysis plan can feed PNG intake after layer annotation", () => 
   assert.equal(manifest.sections.every((section) => section.layers.length > 0), true);
 });
 
+test("homepage analysis plan preserves layer style through PNG intake sections", () => {
+  const plan = createHomepageAnalysisPlan({
+    name: "Styled homepage",
+    canvas: { width: 160, height: 800 }
+  });
+  const withLayer = addAnalysisLayer(plan, "hero", {
+    id: "hero-title",
+    kind: "text",
+    bounds: { x: 12, y: 20, width: 80, height: 20 },
+    text: "Styled hero",
+    style: {
+      textColor: "#0f172a",
+      fontSize: 22,
+      fontWeight: 820,
+      padding: { x: 4, y: 2 }
+    }
+  });
+  const updated = updateAnalysisLayer(withLayer, "hero-title", {
+    style: {
+      textColor: "#111827",
+      fontSize: 24,
+      fontWeight: 860,
+      padding: { x: 6, y: 3 }
+    }
+  });
+  const sections = toPngIntakeSections(updated);
+
+  assert.equal(withLayer.sections[0].layers[0].style.textColor, "#0f172a");
+  assert.deepEqual(sections[0].layers[0].style, {
+    textColor: "#111827",
+    fontSize: 24,
+    fontWeight: 860,
+    padding: { x: 6, y: 3 }
+  });
+
+  sections[0].layers[0].style.padding.x = 99;
+  assert.equal(updated.sections[0].layers[0].style.padding.x, 6);
+});
+
 test("validateHomepageAnalysisPlan reports duplicate ids and out-of-canvas bounds", () => {
   const plan = createHomepageAnalysisPlan({
     name: "Invalid homepage",

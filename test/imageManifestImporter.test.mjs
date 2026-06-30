@@ -34,7 +34,13 @@ test("createLayerDocFromImageManifest converts image analysis sections into a va
             id: "hero-title",
             kind: "text",
             bounds: { x: 120, y: 80, width: 620, height: 72 },
-            text: "Launch beautiful UI"
+            text: "Launch beautiful UI",
+            style: {
+              textColor: "#0f172a",
+              fontSize: 56,
+              fontWeight: 860,
+              opacity: 0.96
+            }
           },
           {
             id: "hero-cta",
@@ -62,6 +68,12 @@ test("createLayerDocFromImageManifest converts image analysis sections into a va
   assert.equal(doc.sections.length, 8);
   assert.equal(doc.assets[0].id, "hero-crop");
   assert.equal(doc.layers.find((layer) => layer.id === "hero-title").track, "component");
+  assert.deepEqual(doc.layers.find((layer) => layer.id === "hero-title").style, {
+    textColor: "#0f172a",
+    fontSize: 56,
+    fontWeight: 860,
+    opacity: 0.96
+  });
   assert.equal(doc.layers.find((layer) => layer.id === "hero-image").track, "asset");
   assert.equal(doc.components.some((component) => component.id === "HeroSection"), true);
   assert.equal(validation.valid, true);
