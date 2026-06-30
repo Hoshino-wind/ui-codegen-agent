@@ -1,5 +1,6 @@
 import type { LayerDoc } from "../layerdoc/types.js";
 import { createLayerDocAudit, type LayerDocAudit } from "../layerdoc/audit.js";
+import { createLayerDocJsonSchema } from "../layerdoc/jsonSchema.js";
 import { defaultVerificationGates, type VerificationGates } from "../verifier/gates.js";
 import { createVerificationReport, type VerificationReport } from "../verifier/report.js";
 import { renderHtmlPreview } from "./htmlPreview.js";
@@ -500,7 +501,7 @@ Generated assets:
 - \`src/main.tsx\`, \`src/App.tsx\`, \`src/index.css\`: project entry points
 - \`src/${manifest.componentName}.tsx\`: React + Tailwind component export
 - \`preview.html\`: deterministic HTML verification preview
-- \`manifest.json\`: project package manifest and quality scores
+- \`manifest.json\`, \`layerdoc.schema.json\`: project package manifest and LayerDoc source contract
 - \`layerdoc-audit.json\`: structure, track, and asset-compliance audit
 - \`verification-report.json\`, \`quality-gates.json\`, \`scripts/verify-preview.mjs\`, \`scripts/verify-gates.mjs\`: executable visual verifier and quality gate handoff
 
@@ -532,6 +533,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     "README.md",
     "index.html",
     "layerdoc-audit.json",
+    "layerdoc.schema.json",
     "layerdoc.json",
     "manifest.json",
     "package.json",
@@ -562,6 +564,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
       { path: "README.md", contents: readmeFor(manifest) },
       { path: "index.html", contents: indexHtmlFor(options.componentName) },
       { path: "layerdoc-audit.json", contents: stableJson(audit) },
+      { path: "layerdoc.schema.json", contents: stableJson(createLayerDocJsonSchema()) },
       { path: "layerdoc.json", contents: stableJson(doc) },
       { path: "manifest.json", contents: stableJson(manifest) },
       { path: "package.json", contents: packageJsonFor(manifest) },

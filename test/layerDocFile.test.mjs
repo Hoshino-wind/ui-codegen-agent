@@ -117,6 +117,7 @@ test("createProjectPackageDownload serializes every project package file in one 
       "README.md",
       "index.html",
       "layerdoc-audit.json",
+      "layerdoc.schema.json",
       "layerdoc.json",
       "manifest.json",
       "package.json",

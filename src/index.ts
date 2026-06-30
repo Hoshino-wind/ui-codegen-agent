@@ -33,6 +33,7 @@ export { runWorkspacePreviewVerification, runWorkspaceVisualVerification } from 
 export { classifyLayer } from "./layerdoc/classification.js";
 export { createLayerDocAudit } from "./layerdoc/audit.js";
 export { createLayerDoc } from "./layerdoc/factory.js";
+export { createLayerDocJsonSchema } from "./layerdoc/jsonSchema.js";
 export { scoreProjectFit } from "./layerdoc/scoring.js";
 export { validateLayerDoc } from "./layerdoc/validation.js";
 export { createVerificationReport, verificationVisualEvidence } from "./verifier/report.js";

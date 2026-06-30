@@ -78,6 +78,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     "README.md",
     "index.html",
     "layerdoc-audit.json",
+    "layerdoc.schema.json",
     "layerdoc.json",
     "manifest.json",
     "package.json",
@@ -108,6 +109,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "tsconfig.json").contents, /"jsx": "react-jsx"/);
   assert.match(output.files.find((file) => file.path === "src/ProductionHomepage.tsx").contents, /export function ProductionHomepage/);
   assert.match(output.files.find((file) => file.path === "layerdoc.json").contents, /"schema": "layerdoc"/);
+  assert.equal(JSON.parse(output.files.find((file) => file.path === "layerdoc.schema.json").contents).properties.schema.const, "layerdoc");
   assert.match(output.files.find((file) => file.path === "layerdoc-audit.json").contents, /"assetCompliance"/);
   assert.match(output.files.find((file) => file.path === "verification-report.json").contents, /"structureScore": 100/);
   assert.match(output.files.find((file) => file.path === "verification-report.json").contents, /"evidence"/);
@@ -120,6 +122,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run dev/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:gates/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:preview -- --reference/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /layerdoc\.schema\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /visual_evidence:/);
 });
 
@@ -129,9 +132,10 @@ test("writeProjectExportPackage writes every package file under the target direc
 
   const written = writeProjectExportPackage(output, directory);
 
-  assert.equal(written.files.length, 17);
+  assert.equal(written.files.length, 18);
   assert.equal(existsSync(join(directory, "src", "ProductionHomepage.tsx")), true);
   assert.equal(existsSync(join(directory, "layerdoc-audit.json")), true);
+  assert.equal(existsSync(join(directory, "layerdoc.schema.json")), true);
   assert.equal(existsSync(join(directory, "src", "main.tsx")), true);
   assert.equal(existsSync(join(directory, "package.json")), true);
   assert.equal(existsSync(join(directory, "vite.config.ts")), true);
