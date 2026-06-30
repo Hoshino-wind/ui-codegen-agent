@@ -66,7 +66,9 @@ The repository currently implements the core LayerDoc domain layer:
 - Export a React + Tailwind component that preserves LayerDoc traceability.
 - Project responsive rules into preview and exported React media-query CSS.
 - Export an `integration-contract.json` mapping LayerDoc objects to project
-  files, responsive rules, and DOM selectors for downstream integration.
+  files, responsive rules, and DOM selectors for downstream integration;
+  hidden sections stay editable in `layerdoc.json` without being required in
+  rendered project surfaces.
 - Verify that exported integration contracts still match the LayerDoc source, generated project selectors, preview selectors, section order, layer bounds, layer style, layer copy, asset URIs, responsive CSS, and interaction metadata.
 - Enforce Studio and exported quality gates against verifier scores and LayerDoc asset-compliance audit results.
 - Compare reference and candidate PNG screenshots and write a pixel diff image.

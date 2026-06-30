@@ -137,6 +137,37 @@ function createSectionOrderExportDoc() {
   });
 }
 
+function createHiddenSectionExportDoc() {
+  return createLayerDoc({
+    name: "Visibility Homepage",
+    canvas: { width: 1440, height: 900, background: "#ffffff" },
+    sections: [
+      { id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 1440, height: 480 }, layerIds: ["headline"] },
+      { id: "pricing", name: "Pricing", visible: false, bounds: { x: 0, y: 480, width: 1440, height: 420 }, layerIds: ["price-card"] }
+    ],
+    layers: [
+      {
+        id: "headline",
+        sectionId: "hero",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 120, y: 120, width: 620, height: 96 },
+        content: { text: "Visible hero" }
+      },
+      {
+        id: "price-card",
+        sectionId: "pricing",
+        kind: "card",
+        track: "component",
+        editable: true,
+        bounds: { x: 120, y: 560, width: 360, height: 180 },
+        content: { text: "Hidden pricing" }
+      }
+    ]
+  });
+}
+
 function createAssetExportDoc() {
   return createLayerDoc({
     name: "Asset Homepage",
@@ -364,6 +395,23 @@ test("exported integration contract verifier validates the handoff mapping", () 
   assert.match(failed.stdout, /integration_contract_mismatch/);
   assert.match(failed.stdout, /layers/);
   assert.match(failed.stdout, /stale-headline/);
+});
+
+test("exported integration contract verifier accepts hidden sections omitted from project surfaces", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-hidden-section-contract-verifier-"));
+  const output = createProjectExportPackage(createHiddenSectionExportDoc(), { componentName: "VisibilityHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  assert.match(readFileSync(join(directory, "layerdoc.json"), "utf8"), /"visible": false/);
+  assert.doesNotMatch(readFileSync(join(directory, "src", "VisibilityHomepage.tsx"), "utf8"), /Hidden pricing/);
+  assert.doesNotMatch(readFileSync(join(directory, "preview.html"), "utf8"), /Hidden pricing/);
+  const contract = JSON.parse(readFileSync(join(directory, "integration-contract.json"), "utf8"));
+  assert.deepEqual(contract.sections.map((section) => section.id), ["hero"]);
+  assert.deepEqual(contract.layers.map((layer) => layer.id), ["headline"]);
+
+  const passed = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.equal(passed.status, 0, passed.stdout);
+  assert.match(passed.stdout, /"passed": true/);
 });
 
 test("exported integration contract verifier checks project selectors", () => {

@@ -236,9 +236,26 @@ function selectorForResponsiveTarget(doc: LayerDoc, target: LayerDoc["responsive
   return component?.exportable ? selectorFor("data-component-id", target.id) : null;
 }
 
+function visibleContractSections(doc: LayerDoc): LayerDoc["sections"] {
+  return doc.sections.filter((section) => section.visible !== false);
+}
+
+function visibleContractLayers(doc: LayerDoc): LayerDoc["layers"] {
+  const hiddenSectionIds = new Set(doc.sections.filter((section) => section.visible === false).map((section) => section.id));
+  return doc.layers.filter((layer) => !layer.sectionId || !hiddenSectionIds.has(layer.sectionId));
+}
+
+function visibleContractComponents(doc: LayerDoc, visibleLayerIds: Set<string>): LayerDoc["components"] {
+  return doc.components.filter((component) => component.layerIds.some((layerId) => visibleLayerIds.has(layerId)));
+}
+
 function createIntegrationContract(doc: LayerDoc, componentName: string, componentFile: string, sourceHash: string): ProjectIntegrationContract {
+  const sections = visibleContractSections(doc);
+  const layers = visibleContractLayers(doc);
+  const visibleLayerIds = new Set(layers.map((layer) => layer.id));
+  const components = visibleContractComponents(doc, visibleLayerIds);
   const componentIdsByLayerId = new Map<string, string[]>();
-  for (const component of doc.components) {
+  for (const component of components) {
     for (const layerId of component.layerIds) {
       componentIdsByLayerId.set(layerId, [...(componentIdsByLayerId.get(layerId) ?? []), component.id]);
     }
@@ -260,13 +277,13 @@ function createIntegrationContract(doc: LayerDoc, componentName: string, compone
     preview: {
       file: "preview.html"
     },
-    sections: doc.sections.map((section) => ({
+    sections: sections.map((section) => ({
       id: section.id,
       name: section.name,
       selector: selectorFor("data-section-id", section.id),
       layerIds: [...section.layerIds]
     })),
-    layers: doc.layers.map((layer) => ({
+    layers: layers.map((layer) => ({
       id: layer.id,
       kind: layer.kind,
       track: layer.track,
@@ -277,7 +294,7 @@ function createIntegrationContract(doc: LayerDoc, componentName: string, compone
       selector: selectorFor("data-layer-id", layer.id),
       interactionIds: doc.interactions.filter((interaction) => interaction.layerId === layer.id).map((interaction) => interaction.id)
     })),
-    components: doc.components.map((component) => ({
+    components: components.map((component) => ({
       id: component.id,
       exportable: component.exportable,
       selector: component.exportable ? selectorFor("data-component-id", component.id) : null,
@@ -288,9 +305,9 @@ function createIntegrationContract(doc: LayerDoc, componentName: string, compone
       type: asset.type,
       source: asset.source,
       uri: asset.uri ?? null,
-      usedByLayerIds: doc.layers.filter((layer) => layer.assetId === asset.id).map((layer) => layer.id)
+      usedByLayerIds: layers.filter((layer) => layer.assetId === asset.id).map((layer) => layer.id)
     })),
-    interactions: doc.interactions.map((interaction) => ({
+    interactions: doc.interactions.filter((interaction) => visibleLayerIds.has(interaction.layerId)).map((interaction) => ({
       id: interaction.id,
       layerId: interaction.layerId,
       event: interaction.event,
@@ -562,7 +579,7 @@ function assetUriRequirements(contract) {
 }
 
 function layerCopyRequirements(layerDoc, format) {
-  return (layerDoc.layers ?? []).map((layer, index) => ({
+  return visibleLayerEntries(layerDoc).map(({ layer, index }) => ({
     path: \`layers[\${index}].content.text\`,
     text: layer.content?.text
   })).filter((entry) => typeof entry.text === "string" && entry.text.length > 0)
@@ -570,6 +587,17 @@ function layerCopyRequirements(layerDoc, format) {
       ...entry,
       text: format === "html" ? escapeHtmlText(entry.text) : entry.text
     }));
+}
+
+function hiddenSectionIds(layerDoc) {
+  return new Set((layerDoc.sections ?? []).filter((section) => section.visible === false).map((section) => section.id));
+}
+
+function visibleLayerEntries(layerDoc) {
+  const hiddenIds = hiddenSectionIds(layerDoc);
+  return (layerDoc.layers ?? [])
+    .map((layer, index) => ({ layer, index }))
+    .filter(({ layer }) => !layer.sectionId || !hiddenIds.has(layer.sectionId));
 }
 
 function finiteRect(rect) {
@@ -617,7 +645,7 @@ function boundsFragments(bounds, format) {
 }
 
 function layerBoundsRequirements(layerDoc, format) {
-  return (layerDoc.layers ?? []).flatMap((layer, index) => {
+  return visibleLayerEntries(layerDoc).flatMap(({ layer, index }) => {
     const bounds = relativeLayerBounds(layerDoc, layer);
     if (!bounds || typeof layer.id !== "string" || layer.id.length === 0) {
       return [];
@@ -684,7 +712,7 @@ function styleFragments(style, format) {
 }
 
 function layerStyleRequirements(layerDoc, format) {
-  return (layerDoc.layers ?? []).flatMap((layer, index) => {
+  return visibleLayerEntries(layerDoc).flatMap(({ layer, index }) => {
     if (typeof layer.id !== "string" || layer.id.length === 0) {
       return [];
     }
@@ -796,8 +824,12 @@ function selectorForResponsiveTarget(layerDoc, target) {
 }
 
 function expectedContractFrom(layerDoc, manifest) {
+  const sections = (layerDoc.sections ?? []).filter((section) => section.visible !== false);
+  const layers = visibleLayerEntries(layerDoc).map(({ layer }) => layer);
+  const visibleLayerIds = new Set(layers.map((layer) => layer.id));
+  const components = (layerDoc.components ?? []).filter((component) => (component.layerIds ?? []).some((layerId) => visibleLayerIds.has(layerId)));
   const componentIdsByLayerId = new Map();
-  for (const component of layerDoc.components ?? []) {
+  for (const component of components) {
     for (const layerId of component.layerIds ?? []) {
       componentIdsByLayerId.set(layerId, [...(componentIdsByLayerId.get(layerId) ?? []), component.id]);
     }
@@ -819,13 +851,13 @@ function expectedContractFrom(layerDoc, manifest) {
     preview: {
       file: "preview.html"
     },
-    sections: (layerDoc.sections ?? []).map((section) => ({
+    sections: sections.map((section) => ({
       id: section.id,
       name: section.name,
       selector: selectorFor("data-section-id", section.id),
       layerIds: [...(section.layerIds ?? [])]
     })),
-    layers: (layerDoc.layers ?? []).map((layer) => ({
+    layers: layers.map((layer) => ({
       id: layer.id,
       kind: layer.kind,
       track: layer.track,
@@ -836,7 +868,7 @@ function expectedContractFrom(layerDoc, manifest) {
       selector: selectorFor("data-layer-id", layer.id),
       interactionIds: (layerDoc.interactions ?? []).filter((interaction) => interaction.layerId === layer.id).map((interaction) => interaction.id)
     })),
-    components: (layerDoc.components ?? []).map((component) => ({
+    components: components.map((component) => ({
       id: component.id,
       exportable: component.exportable,
       selector: component.exportable ? selectorFor("data-component-id", component.id) : null,
@@ -847,9 +879,9 @@ function expectedContractFrom(layerDoc, manifest) {
       type: asset.type,
       source: asset.source,
       uri: asset.uri ?? null,
-      usedByLayerIds: (layerDoc.layers ?? []).filter((layer) => layer.assetId === asset.id).map((layer) => layer.id)
+      usedByLayerIds: layers.filter((layer) => layer.assetId === asset.id).map((layer) => layer.id)
     })),
-    interactions: (layerDoc.interactions ?? []).map((interaction) => ({
+    interactions: (layerDoc.interactions ?? []).filter((interaction) => visibleLayerIds.has(interaction.layerId)).map((interaction) => ({
       id: interaction.id,
       layerId: interaction.layerId,
       event: interaction.event,
@@ -1665,7 +1697,7 @@ Generated assets:
 - \`src/main.tsx\`, \`src/App.tsx\`, \`src/index.css\`: project entry points
 - \`src/${manifest.componentName}.tsx\`: React + Tailwind component export
 - \`preview.html\`: deterministic HTML verification preview
-- \`integration-contract.json\`: stable mapping from LayerDoc objects to project files and DOM selectors
+- \`integration-contract.json\`: stable mapping from visible LayerDoc objects to project files and DOM selectors
 - \`manifest.json\`, \`layerdoc.schema.json\`: project package manifest and LayerDoc source contract
 - \`layerdoc-audit.json\`: structure, track, and asset-compliance audit
 - \`verification-report.json\`, \`quality-gates.json\`, \`scripts/verify-layerdoc.mjs\`, \`scripts/verify-contract.mjs\`, \`scripts/verify-preview.mjs\`, \`scripts/verify-gates.mjs\`: executable source, contract, visual, and quality gate handoff
@@ -1673,6 +1705,7 @@ Generated assets:
 Verification:
 - Run \`npm run verify:layerdoc\` after editing \`layerdoc.json\` to catch broken graph references before integration.
 - Run \`npm run verify:contract\` to confirm \`integration-contract.json\` still matches the LayerDoc source, project selectors, preview selectors, section order, layer bounds, layer style, layer copy, assets, responsive CSS, and interaction metadata.
+- Hidden sections remain editable in \`layerdoc.json\` but are intentionally omitted from rendered project and preview contract requirements.
 - Put the original target visual at \`reference.png\`.
 - Run \`npm run verify:preview -- --reference ./reference.png\` to render \`preview.html\`, capture \`verification-artifacts/candidate.png\`, produce \`verification-artifacts/diff.png\`, and update \`verification-report.json\`.
 - Run \`npm run verify:gates\` after preview verification to enforce score thresholds and LayerDoc asset compliance.
