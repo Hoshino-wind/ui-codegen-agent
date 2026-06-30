@@ -178,6 +178,10 @@ The analysis plan can come from a vision model, a crop workbench, or manual
 review. The PNG intake module deliberately does not invent semantics by itself;
 it only turns confirmed section/layer structure into project assets.
 
+The homepage pipeline CLI also copies the original input PNG into the exported
+project as `reference.png`, so the handoff project can rerun visual verification
+without manually locating the source image.
+
 ## Verification Dimensions
 
 Verifier output must stay split by concern:

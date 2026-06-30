@@ -201,6 +201,7 @@ export async function runHomepagePipelineCli(args: string[]): Promise<number> {
     const intakeAssetDir = join(intakeDir, "assets");
     const verificationDir = join(outputDir, "verification");
     const projectDir = join(outputDir, "project");
+    const projectReferencePath = join(projectDir, "reference.png");
     const projectAssetDir = join(projectDir, "assets");
     const projectPublicAssetDir = join(projectDir, "public", "assets");
     const pipelineReportPath = join(outputDir, "pipeline-report.json");
@@ -244,6 +245,7 @@ export async function runHomepagePipelineCli(args: string[]): Promise<number> {
       report: verification.report
     });
     const writtenProject = writeProjectExportPackage(projectPackage, projectDir);
+    copyFileSync(inputPath, projectReferencePath);
     const previewAssets = copyDirectory(intakeAssetDir, projectAssetDir).map((file) => join("assets", file));
     const publicAssets = copyDirectory(intakeAssetDir, projectPublicAssetDir).map((file) => join("public", "assets", file));
     const copiedAssets = [...previewAssets, ...publicAssets];
@@ -270,6 +272,7 @@ export async function runHomepagePipelineCli(args: string[]): Promise<number> {
       },
       project: {
         rootDir: writtenProject.rootDir,
+        referencePath: projectReferencePath,
         files: writtenProject.files.map((file) => file.relativePath),
         copiedAssets
       }
