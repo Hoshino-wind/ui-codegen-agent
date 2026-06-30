@@ -1,5 +1,6 @@
 export {
   moveSection,
+  requestSectionRegeneration,
   setSectionVisibility,
   updateImageLayerAsset,
   updateLayerBounds,
@@ -51,6 +52,8 @@ export type {
   ProjectFitScore,
   Rect,
   ResponsiveRule,
+  GenerationState,
+  SectionRegenerationRequest,
   SectionNode,
   TokenSet,
   ValidationResult,
@@ -58,7 +61,7 @@ export type {
   VerificationIssueCode,
   VerificationScores
 } from "./layerdoc/types.js";
-export type { ImageAssetPatch, LayerBoundsPatch } from "./editor/operations.js";
+export type { ImageAssetPatch, LayerBoundsPatch, SectionRegenerationRequestInput } from "./editor/operations.js";
 export type { VerificationInput, VerificationReport } from "./verifier/report.js";
 export type {
   ImageDataSnapshot,

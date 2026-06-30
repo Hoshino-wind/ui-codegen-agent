@@ -20,6 +20,7 @@ test("createLayerDoc returns a complete editable production asset shell", () => 
     "assets",
     "canvas",
     "components",
+    "generation",
     "interactions",
     "layers",
     "metadata",
@@ -31,6 +32,7 @@ test("createLayerDoc returns a complete editable production asset shell", () => 
     "version"
   ]);
   assert.equal(doc.metadata.name, "Landing page concept");
+  assert.deepEqual(doc.generation.sectionRequests, []);
   assert.equal(doc.verification.scores.visualSimilarity, null);
 });
 
@@ -78,6 +80,62 @@ test("validateLayerDoc rejects missing references and out-of-canvas geometry", (
     result.issues.map((issue) => issue.code).sort(),
     ["asset_missing", "bounds_outside_canvas"]
   );
+});
+
+test("validateLayerDoc rejects regeneration requests for missing sections", () => {
+  const doc = createLayerDoc({
+    name: "Broken regeneration",
+    canvas: { width: 320, height: 240 },
+    generation: {
+      sectionRequests: [
+        {
+          id: "regen-pricing-1",
+          sectionId: "pricing",
+          prompt: "Regenerate pricing",
+          status: "requested",
+          requestedAt: "2026-06-30T10:00:00.000Z"
+        }
+      ]
+    }
+  });
+
+  const result = validateLayerDoc(doc);
+
+  assert.equal(result.valid, false);
+  assert.equal(result.issues[0].code, "section_missing");
+  assert.equal(result.issues[0].path, "generation.sectionRequests[0].sectionId");
+});
+
+test("validateLayerDoc rejects duplicate regeneration request ids", () => {
+  const doc = createLayerDoc({
+    name: "Duplicate regeneration",
+    canvas: { width: 320, height: 240 },
+    sections: [{ id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 320, height: 240 }, layerIds: [] }],
+    generation: {
+      sectionRequests: [
+        {
+          id: "regen-hero-1",
+          sectionId: "hero",
+          prompt: "First",
+          status: "requested",
+          requestedAt: "2026-06-30T10:00:00.000Z"
+        },
+        {
+          id: "regen-hero-1",
+          sectionId: "hero",
+          prompt: "Second",
+          status: "requested",
+          requestedAt: "2026-06-30T10:01:00.000Z"
+        }
+      ]
+    }
+  });
+
+  const result = validateLayerDoc(doc);
+
+  assert.equal(result.valid, false);
+  assert.equal(result.issues[0].code, "duplicate_id");
+  assert.equal(result.issues[0].path, "regen-hero-1");
 });
 
 test("scoreProjectFit rewards reusable components and penalizes full-page bitmap output", () => {

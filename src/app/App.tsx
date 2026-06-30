@@ -24,6 +24,7 @@ import type { LayerNode, LayerStyle, SectionNode } from "../layerdoc/types.js";
 import {
   createEditorWorkspace,
   moveWorkspaceSection,
+  requestWorkspaceSectionRegeneration,
   selectWorkspaceLayer,
   selectedLayer,
   updateSelectedBounds,
@@ -449,34 +450,56 @@ function Inspector({
 }
 
 function SectionOrder({ workspace, onChange }: { workspace: EditorWorkspace; onChange: (workspace: EditorWorkspace, message?: string) => void }) {
+  function regenerationPrompt(section: SectionNode): string {
+    return `Regenerate the ${section.name} section while preserving its LayerDoc bounds, layer semantics, and project traceability.`;
+  }
+
   return (
     <div className="section-order">
       <div className="sidebar-title">Sections</div>
-      {workspace.doc.sections.map((section, index) => (
-        <div className={`section-row ${section.visible === false ? "hidden" : ""}`} key={section.id}>
-          <button type="button" onClick={() => onChange(moveWorkspaceSection(workspace, section.id, Math.max(0, index - 1)), "Section order updated")} aria-label={`Move ${section.name} up`}>
-            Up
-          </button>
-          <button type="button" onClick={() => onChange(moveWorkspaceSection(workspace, section.id, index + 1), "Section order updated")} aria-label={`Move ${section.name} down`}>
-            Down
-          </button>
-          <button
-            className="section-visibility"
-            type="button"
-            onClick={() =>
-              onChange(
-                updateWorkspaceSectionVisibility(workspace, section.id, section.visible === false),
-                `${section.name} ${section.visible === false ? "shown" : "hidden"}`
-              )
-            }
-            aria-label={`${section.visible === false ? "Show" : "Hide"} ${section.name}`}
-            aria-pressed={section.visible !== false}
-          >
-            {section.visible === false ? <EyeOff size={13} /> : <Eye size={13} />}
-          </button>
-          <span>{section.name}</span>
-        </div>
-      ))}
+      {workspace.doc.sections.map((section, index) => {
+        const requestCount = workspace.doc.generation.sectionRequests.filter((request) => request.sectionId === section.id).length;
+
+        return (
+          <div className={`section-row ${section.visible === false ? "hidden" : ""}`} key={section.id}>
+            <button type="button" onClick={() => onChange(moveWorkspaceSection(workspace, section.id, Math.max(0, index - 1)), "Section order updated")} aria-label={`Move ${section.name} up`}>
+              Up
+            </button>
+            <button type="button" onClick={() => onChange(moveWorkspaceSection(workspace, section.id, index + 1), "Section order updated")} aria-label={`Move ${section.name} down`}>
+              Down
+            </button>
+            <button
+              className="section-visibility"
+              type="button"
+              onClick={() =>
+                onChange(
+                  updateWorkspaceSectionVisibility(workspace, section.id, section.visible === false),
+                  `${section.name} ${section.visible === false ? "shown" : "hidden"}`
+                )
+              }
+              aria-label={`${section.visible === false ? "Show" : "Hide"} ${section.name}`}
+              aria-pressed={section.visible !== false}
+            >
+              {section.visible === false ? <EyeOff size={13} /> : <Eye size={13} />}
+            </button>
+            <button
+              className="section-regenerate"
+              type="button"
+              onClick={() =>
+                onChange(
+                  requestWorkspaceSectionRegeneration(workspace, section.id, regenerationPrompt(section)),
+                  `${section.name} regeneration requested`
+                )
+              }
+              aria-label={`Request ${section.name} regeneration`}
+            >
+              <WandSparkles size={13} />
+            </button>
+            <span>{section.name}</span>
+            {requestCount > 0 ? <small>{requestCount}</small> : null}
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import type { CreateLayerDocInput, LayerDoc, TokenSet, VerificationScores } from "./types.js";
+import type { CreateLayerDocInput, GenerationState, LayerDoc, TokenSet, VerificationScores } from "./types.js";
 
 const emptyTokens: TokenSet = {
   colors: {},
@@ -12,6 +12,10 @@ const emptyScores: VerificationScores = {
   structureScore: null,
   componentScore: null,
   projectFitScore: null
+};
+
+const emptyGeneration: GenerationState = {
+  sectionRequests: []
 };
 
 /**
@@ -42,6 +46,9 @@ export function createLayerDoc(input: CreateLayerDocInput): LayerDoc {
     responsive: {
       breakpoints: { ...(input.responsive?.breakpoints ?? {}) },
       rules: [...(input.responsive?.rules ?? [])]
+    },
+    generation: {
+      sectionRequests: [...(input.generation?.sectionRequests ?? emptyGeneration.sectionRequests)]
     },
     verification: {
       scores: { ...emptyScores },

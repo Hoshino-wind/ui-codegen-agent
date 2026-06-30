@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   createLayerDoc,
   moveSection,
+  requestSectionRegeneration,
   setSectionVisibility,
   updateImageLayerAsset,
   updateLayerBounds,
@@ -76,6 +77,32 @@ test("setSectionVisibility hides a module without removing its editable layers",
   assert.equal(doc.sections.find((section) => section.id === "proof").visible, undefined);
   assert.equal(next.sections.find((section) => section.id === "proof").visible, false);
   assert.equal(next.layers.find((layer) => layer.id === "metric").content.text, "Trusted by product teams");
+});
+
+test("requestSectionRegeneration queues an operator request without mutating the original LayerDoc", () => {
+  const doc = createLayerDoc({
+    name: "Regeneration controls",
+    canvas: { width: 800, height: 1200 },
+    sections: [
+      { id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 800, height: 400 }, layerIds: ["headline"] }
+    ]
+  });
+
+  const next = requestSectionRegeneration(doc, "hero", {
+    prompt: "Make the hero feel more enterprise-grade while preserving layout.",
+    requestedAt: "2026-06-30T10:00:00.000Z"
+  });
+
+  assert.equal(doc.generation.sectionRequests.length, 0);
+  assert.deepEqual(next.generation.sectionRequests, [
+    {
+      id: "regen-hero-1",
+      sectionId: "hero",
+      prompt: "Make the hero feel more enterprise-grade while preserving layout.",
+      status: "requested",
+      requestedAt: "2026-06-30T10:00:00.000Z"
+    }
+  ]);
 });
 
 test("updateLayerStyle merges controlled visual style without mutating the original LayerDoc", () => {

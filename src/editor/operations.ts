@@ -2,6 +2,10 @@ import type { AssetNode, LayerDoc, LayerNode, LayerStyle, Rect, SectionNode } fr
 
 export type LayerBoundsPatch = Partial<Rect>;
 export type ImageAssetPatch = Pick<Partial<AssetNode>, "uri" | "source">;
+export interface SectionRegenerationRequestInput {
+  prompt: string;
+  requestedAt?: string;
+}
 
 function cloneLayer(layer: LayerNode): LayerNode {
   return {
@@ -38,6 +42,9 @@ function cloneDoc(doc: LayerDoc): LayerDoc {
     responsive: {
       breakpoints: { ...doc.responsive.breakpoints },
       rules: doc.responsive.rules.map((rule) => ({ ...rule, changes: { ...rule.changes } }))
+    },
+    generation: {
+      sectionRequests: doc.generation.sectionRequests.map((request) => ({ ...request }))
     },
     verification: {
       scores: { ...doc.verification.scores },
@@ -182,5 +189,33 @@ export function setSectionVisibility(doc: LayerDoc, sectionId: string, visible: 
   }
 
   section.visible = visible;
+  return next;
+}
+
+/**
+ * Queue a controlled request for an AI worker to regenerate a section later.
+ * The current section remains intact until a generated candidate is reviewed
+ * and applied, which keeps LayerDoc editable and auditable at every step.
+ */
+export function requestSectionRegeneration(doc: LayerDoc, sectionId: string, input: SectionRegenerationRequestInput): LayerDoc {
+  const next = cloneDoc(doc);
+  const section = next.sections.find((candidate) => candidate.id === sectionId);
+  const prompt = input.prompt.trim();
+
+  if (!section) {
+    throw new Error(`Section "${sectionId}" was not found.`);
+  }
+  if (!prompt) {
+    throw new Error("Regeneration prompt must not be empty.");
+  }
+
+  const nextIndex = next.generation.sectionRequests.filter((request) => request.sectionId === sectionId).length + 1;
+  next.generation.sectionRequests.push({
+    id: `regen-${sectionId}-${nextIndex}`,
+    sectionId,
+    prompt,
+    status: "requested",
+    requestedAt: input.requestedAt ?? new Date().toISOString()
+  });
   return next;
 }

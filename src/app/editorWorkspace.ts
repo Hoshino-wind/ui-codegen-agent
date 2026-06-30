@@ -1,9 +1,9 @@
-import { setSectionVisibility, updateImageLayerAsset, updateLayerBounds, updateLayerStyle, updateTextLayer } from "../editor/operations.js";
+import { requestSectionRegeneration, setSectionVisibility, updateImageLayerAsset, updateLayerBounds, updateLayerStyle, updateTextLayer } from "../editor/operations.js";
 import { moveSection } from "../editor/operations.js";
 import { renderHtmlPreview } from "../exporters/htmlPreview.js";
 import { createProjectExportPackage, type ProjectExportPackage } from "../exporters/projectPackage.js";
 import { exportReactTailwind, type ReactTailwindExportResult } from "../exporters/reactTailwind.js";
-import type { ImageAssetPatch, LayerBoundsPatch } from "../editor/operations.js";
+import type { ImageAssetPatch, LayerBoundsPatch, SectionRegenerationRequestInput } from "../editor/operations.js";
 import type { LayerDoc, LayerNode, LayerStyle } from "../layerdoc/types.js";
 import { createVerificationReport, type VerificationReport } from "../verifier/report.js";
 import type { PngSnapshotComparisonResult } from "../verifier/visualDiff.js";
@@ -99,6 +99,17 @@ export function moveWorkspaceSection(workspace: EditorWorkspace, sectionId: stri
 
 export function updateWorkspaceSectionVisibility(workspace: EditorWorkspace, sectionId: string, visible: boolean): EditorWorkspace {
   const nextDoc = setSectionVisibility(workspace.doc, sectionId, visible);
+  const selected = selectedLayerExists(nextDoc, workspace.selectedLayerId) ? workspace.selectedLayerId : firstEditableLayerId(nextDoc);
+  return materialize(nextDoc, selected);
+}
+
+export function requestWorkspaceSectionRegeneration(
+  workspace: EditorWorkspace,
+  sectionId: string,
+  prompt: string,
+  options: Pick<SectionRegenerationRequestInput, "requestedAt"> = {}
+): EditorWorkspace {
+  const nextDoc = requestSectionRegeneration(workspace.doc, sectionId, { prompt, requestedAt: options.requestedAt });
   const selected = selectedLayerExists(nextDoc, workspace.selectedLayerId) ? workspace.selectedLayerId : firstEditableLayerId(nextDoc);
   return materialize(nextDoc, selected);
 }

@@ -29,6 +29,13 @@ function isLayerDocCandidate(value: unknown): value is LayerDoc {
   );
 }
 
+function normalizeLayerDocCandidate(doc: LayerDoc): LayerDoc {
+  return {
+    ...doc,
+    generation: doc.generation ?? { sectionRequests: [] }
+  };
+}
+
 function parseLayerDocJson(contents: string): LayerDoc {
   let parsed: unknown;
   try {
@@ -42,13 +49,14 @@ function parseLayerDocJson(contents: string): LayerDoc {
     throw new Error("Input file is not a LayerDoc 0.1.0 document.");
   }
 
-  const validation = validateLayerDoc(parsed);
+  const doc = normalizeLayerDocCandidate(parsed);
+  const validation = validateLayerDoc(doc);
   if (!validation.valid) {
     const messages = validation.issues.map((issue) => `${issue.path}: ${issue.message}`).join(" ");
     throw new Error(`LayerDoc validation failed: ${messages}`);
   }
 
-  return parsed;
+  return doc;
 }
 
 export function createWorkspaceFromLayerDocJson(contents: string): EditorWorkspace {

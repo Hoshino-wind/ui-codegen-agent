@@ -39,7 +39,8 @@ export function validateLayerDoc(doc: LayerDoc): ValidationResult {
     ...doc.sections.map((section) => section.id),
     ...doc.layers.map((layer) => layer.id),
     ...doc.assets.map((asset) => asset.id),
-    ...doc.components.map((component) => component.id)
+    ...doc.components.map((component) => component.id),
+    ...doc.generation.sectionRequests.map((request) => request.id)
   ]);
 
   for (const id of duplicateIds) {
@@ -79,6 +80,18 @@ export function validateLayerDoc(doc: LayerDoc): ValidationResult {
 
     if (layer.track === "asset" && (!layer.assetId || !assetIds.has(layer.assetId))) {
       issues.push(issue("asset_missing", `${path}.assetId`, `Asset layer "${layer.id}" does not point at a known asset.`));
+    }
+  }
+
+  for (const [index, request] of doc.generation.sectionRequests.entries()) {
+    if (!sectionIds.has(request.sectionId)) {
+      issues.push(
+        issue(
+          "section_missing",
+          `generation.sectionRequests[${index}].sectionId`,
+          `Regeneration request "${request.id}" references missing section "${request.sectionId}".`
+        )
+      );
     }
   }
 

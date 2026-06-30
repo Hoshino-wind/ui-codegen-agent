@@ -15,6 +15,15 @@ test("createWorkspaceFromLayerDocJson imports a valid LayerDoc into the editor w
   assert.match(workspace.reactExport.code, /export function ProductionHomepage/);
 });
 
+test("createWorkspaceFromLayerDocJson normalizes older LayerDoc JSON without generation state", () => {
+  const doc = createSampleHomepageLayerDoc();
+  delete doc.generation;
+
+  const workspace = createWorkspaceFromLayerDocJson(JSON.stringify(doc));
+
+  assert.deepEqual(workspace.doc.generation.sectionRequests, []);
+});
+
 test("createWorkspaceFromLayerDocJson rejects malformed or invalid LayerDoc JSON", () => {
   assert.throws(() => createWorkspaceFromLayerDocJson("{bad json"), /LayerDoc JSON could not be parsed/);
   assert.throws(() => createWorkspaceFromLayerDocJson(JSON.stringify({ schema: "html" })), /Input file is not a LayerDoc 0.1.0 document/);

@@ -5,6 +5,7 @@ import {
   applyWorkspaceVisualDiff,
   createEditorWorkspace,
   moveWorkspaceSection,
+  requestWorkspaceSectionRegeneration,
   selectWorkspaceLayer,
   updateWorkspaceSectionVisibility,
   updateSelectedBounds,
@@ -110,6 +111,21 @@ test("updateWorkspaceSectionVisibility refreshes preview and export from the Lay
   assert.doesNotMatch(next.previewHtml, /proof-title/);
   assert.doesNotMatch(next.reactExport.code, /data-section-id="proof"/);
   assert.match(next.projectExport.files.find((file) => file.path === "layerdoc.json").contents, /"visible": false/);
+});
+
+test("requestWorkspaceSectionRegeneration refreshes the project package with a queued section task", () => {
+  const workspace = createEditorWorkspace(createSampleHomepageLayerDoc());
+  const next = requestWorkspaceSectionRegeneration(workspace, "hero", "Regenerate the hero with a stronger SaaS product story.", {
+    requestedAt: "2026-06-30T10:05:00.000Z"
+  });
+  const layerDocFile = next.projectExport.files.find((file) => file.path === "layerdoc.json");
+
+  assert.equal(next.doc.generation.sectionRequests.length, 1);
+  assert.equal(next.doc.generation.sectionRequests[0].sectionId, "hero");
+  assert.match(layerDocFile.contents, /"sectionId": "hero"/);
+  assert.match(layerDocFile.contents, /Regenerate the hero/);
+  assert.equal(next.previewHtml, workspace.previewHtml);
+  assert.equal(next.reactExport.code, workspace.reactExport.code);
 });
 
 test("updateSelectedBounds patches selected layer geometry and refreshes preview output", () => {

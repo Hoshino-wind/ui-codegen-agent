@@ -110,6 +110,18 @@ export interface ResponsiveRule {
   changes: Record<string, unknown>;
 }
 
+export interface SectionRegenerationRequest {
+  id: string;
+  sectionId: string;
+  prompt: string;
+  status: "requested" | "running" | "applied" | "rejected";
+  requestedAt: string;
+}
+
+export interface GenerationState {
+  sectionRequests: SectionRegenerationRequest[];
+}
+
 export interface VerificationScores {
   visualSimilarity: number | null;
   structureScore: number | null;
@@ -135,6 +147,7 @@ export interface LayerDoc {
     breakpoints: Record<string, string>;
     rules: ResponsiveRule[];
   };
+  generation: GenerationState;
   verification: {
     scores: VerificationScores;
     issues: VerificationIssue[];
@@ -151,6 +164,7 @@ export interface CreateLayerDocInput {
   components?: ComponentNode[];
   interactions?: InteractionNode[];
   responsive?: Partial<LayerDoc["responsive"]>;
+  generation?: Partial<GenerationState>;
 }
 
 export type VerificationIssueCode =
