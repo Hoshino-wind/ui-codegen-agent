@@ -6,6 +6,7 @@ import {
   addHeroAnnotationSet,
   buildWorkspaceFromIntake,
   createIntakeWorkspace,
+  createIntakeWorkspaceFromAnalysisPlanJson,
   materializeReferenceCropAssets,
   selectIntakeLayer,
   selectIntakeSection,
@@ -25,6 +26,59 @@ test("createIntakeWorkspace creates an eight-section analysis plan from source i
   assert.equal(intake.layerCount, 0);
   assert.equal(intake.ready, true);
   assert.deepEqual(intake.issues, []);
+});
+
+test("createIntakeWorkspaceFromAnalysisPlanJson imports a saved plan for the current PNG", () => {
+  const sourceImage = {
+    uri: "/uploads/homepage.png",
+    width: 1440,
+    height: 1760
+  };
+  const original = addManualAnalysisLayer(createIntakeWorkspace(sourceImage), { kind: "text" });
+
+  const imported = createIntakeWorkspaceFromAnalysisPlanJson(sourceImage, JSON.stringify(original.analysisPlan));
+
+  assert.equal(imported.analysisPlan.name, original.analysisPlan.name);
+  assert.equal(imported.layerCount, 1);
+  assert.equal(imported.ready, true);
+  assert.equal(imported.selectedSectionId, "hero");
+  assert.equal(imported.selectedLayerId, "hero-text-1");
+});
+
+test("createIntakeWorkspaceFromAnalysisPlanJson rejects plans for a different PNG canvas", () => {
+  const sourceImage = {
+    uri: "/uploads/homepage.png",
+    width: 1440,
+    height: 1760
+  };
+  const original = createIntakeWorkspace(sourceImage);
+  const mismatchedPlan = {
+    ...original.analysisPlan,
+    canvas: { ...original.analysisPlan.canvas, width: 1200 }
+  };
+
+  assert.throws(
+    () => createIntakeWorkspaceFromAnalysisPlanJson(sourceImage, JSON.stringify(mismatchedPlan)),
+    /Analysis Plan canvas 1200x1760 must match source image 1440x1760/
+  );
+});
+
+test("createIntakeWorkspaceFromAnalysisPlanJson rejects malformed plan sections", () => {
+  const sourceImage = {
+    uri: "/uploads/homepage.png",
+    width: 1440,
+    height: 1760
+  };
+  const original = createIntakeWorkspace(sourceImage);
+  const malformedPlan = {
+    ...original.analysisPlan,
+    sections: [{ id: "hero", name: "Hero" }]
+  };
+
+  assert.throws(
+    () => createIntakeWorkspaceFromAnalysisPlanJson(sourceImage, JSON.stringify(malformedPlan)),
+    /Input file is not a Homepage Analysis Plan/
+  );
 });
 
 test("addHeroAnnotationSet adds editable hero layers without mutating the original intake workspace", () => {

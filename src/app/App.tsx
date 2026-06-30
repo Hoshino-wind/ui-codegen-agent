@@ -42,6 +42,7 @@ import {
   addManualAnalysisLayer,
   buildWorkspaceFromIntake,
   createIntakeWorkspace,
+  createIntakeWorkspaceFromAnalysisPlanJson,
   materializeReferenceCropAssets,
   selectIntakeLayer,
   selectIntakeSection,
@@ -778,6 +779,7 @@ function AnalysisPlanPanel({
   onChange,
   onBuild,
   onDownloadPlan,
+  onUploadPlan,
   onUploadFile,
   uploadError
 }: {
@@ -785,6 +787,7 @@ function AnalysisPlanPanel({
   onChange: (workspace: IntakeWorkspace) => void;
   onBuild: () => void | Promise<void>;
   onDownloadPlan: () => void;
+  onUploadPlan: (file: File) => void;
   onUploadFile: (file: File) => void;
   uploadError: string | null;
 }) {
@@ -943,6 +946,23 @@ function AnalysisPlanPanel({
         ) : null}
       </div>
       <div className="analysis-actions">
+        <label className="analysis-file-action">
+          <input
+            aria-label="Load Analysis Plan JSON"
+            accept="application/json,.json"
+            className="file-input-hidden"
+            type="file"
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              if (file) {
+                onUploadPlan(file);
+                event.currentTarget.value = "";
+              }
+            }}
+          />
+          <Upload size={13} />
+          Load Analysis Plan
+        </label>
         <button type="button" onClick={onDownloadPlan}>
           <Download size={13} />
           Save Analysis Plan
@@ -1136,6 +1156,19 @@ export function App() {
     }
   }
 
+  async function importAnalysisPlanFile(file: File) {
+    try {
+      const nextIntake = createIntakeWorkspaceFromAnalysisPlanJson(intake.sourceImage, await file.text());
+      setIntake(nextIntake);
+      setUploadError(null);
+      setLastAction(`Loaded Analysis Plan: ${file.name}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to import Analysis Plan.";
+      setUploadError(message);
+      setLastAction("Analysis Plan import failed");
+    }
+  }
+
   function downloadArtifact(artifact: LayerDocDownloadArtifact) {
     triggerBrowserDownload(artifact);
   }
@@ -1304,6 +1337,7 @@ export function App() {
           onChange={updateIntake}
           onBuild={buildFromAnalysisPlan}
           onDownloadPlan={saveAnalysisPlanFile}
+          onUploadPlan={(file) => void importAnalysisPlanFile(file)}
           onUploadFile={(file) => void importPngFile(file)}
           uploadError={uploadError}
         />

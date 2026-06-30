@@ -28,6 +28,13 @@ test("app shell exposes Analysis Plan save action", () => {
   assert.match(source, /createAnalysisPlanDownload/);
 });
 
+test("app shell exposes Analysis Plan load action", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /Load Analysis Plan/);
+  assert.match(source, /createIntakeWorkspaceFromAnalysisPlanJson/);
+});
+
 test("app shell exposes a project package export action", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 
