@@ -545,11 +545,13 @@ function validateLayerDoc(doc) {
   const assets = Array.isArray(doc?.assets) ? doc.assets : [];
   const components = Array.isArray(doc?.components) ? doc.components : [];
   const interactions = Array.isArray(doc?.interactions) ? doc.interactions : [];
+  const responsiveRules = Array.isArray(doc?.responsive?.rules) ? doc.responsive.rules : [];
   const sectionRequests = Array.isArray(doc?.generation?.sectionRequests) ? doc.generation.sectionRequests : [];
   const canvas = doc?.canvas ?? {};
 
   const sectionIds = new Set(sections.map((section) => section.id));
   const layerIds = new Set(layers.map((layer) => layer.id));
+  const componentIds = new Set(components.map((component) => component.id));
   const sectionsById = new Map(sections.map((section) => [section.id, section]));
   const layersById = new Map(layers.map((layer) => [layer.id, layer]));
   const assetIds = new Set(assets.map((asset) => asset.id));
@@ -559,6 +561,7 @@ function validateLayerDoc(doc) {
     ...assets.map((asset) => asset.id),
     ...components.map((component) => component.id),
     ...interactions.map((interaction) => interaction.id),
+    ...responsiveRules.map((rule) => rule.id),
     ...sectionRequests.map((request) => request.id)
   ])) {
     issues.push(issue("duplicate_id", id, \`Duplicate id "\${id}" appears in the LayerDoc graph.\`));
@@ -626,6 +629,22 @@ function validateLayerDoc(doc) {
   for (const [index, interaction] of interactions.entries()) {
     if (!layerIds.has(interaction.layerId)) {
       issues.push(issue("layer_missing", \`interactions[\${index}].layerId\`, \`Interaction "\${interaction.id}" references missing layer "\${interaction.layerId}".\`));
+    }
+  }
+
+  for (const [index, rule] of responsiveRules.entries()) {
+    const target = rule.target;
+    const targetExists =
+      (target?.type === "section" && sectionIds.has(target.id)) ||
+      (target?.type === "layer" && layerIds.has(target.id)) ||
+      (target?.type === "component" && componentIds.has(target.id));
+
+    if (!targetExists) {
+      issues.push(issue(
+        "responsive_target_missing",
+        \`responsive.rules[\${index}].target.id\`,
+        \`Responsive rule "\${rule.id}" targets missing \${target?.type ?? "object"} "\${target?.id ?? "unknown"}".\`
+      ));
     }
   }
 

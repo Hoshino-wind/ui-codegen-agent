@@ -160,6 +160,16 @@ test("createProjectExportPackage returns project-ready files derived from one La
     layerDocSchema.properties.verification.properties.issues.items.properties.code.enum.includes("layer_section_mismatch"),
     true
   );
+  assert.equal(
+    layerDocSchema.properties.verification.properties.issues.items.properties.code.enum.includes("responsive_target_missing"),
+    true
+  );
+  assert.equal(layerDocSchema.properties.responsive.properties.rules.items.required.includes("target"), true);
+  assert.deepEqual(layerDocSchema.properties.responsive.properties.rules.items.properties.target.properties.type.enum, [
+    "section",
+    "layer",
+    "component"
+  ]);
   assert.match(output.files.find((file) => file.path === "layerdoc-audit.json").contents, /"assetCompliance"/);
   assert.match(output.files.find((file) => file.path === "verification-report.json").contents, /"structureScore": 100/);
   assert.match(output.files.find((file) => file.path === "verification-report.json").contents, /"evidence"/);
@@ -290,6 +300,29 @@ test("exported LayerDoc verifier script rejects mismatched section membership", 
   assert.notEqual(failed.status, 0);
   assert.match(failed.stdout, /layer_section_mismatch/);
   assert.match(failed.stdout, /layers\[1\]\.sectionId/);
+});
+
+test("exported LayerDoc verifier script rejects missing responsive rule targets", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-responsive-verifier-"));
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const layerDocPath = join(directory, "layerdoc.json");
+  const layerDoc = JSON.parse(readFileSync(layerDocPath, "utf8"));
+  layerDoc.responsive.rules = [
+    {
+      id: "mobile-cta",
+      query: "(max-width: 640px)",
+      target: { type: "layer", id: "missing-cta" },
+      changes: { bounds: { width: 280 } }
+    }
+  ];
+  writeFileSync(layerDocPath, `${JSON.stringify(layerDoc, null, 2)}\n`);
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-layerdoc.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /responsive_target_missing/);
+  assert.match(failed.stdout, /responsive\.rules\[0\]\.target\.id/);
 });
 
 test("exported preview verifier script updates the handoff report from candidate screenshots", () => {

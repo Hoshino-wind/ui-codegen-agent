@@ -104,9 +104,15 @@ export interface InteractionNode {
   action: string;
 }
 
+export interface ResponsiveTarget {
+  type: "section" | "layer" | "component";
+  id: string;
+}
+
 export interface ResponsiveRule {
   id: string;
   query: string;
+  target: ResponsiveTarget;
   changes: Record<string, unknown>;
 }
 
@@ -174,6 +180,7 @@ export type VerificationIssueCode =
   | "duplicate_id"
   | "layer_missing"
   | "layer_section_mismatch"
+  | "responsive_target_missing"
   | "section_empty"
   | "section_missing"
   | "track_mismatch";

@@ -152,6 +152,52 @@ test("validateLayerDoc rejects mismatched section layer membership", () => {
   );
 });
 
+test("validateLayerDoc rejects responsive rules that target missing objects", () => {
+  const doc = createLayerDoc({
+    name: "Responsive target mismatch",
+    canvas: { width: 320, height: 240 },
+    sections: [{ id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 320, height: 240 }, layerIds: ["headline"] }],
+    layers: [
+      {
+        id: "headline",
+        sectionId: "hero",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 20, y: 20, width: 180, height: 32 },
+        content: { text: "Hello" }
+      }
+    ],
+    responsive: {
+      rules: [
+        {
+          id: "mobile-cta",
+          query: "(max-width: 640px)",
+          target: { type: "layer", id: "cta" },
+          changes: { bounds: { width: 280 } }
+        },
+        {
+          id: "mobile-pricing",
+          query: "(max-width: 640px)",
+          target: { type: "component", id: "PricingSection" },
+          changes: { visible: false }
+        }
+      ]
+    }
+  });
+
+  const result = validateLayerDoc(doc);
+
+  assert.equal(result.valid, false);
+  assert.deepEqual(
+    result.issues.map((issue) => [issue.code, issue.path]),
+    [
+      ["responsive_target_missing", "responsive.rules[0].target.id"],
+      ["responsive_target_missing", "responsive.rules[1].target.id"]
+    ]
+  );
+});
+
 test("validateLayerDoc rejects regeneration requests for missing sections", () => {
   const doc = createLayerDoc({
     name: "Broken regeneration",

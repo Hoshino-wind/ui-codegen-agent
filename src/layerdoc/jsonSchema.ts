@@ -44,6 +44,7 @@ const verificationIssueSchema = {
         "duplicate_id",
         "layer_missing",
         "layer_section_mismatch",
+        "responsive_target_missing",
         "section_empty",
         "section_missing",
         "track_mismatch"
@@ -231,11 +232,20 @@ export function createLayerDocJsonSchema(): Record<string, unknown> {
             type: "array",
             items: {
               type: "object",
-              required: ["id", "query", "changes"],
+              required: ["id", "query", "target", "changes"],
               additionalProperties: false,
               properties: {
                 id: { type: "string", minLength: 1 },
                 query: { type: "string" },
+                target: {
+                  type: "object",
+                  required: ["type", "id"],
+                  additionalProperties: false,
+                  properties: {
+                    type: { enum: ["section", "layer", "component"] },
+                    id: { type: "string", minLength: 1 }
+                  }
+                },
                 changes: { type: "object" }
               }
             }

@@ -34,6 +34,7 @@ export function validateLayerDoc(doc: LayerDoc): ValidationResult {
   const issues: VerificationIssue[] = [];
   const sectionIds = new Set(doc.sections.map((section) => section.id));
   const layerIds = new Set(doc.layers.map((layer) => layer.id));
+  const componentIds = new Set(doc.components.map((component) => component.id));
   const sectionsById = new Map(doc.sections.map((section) => [section.id, section]));
   const layersById = new Map(doc.layers.map((layer) => [layer.id, layer]));
   const assetIds = new Set(doc.assets.map((asset) => asset.id));
@@ -43,6 +44,7 @@ export function validateLayerDoc(doc: LayerDoc): ValidationResult {
     ...doc.assets.map((asset) => asset.id),
     ...doc.components.map((component) => component.id),
     ...doc.interactions.map((interaction) => interaction.id),
+    ...doc.responsive.rules.map((rule) => rule.id),
     ...doc.generation.sectionRequests.map((request) => request.id)
   ]);
 
@@ -127,6 +129,24 @@ export function validateLayerDoc(doc: LayerDoc): ValidationResult {
           "layer_missing",
           `interactions[${index}].layerId`,
           `Interaction "${interaction.id}" references missing layer "${interaction.layerId}".`
+        )
+      );
+    }
+  }
+
+  for (const [index, rule] of doc.responsive.rules.entries()) {
+    const target = rule.target;
+    const targetExists =
+      (target?.type === "section" && sectionIds.has(target.id)) ||
+      (target?.type === "layer" && layerIds.has(target.id)) ||
+      (target?.type === "component" && componentIds.has(target.id));
+
+    if (!targetExists) {
+      issues.push(
+        issue(
+          "responsive_target_missing",
+          `responsive.rules[${index}].target.id`,
+          `Responsive rule "${rule.id}" targets missing ${target?.type ?? "object"} "${target?.id ?? "unknown"}".`
         )
       );
     }
