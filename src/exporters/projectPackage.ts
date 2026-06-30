@@ -446,6 +446,26 @@ function sourceHasAttributeToken(source, attribute, expected) {
   return false;
 }
 
+function sourceHasAttributeValue(source, attribute, expected) {
+  const marker = \`\${attribute}="\`;
+  let start = source.indexOf(marker);
+  while (start !== -1) {
+    const valueStart = start + marker.length;
+    const valueEnd = source.indexOf('"', valueStart);
+    if (valueEnd === -1) {
+      return false;
+    }
+
+    if (source.slice(valueStart, valueEnd) === String(expected)) {
+      return true;
+    }
+
+    start = source.indexOf(marker, valueEnd + 1);
+  }
+
+  return false;
+}
+
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -523,6 +543,14 @@ function interactionMetadata(contract) {
     { path: \`interactions[\${index}].event\`, attribute: "data-interaction-events", value: interaction.event },
     { path: \`interactions[\${index}].action\`, attribute: "data-interaction-actions", value: interaction.action }
   ]).filter((entry) => typeof entry.value === "string" && entry.value.length > 0);
+}
+
+function assetUriRequirements(contract) {
+  return (contract.assets ?? []).map((asset, index) => ({
+    path: \`assets[\${index}].uri\`,
+    uri: asset.uri,
+    used: Array.isArray(asset.usedByLayerIds) && asset.usedByLayerIds.length > 0
+  })).filter((entry) => entry.used && typeof entry.uri === "string" && entry.uri.length > 0);
 }
 
 function responsiveCssRequirements(contract) {
@@ -662,6 +690,15 @@ try {
       ));
     }
   }
+  for (const entry of assetUriRequirements(contract)) {
+    if (!sourceHasAttributeValue(componentSource, "src", entry.uri)) {
+      issues.push(issue(
+        "project_asset_uri_missing",
+        entry.path,
+        \`Project file \${componentPath} does not contain asset src \${entry.uri}.\`
+      ));
+    }
+  }
   for (const entry of responsiveCssRequirements(contract)) {
     if (!componentSource.includes(entry.fragment)) {
       issues.push(issue(
@@ -699,6 +736,15 @@ try {
         "preview_selector_missing",
         entry.path,
         \`Preview file \${previewPath} does not contain selector \${entry.selector}.\`
+      ));
+    }
+  }
+  for (const entry of assetUriRequirements(contract)) {
+    if (!sourceHasAttributeValue(previewSource, "src", entry.uri)) {
+      issues.push(issue(
+        "preview_asset_uri_missing",
+        entry.path,
+        \`Preview file \${previewPath} does not contain asset src \${entry.uri}.\`
       ));
     }
   }

@@ -80,6 +80,28 @@ function createInteractiveExportDoc() {
   });
 }
 
+function createAssetExportDoc() {
+  return createLayerDoc({
+    name: "Asset Homepage",
+    canvas: { width: 1440, height: 900, background: "#ffffff" },
+    sections: [{ id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 1440, height: 900 }, layerIds: ["hero-image"] }],
+    components: [{ id: "HeroSection", layerIds: ["hero-image"], exportable: true }],
+    assets: [{ id: "hero-crop", type: "image", source: "reference-crop", uri: "/assets/hero-crop.png" }],
+    layers: [
+      {
+        id: "hero-image",
+        sectionId: "hero",
+        kind: "image",
+        track: "asset",
+        editable: true,
+        bounds: { x: 120, y: 120, width: 480, height: 320 },
+        assetId: "hero-crop",
+        content: { alt: "Hero crop" }
+      }
+    ]
+  });
+}
+
 function writeSolidPng(filePath, width, height, color, edits = []) {
   const png = new PNG({ width, height });
 
@@ -217,6 +239,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /integration-contract\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_interaction_metadata_missing/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_responsive_css_missing/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_asset_uri_missing/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-layerdoc.mjs").contents, /layerdoc\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /preview\.html/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /verification-report\.json/);
@@ -376,6 +399,38 @@ test("exported integration contract verifier checks preview responsive CSS", () 
   assert.match(failed.stdout, /preview_responsive_css_missing/);
   assert.match(failed.stdout, /preview\.html/);
   assert.match(failed.stdout, /left:24px !important/);
+});
+
+test("exported integration contract verifier checks project asset URIs", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-asset-uri-verifier-"));
+  const output = createProjectExportPackage(createAssetExportDoc(), { componentName: "AssetHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const componentPath = join(directory, "src", "AssetHomepage.tsx");
+  const componentSource = readFileSync(componentPath, "utf8");
+  writeFileSync(componentPath, componentSource.replace('src="/assets/hero-crop.png"', 'src="/assets/stale-hero.png"'));
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /project_asset_uri_missing/);
+  assert.match(failed.stdout, /src\/AssetHomepage\.tsx/);
+  assert.match(failed.stdout, /\/assets\/hero-crop\.png/);
+});
+
+test("exported integration contract verifier checks preview asset URIs", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-preview-asset-uri-verifier-"));
+  const output = createProjectExportPackage(createAssetExportDoc(), { componentName: "AssetHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const previewPath = join(directory, "preview.html");
+  const previewSource = readFileSync(previewPath, "utf8");
+  writeFileSync(previewPath, previewSource.replace('src="/assets/hero-crop.png"', 'src="/assets/stale-hero.png"'));
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /preview_asset_uri_missing/);
+  assert.match(failed.stdout, /preview\.html/);
+  assert.match(failed.stdout, /\/assets\/hero-crop\.png/);
 });
 
 test("exported LayerDoc verifier script validates the editable source graph", () => {
