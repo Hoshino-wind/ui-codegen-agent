@@ -48,6 +48,7 @@ test("app shell exposes quality gate status in the verifier surface", () => {
 
   assert.match(source, /evaluateVerificationGates/);
   assert.match(source, /assetCompliance: workspace\.audit\.assetCompliance/);
+  assert.match(source, /editableCoverage: workspace\.audit\.editableCoverage/);
   assert.match(source, /quality-gate-summary/);
   assert.match(source, /Quality gate/);
 });

@@ -463,6 +463,10 @@ if (audit.assetCompliance?.passed === false) {
   failures.push(\`asset_compliance failed: \${detail}\`);
 }
 
+if (Array.isArray(audit.editableCoverage?.sectionsWithoutEditableLayers) && audit.editableCoverage.sectionsWithoutEditableLayers.length > 0) {
+  failures.push(\`editable_coverage failed: visible sections without editable layers: \${audit.editableCoverage.sectionsWithoutEditableLayers.join(", ")}\`);
+}
+
 const result = {
   passed: failures.length === 0,
   failures,

@@ -78,7 +78,10 @@ The repository currently implements the core LayerDoc domain layer:
   commands so CI or downstream importers can consume the package without
   scraping README text.
 - Verify that exported integration contracts still match the LayerDoc source, generated project selectors, preview selectors, section order, layer bounds, layer style, layer copy, asset URIs, responsive CSS, and interaction metadata.
-- Enforce Studio and exported quality gates against verifier scores and LayerDoc asset-compliance audit results, including full-page and section-sized bitmap shortcut risks.
+- Enforce Studio and exported quality gates against verifier scores, LayerDoc
+  asset-compliance audit results, and visible-section editable coverage,
+  including full-page bitmap, section-sized bitmap, and visual-only section
+  risks.
 - Report editable coverage at the visible-section level so reviewers can catch
   visual-only page regions even when the overall layer count looks healthy.
 - Compare reference and candidate PNG screenshots and write a pixel diff image.

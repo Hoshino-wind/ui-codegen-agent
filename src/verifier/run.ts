@@ -56,7 +56,10 @@ export function runLayerDocVerification(input: RunLayerDocVerificationInput): La
     visualEvidence: input.visualEvidence ?? verificationVisualEvidence.imageData
   });
   const audit = createLayerDocAudit(input.doc);
-  const gateResult = evaluateVerificationGates(report, input.gates, { assetCompliance: audit.assetCompliance });
+  const gateResult = evaluateVerificationGates(report, input.gates, {
+    assetCompliance: audit.assetCompliance,
+    editableCoverage: audit.editableCoverage
+  });
 
   return {
     report,

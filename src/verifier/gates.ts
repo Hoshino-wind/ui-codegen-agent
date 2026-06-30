@@ -1,5 +1,5 @@
 import type { VerificationReport } from "./report.js";
-import type { LayerDocAssetCompliance } from "../layerdoc/audit.js";
+import type { LayerDocAssetCompliance, LayerDocEditableCoverage } from "../layerdoc/audit.js";
 
 export interface VerificationGates {
   visualSimilarity: number;
@@ -16,6 +16,7 @@ export interface VerificationGateResult {
 
 export interface VerificationGateContext {
   assetCompliance?: Pick<LayerDocAssetCompliance, "passed" | "findings">;
+  editableCoverage?: Pick<LayerDocEditableCoverage, "sectionsWithoutEditableLayers">;
 }
 
 export const defaultVerificationGates: VerificationGates = {
@@ -57,6 +58,12 @@ export function evaluateVerificationGates(
     const findings = context.assetCompliance.findings ?? [];
     const detail = findings.length > 0 ? findings.join(" ") : "asset compliance audit did not pass";
     failures.push(`asset_compliance failed: ${detail}`);
+  }
+
+  if ((context.editableCoverage?.sectionsWithoutEditableLayers.length ?? 0) > 0) {
+    failures.push(
+      `editable_coverage failed: visible sections without editable layers: ${context.editableCoverage?.sectionsWithoutEditableLayers.join(", ")}`
+    );
   }
 
   return {

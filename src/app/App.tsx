@@ -982,7 +982,10 @@ function VerifierStrip({
   const visualEvidence = workspace.report.evidence.visual;
   const candidateLabel = visualEvidence.kind === "layerdoc-raster" ? "LayerDoc raster fallback" : "HTML preview screenshot";
   const problemAreas = visualDiff?.problemAreas ?? [];
-  const gateResult = evaluateVerificationGates(workspace.report, {}, { assetCompliance: workspace.audit.assetCompliance });
+  const gateResult = evaluateVerificationGates(workspace.report, {}, {
+    assetCompliance: workspace.audit.assetCompliance,
+    editableCoverage: workspace.audit.editableCoverage
+  });
   const scores = [
     ["visual_similarity", workspace.report.visualSimilarity, 85],
     ["structure_score", workspace.report.structureScore, 90],

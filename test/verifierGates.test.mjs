@@ -69,3 +69,22 @@ test("evaluateVerificationGates blocks failed asset compliance audits", () => {
   assert.equal(result.passed, false);
   assert.deepEqual(result.failures, ["asset_compliance failed: Potential full-page bitmap shortcut: asset coverage is 1."]);
 });
+
+test("evaluateVerificationGates blocks visible sections without editable layers", () => {
+  const result = evaluateVerificationGates(
+    passingReport,
+    {},
+    {
+      editableCoverage: {
+        visibleSections: 2,
+        sectionsWithEditableLayers: 1,
+        editableSectionRatio: 0.5,
+        editableLayerRatio: 0.5,
+        sectionsWithoutEditableLayers: ["visual-only"]
+      }
+    }
+  );
+
+  assert.equal(result.passed, false);
+  assert.deepEqual(result.failures, ["editable_coverage failed: visible sections without editable layers: visual-only"]);
+});

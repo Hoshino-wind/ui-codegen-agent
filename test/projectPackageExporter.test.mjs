@@ -1067,3 +1067,57 @@ test("exported quality gate script rejects section bitmap audit failures", () =>
   assert.match(failed.stdout, /asset_compliance failed/);
   assert.match(failed.stdout, /section bitmap shortcut/i);
 });
+
+test("exported quality gate script rejects visible sections without editable layers", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-editable-coverage-gates-"));
+  const doc = createLayerDoc({
+    name: "Visual Only Section",
+    canvas: { width: 1000, height: 900 },
+    sections: [
+      { id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 1000, height: 450 }, layerIds: ["headline"] },
+      { id: "gallery", name: "Gallery", bounds: { x: 0, y: 450, width: 1000, height: 450 }, layerIds: ["gallery-shot"] }
+    ],
+    assets: [{ id: "gallery-shot-asset", type: "image", source: "uploaded", bounds: { x: 80, y: 520, width: 280, height: 160 } }],
+    layers: [
+      {
+        id: "headline",
+        sectionId: "hero",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 80, y: 120, width: 420, height: 64 },
+        content: { text: "Editable hero" }
+      },
+      {
+        id: "gallery-shot",
+        sectionId: "gallery",
+        kind: "image",
+        track: "asset",
+        editable: false,
+        bounds: { x: 80, y: 520, width: 280, height: 160 },
+        assetId: "gallery-shot-asset"
+      }
+    ]
+  });
+  const perfectReport = {
+    ...createVerificationReport(doc, { visualSimilarity: 100 }),
+    structureScore: 100,
+    componentScore: 100,
+    projectFitScore: 100,
+    issues: []
+  };
+  const output = createProjectExportPackage(doc, {
+    componentName: "VisualOnlySection",
+    report: perfectReport
+  });
+  writeProjectExportPackage(output, directory);
+
+  const audit = JSON.parse(readFileSync(join(directory, "layerdoc-audit.json"), "utf8"));
+  assert.deepEqual(audit.editableCoverage.sectionsWithoutEditableLayers, ["gallery"]);
+  assert.equal(audit.assetCompliance.passed, true);
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-gates.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /editable_coverage failed/);
+  assert.match(failed.stdout, /gallery/);
+});

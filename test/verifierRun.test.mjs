@@ -153,5 +153,8 @@ test("runLayerDocVerification blocks full-page bitmap audit failures", () => {
 
   assert.equal(run.report.visualSimilarity, 100);
   assert.equal(run.passed, false);
-  assert.deepEqual(run.failures, ["asset_compliance failed: Potential full-page bitmap shortcut: asset coverage is 1."]);
+  assert.deepEqual(run.failures, [
+    "asset_compliance failed: Potential full-page bitmap shortcut: asset coverage is 1.",
+    "editable_coverage failed: visible sections without editable layers: page"
+  ]);
 });
