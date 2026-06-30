@@ -39,16 +39,32 @@ function selectedLayerExists(doc: LayerDoc, layerId: string): boolean {
   return doc.layers.some((layer) => layer.id === layerId);
 }
 
+function docWithVerificationReport(doc: LayerDoc, report: VerificationReport): LayerDoc {
+  return {
+    ...doc,
+    verification: {
+      scores: {
+        visualSimilarity: report.visualSimilarity,
+        structureScore: report.structureScore,
+        componentScore: report.componentScore,
+        projectFitScore: report.projectFitScore
+      },
+      issues: report.issues.map((issue) => ({ ...issue }))
+    }
+  };
+}
+
 function materialize(doc: LayerDoc, selectedLayerId: string): EditorWorkspace {
   const report = createVerificationReport(doc);
-  const audit = createLayerDocAudit(doc);
+  const verifiedDoc = docWithVerificationReport(doc, report);
+  const audit = createLayerDocAudit(verifiedDoc);
 
   return {
-    doc,
+    doc: verifiedDoc,
     selectedLayerId,
-    previewHtml: renderHtmlPreview(doc),
-    reactExport: exportReactTailwind(doc, { componentName: "ProductionHomepage" }),
-    projectExport: createProjectExportPackage(doc, { componentName: "ProductionHomepage", report }),
+    previewHtml: renderHtmlPreview(verifiedDoc),
+    reactExport: exportReactTailwind(verifiedDoc, { componentName: "ProductionHomepage" }),
+    projectExport: createProjectExportPackage(verifiedDoc, { componentName: "ProductionHomepage", report }),
     report,
     audit
   };
@@ -79,11 +95,13 @@ export function applyWorkspaceVisualDiff(
   visualEvidence?: VerificationVisualEvidence
 ): EditorWorkspace {
   const report = createVerificationReport(workspace.doc, { visualDiff, visualEvidence });
+  const verifiedDoc = docWithVerificationReport(workspace.doc, report);
 
   return {
     ...workspace,
+    doc: verifiedDoc,
     report,
-    projectExport: createProjectExportPackage(workspace.doc, { componentName: "ProductionHomepage", report })
+    projectExport: createProjectExportPackage(verifiedDoc, { componentName: "ProductionHomepage", report })
   };
 }
 

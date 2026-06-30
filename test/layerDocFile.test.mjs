@@ -9,6 +9,7 @@ import {
   createVerificationReportDownload,
   createWorkspaceFromLayerDocJson
 } from "../dist/app/layerDocFile.js";
+import { applyWorkspaceVisualDiff } from "../dist/app/editorWorkspace.js";
 import { createSampleHomepageLayerDoc } from "../dist/app/sampleDocument.js";
 
 function readUInt16LE(bytes, offset) {
@@ -90,6 +91,27 @@ test("createLayerDocDownload serializes the current editable LayerDoc as a stabl
   assert.equal(parsed.layers.length, doc.layers.length);
   assert.match(artifact.contents, /"schema": "layerdoc"/);
   assert.equal(artifact.contents.endsWith("\n"), true);
+});
+
+test("createLayerDocDownload serializes verifier scores stored on the current LayerDoc", () => {
+  const workspace = createWorkspaceFromLayerDocJson(JSON.stringify(createSampleHomepageLayerDoc()));
+  const verified = applyWorkspaceVisualDiff(workspace, {
+    visualSimilarity: 88.25,
+    mismatchedPixels: 47,
+    comparedPixels: 1000,
+    dimensions: { width: 1440, height: 1760 },
+    mismatchBounds: { x: 20, y: 30, width: 12, height: 18 },
+    problemAreas: [{ x: 20, y: 30, width: 12, height: 18 }],
+    diffPath: "verification-artifacts/diff.png",
+    threshold: 0.1
+  });
+
+  const artifact = createLayerDocDownload(verified.doc);
+  const parsed = JSON.parse(artifact.contents);
+
+  assert.equal(parsed.verification.scores.visualSimilarity, 88.25);
+  assert.equal(parsed.verification.scores.structureScore, verified.report.structureScore);
+  assert.deepEqual(parsed.verification.issues, verified.report.issues);
 });
 
 test("createReactExportDownload serializes the current React Tailwind export as a TSX artifact", () => {

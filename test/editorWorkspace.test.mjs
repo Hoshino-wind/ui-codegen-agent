@@ -37,6 +37,13 @@ test("createEditorWorkspace derives preview, export, and verifier output from on
   assert.equal(workspace.projectExport.files.some((file) => file.path === "scripts/verify-layerdoc.mjs"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "scripts/verify-preview.mjs"), true);
   assert.equal(workspace.report.visualSimilarity, null);
+  assert.deepEqual(workspace.doc.verification.scores, {
+    visualSimilarity: null,
+    structureScore: 100,
+    componentScore: 100,
+    projectFitScore: workspace.report.projectFitScore
+  });
+  assert.deepEqual(workspace.doc.verification.issues, []);
   assert.equal(workspace.projectExport.manifest.scores.visualSimilarity, null);
   assert.equal(workspace.audit.summary.sections, 8);
   assert.equal(workspace.audit.assetCompliance.passed, true);
@@ -56,11 +63,17 @@ test("applyWorkspaceVisualDiff updates verifier scores without mutating the Laye
     diffPath: null,
     threshold: 0.1
   });
+  const exportedLayerDoc = JSON.parse(next.projectExport.files.find((file) => file.path === "layerdoc.json").contents);
 
   assert.equal(workspace.report.visualSimilarity, null);
-  assert.equal(next.doc, workspace.doc);
+  assert.equal(workspace.doc.verification.scores.visualSimilarity, null);
+  assert.notEqual(next.doc, workspace.doc);
   assert.equal(next.previewHtml, workspace.previewHtml);
   assert.equal(next.report.visualSimilarity, 97.5);
+  assert.equal(next.doc.verification.scores.visualSimilarity, 97.5);
+  assert.equal(next.doc.verification.scores.structureScore, next.report.structureScore);
+  assert.deepEqual(next.doc.verification.issues, next.report.issues);
+  assert.equal(exportedLayerDoc.verification.scores.visualSimilarity, 97.5);
   assert.equal(next.report.visualDiff.mismatchedPixels, 25);
   assert.equal(next.projectExport.manifest.scores.visualSimilarity, 97.5);
 });

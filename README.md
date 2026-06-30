@@ -73,6 +73,9 @@ The repository currently implements the core LayerDoc domain layer:
 - Enforce Studio and exported quality gates against verifier scores and LayerDoc asset-compliance audit results, including full-page and section-sized bitmap shortcut risks.
 - Compare reference and candidate PNG screenshots and write a pixel diff image.
 - Produce a verifier report with separate score dimensions.
+- Write current verifier scores back into `LayerDoc.verification` so saved
+  LayerDoc files carry quality state while screenshot evidence remains in the
+  external verifier report.
 
 The first target page type is an AI-generated marketing homepage with 8-15
 sections/layers.
