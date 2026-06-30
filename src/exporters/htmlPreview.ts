@@ -1,4 +1,5 @@
 import type { AssetNode, InteractionNode, LayerDoc, LayerNode } from "../layerdoc/types.js";
+import { renderResponsiveCss } from "./responsiveCss.js";
 
 function escapeHtml(value: string): string {
   return value
@@ -6,6 +7,10 @@ function escapeHtml(value: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function escapeStyleText(value: string): string {
+  return value.replace(/<\/style/gi, "<\\/style");
 }
 
 function styleFor(layer: LayerNode): string {
@@ -98,12 +103,15 @@ function renderLayer(doc: LayerDoc, layer: LayerNode): string {
 export function renderHtmlPreview(doc: LayerDoc): string {
   const background = escapeHtml(doc.canvas.background ?? "#ffffff");
   const layers = visibleLayers(doc).map((layer) => renderLayer(doc, layer)).join("\n    ");
+  const responsiveCss = renderResponsiveCss(doc);
+  const responsiveStyle = responsiveCss ? `\n    <style>\n${escapeStyleText(responsiveCss)}\n    </style>` : "";
 
   return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <title>${escapeHtml(doc.metadata.name)}</title>
+    ${responsiveStyle}
   </head>
   <body style="margin:0;background:${background};">
     <main data-layerdoc="${doc.version}" style="position:relative;width:${doc.canvas.width}px;height:${doc.canvas.height}px;overflow:hidden;background:${background};">

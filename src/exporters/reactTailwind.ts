@@ -1,4 +1,5 @@
 import type { AssetNode, ComponentNode, InteractionNode, LayerDoc, LayerNode, LayerStyle, Rect, SectionNode } from "../layerdoc/types.js";
+import { renderResponsiveCss } from "./responsiveCss.js";
 
 export interface ReactTailwindExportOptions {
   componentName: string;
@@ -178,6 +179,11 @@ ${componentLayers}
 `;
 }
 
+function renderResponsiveStyleTag(doc: LayerDoc): string {
+  const css = renderResponsiveCss(doc);
+  return css ? "      <style>{`" + escapeText(css) + "`}</style>" : "";
+}
+
 /**
  * Export LayerDoc to a React + Tailwind component.
  * The first exporter deliberately preserves LayerDoc geometry with absolute
@@ -198,7 +204,8 @@ export function exportReactTailwind(doc: LayerDoc, options: ReactTailwindExportO
     .filter((layer) => !layer.sectionId)
     .map((layer) => `      ${renderLayer(doc, layer)}`)
     .join("\n");
-  const body = [sections, orphanLayers].filter(Boolean).join("\n");
+  const responsiveStyle = renderResponsiveStyleTag(doc);
+  const body = [responsiveStyle, sections, orphanLayers].filter(Boolean).join("\n");
 
   return {
     fileName: `${options.componentName}.tsx`,

@@ -126,6 +126,49 @@ test("exportReactTailwind preserves controlled layer styles in React style props
   assert.match(output.code, /padding: "12px 24px"/);
 });
 
+test("exportReactTailwind projects responsive rules into component CSS", () => {
+  const doc = createLayerDoc({
+    name: "Responsive export",
+    canvas: { width: 640, height: 480 },
+    layers: [
+      {
+        id: "cta",
+        kind: "button",
+        track: "component",
+        editable: true,
+        bounds: { x: 120, y: 180, width: 160, height: 48 },
+        content: { text: "Start" }
+      }
+    ],
+    responsive: {
+      rules: [
+        {
+          id: "mobile-cta",
+          query: "(max-width: 640px)",
+          target: { type: "layer", id: "cta" },
+          changes: {
+            bounds: { x: 24, y: 320, width: 280, height: 52 },
+            style: { backgroundColor: "#0f172a", textColor: "#ffffff", borderRadius: 18 }
+          }
+        }
+      ]
+    }
+  });
+
+  const output = exportReactTailwind(doc, { componentName: "ResponsiveExport" });
+
+  assert.match(output.code, /<style>/);
+  assert.match(output.code, /@media \(max-width: 640px\)/);
+  assert.match(output.code, /\[data-layer-id="cta"\]/);
+  assert.match(output.code, /left:24px !important/);
+  assert.match(output.code, /top:320px !important/);
+  assert.match(output.code, /width:280px !important/);
+  assert.match(output.code, /height:52px !important/);
+  assert.match(output.code, /background-color:#0f172a !important/);
+  assert.match(output.code, /color:#ffffff !important/);
+  assert.match(output.code, /border-radius:18px !important/);
+});
+
 test("exportReactTailwind preserves interaction metadata for project integration", () => {
   const doc = createLayerDoc({
     name: "Interactive export",

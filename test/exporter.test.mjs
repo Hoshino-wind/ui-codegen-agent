@@ -71,6 +71,48 @@ test("renderHtmlPreview renders controlled layer styles into CSS", () => {
   assert.match(html, /opacity:0.9/);
 });
 
+test("renderHtmlPreview projects responsive rules into media query CSS", () => {
+  const doc = createLayerDoc({
+    name: "Responsive preview",
+    canvas: { width: 640, height: 480, background: "#ffffff" },
+    layers: [
+      {
+        id: "cta",
+        kind: "button",
+        track: "component",
+        editable: true,
+        bounds: { x: 120, y: 180, width: 160, height: 48 },
+        content: { text: "Start" }
+      }
+    ],
+    responsive: {
+      rules: [
+        {
+          id: "mobile-cta",
+          query: "(max-width: 640px)",
+          target: { type: "layer", id: "cta" },
+          changes: {
+            bounds: { x: 24, y: 320, width: 280, height: 52 },
+            style: { backgroundColor: "#0f172a", textColor: "#ffffff", borderRadius: 18 }
+          }
+        }
+      ]
+    }
+  });
+
+  const html = renderHtmlPreview(doc);
+
+  assert.match(html, /@media \(max-width: 640px\)/);
+  assert.match(html, /\[data-layer-id="cta"\]/);
+  assert.match(html, /left:24px !important/);
+  assert.match(html, /top:320px !important/);
+  assert.match(html, /width:280px !important/);
+  assert.match(html, /height:52px !important/);
+  assert.match(html, /background-color:#0f172a !important/);
+  assert.match(html, /color:#ffffff !important/);
+  assert.match(html, /border-radius:18px !important/);
+});
+
 test("renderHtmlPreview preserves interaction metadata on rendered layers", () => {
   const doc = createLayerDoc({
     name: "Interactive preview",
