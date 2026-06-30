@@ -41,6 +41,7 @@ export interface TokenSet {
 export interface SectionNode {
   id: string;
   name: string;
+  visible?: boolean;
   bounds: Rect;
   layerIds: string[];
 }

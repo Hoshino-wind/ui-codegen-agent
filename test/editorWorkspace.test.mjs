@@ -6,6 +6,7 @@ import {
   createEditorWorkspace,
   moveWorkspaceSection,
   selectWorkspaceLayer,
+  updateWorkspaceSectionVisibility,
   updateSelectedBounds,
   updateSelectedImageAsset,
   updateSelectedLayerStyle,
@@ -98,6 +99,17 @@ test("moveWorkspaceSection reorders sections without losing the current layer se
 
   assert.deepEqual(next.doc.sections.slice(0, 3).map((section) => section.id), ["final-cta", "hero", "proof"]);
   assert.equal(next.selectedLayerId, "hero-cta");
+});
+
+test("updateWorkspaceSectionVisibility refreshes preview and export from the LayerDoc state", () => {
+  const workspace = createEditorWorkspace(createSampleHomepageLayerDoc());
+  const next = updateWorkspaceSectionVisibility(workspace, "proof", false);
+  const proof = next.doc.sections.find((section) => section.id === "proof");
+
+  assert.equal(proof.visible, false);
+  assert.doesNotMatch(next.previewHtml, /proof-title/);
+  assert.doesNotMatch(next.reactExport.code, /data-section-id="proof"/);
+  assert.match(next.projectExport.files.find((file) => file.path === "layerdoc.json").contents, /"visible": false/);
 });
 
 test("updateSelectedBounds patches selected layer geometry and refreshes preview output", () => {

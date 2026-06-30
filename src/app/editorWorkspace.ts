@@ -1,4 +1,4 @@
-import { updateImageLayerAsset, updateLayerBounds, updateLayerStyle, updateTextLayer } from "../editor/operations.js";
+import { setSectionVisibility, updateImageLayerAsset, updateLayerBounds, updateLayerStyle, updateTextLayer } from "../editor/operations.js";
 import { moveSection } from "../editor/operations.js";
 import { renderHtmlPreview } from "../exporters/htmlPreview.js";
 import { createProjectExportPackage, type ProjectExportPackage } from "../exporters/projectPackage.js";
@@ -93,6 +93,12 @@ export function updateSelectedImageAsset(workspace: EditorWorkspace, asset: Imag
 
 export function moveWorkspaceSection(workspace: EditorWorkspace, sectionId: string, targetIndex: number): EditorWorkspace {
   const nextDoc = moveSection(workspace.doc, sectionId, targetIndex);
+  const selected = selectedLayerExists(nextDoc, workspace.selectedLayerId) ? workspace.selectedLayerId : firstEditableLayerId(nextDoc);
+  return materialize(nextDoc, selected);
+}
+
+export function updateWorkspaceSectionVisibility(workspace: EditorWorkspace, sectionId: string, visible: boolean): EditorWorkspace {
+  const nextDoc = setSectionVisibility(workspace.doc, sectionId, visible);
   const selected = selectedLayerExists(nextDoc, workspace.selectedLayerId) ? workspace.selectedLayerId : firstEditableLayerId(nextDoc);
   return materialize(nextDoc, selected);
 }

@@ -167,3 +167,20 @@ export function moveSection(doc: LayerDoc, sectionId: string, targetIndex: numbe
   next.sections.splice(boundedIndex, 0, section);
   return next;
 }
+
+/**
+ * Toggle whether a page module participates in preview and exported code.
+ * The section and its layers stay in LayerDoc so an operator can restore or
+ * revise the module without losing editable structure.
+ */
+export function setSectionVisibility(doc: LayerDoc, sectionId: string, visible: boolean): LayerDoc {
+  const next = cloneDoc(doc);
+  const section = next.sections.find((candidate) => candidate.id === sectionId);
+
+  if (!section) {
+    throw new Error(`Section "${sectionId}" was not found.`);
+  }
+
+  section.visible = visible;
+  return next;
+}

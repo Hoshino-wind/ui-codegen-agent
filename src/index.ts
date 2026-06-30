@@ -1,5 +1,6 @@
 export {
   moveSection,
+  setSectionVisibility,
   updateImageLayerAsset,
   updateLayerBounds,
   updateLayerStyle,

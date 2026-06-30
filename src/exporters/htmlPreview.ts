@@ -51,6 +51,11 @@ function assetById(doc: LayerDoc, assetId: string | undefined): AssetNode | unde
   return doc.assets.find((asset) => asset.id === assetId);
 }
 
+function visibleLayers(doc: LayerDoc): LayerNode[] {
+  const hiddenSectionIds = new Set(doc.sections.filter((section) => section.visible === false).map((section) => section.id));
+  return doc.layers.filter((layer) => !layer.sectionId || !hiddenSectionIds.has(layer.sectionId));
+}
+
 function renderLayer(doc: LayerDoc, layer: LayerNode): string {
   const common = `data-layer-id="${escapeHtml(layer.id)}" data-kind="${layer.kind}" data-track="${layer.track}" style="${styleFor(layer)}"`;
 
@@ -79,7 +84,7 @@ function renderLayer(doc: LayerDoc, layer: LayerNode): string {
  */
 export function renderHtmlPreview(doc: LayerDoc): string {
   const background = escapeHtml(doc.canvas.background ?? "#ffffff");
-  const layers = doc.layers.map((layer) => renderLayer(doc, layer)).join("\n    ");
+  const layers = visibleLayers(doc).map((layer) => renderLayer(doc, layer)).join("\n    ");
 
   return `<!doctype html>
 <html lang="en">

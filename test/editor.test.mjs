@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   createLayerDoc,
   moveSection,
+  setSectionVisibility,
   updateImageLayerAsset,
   updateLayerBounds,
   updateLayerStyle,
@@ -47,6 +48,34 @@ test("moveSection reorders sections while keeping layer membership intact", () =
 
   assert.deepEqual(next.sections.map((section) => section.id), ["cta", "hero", "proof"]);
   assert.deepEqual(next.sections[0].layerIds, ["button"]);
+});
+
+test("setSectionVisibility hides a module without removing its editable layers", () => {
+  const doc = createLayerDoc({
+    name: "Visibility controls",
+    canvas: { width: 800, height: 1200 },
+    sections: [
+      { id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 800, height: 400 }, layerIds: ["headline"] },
+      { id: "proof", name: "Proof", bounds: { x: 0, y: 400, width: 800, height: 400 }, layerIds: ["metric"] }
+    ],
+    layers: [
+      {
+        id: "metric",
+        sectionId: "proof",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 48, y: 460, width: 320, height: 40 },
+        content: { text: "Trusted by product teams" }
+      }
+    ]
+  });
+
+  const next = setSectionVisibility(doc, "proof", false);
+
+  assert.equal(doc.sections.find((section) => section.id === "proof").visible, undefined);
+  assert.equal(next.sections.find((section) => section.id === "proof").visible, false);
+  assert.equal(next.layers.find((layer) => layer.id === "metric").content.text, "Trusted by product teams");
 });
 
 test("updateLayerStyle merges controlled visual style without mutating the original LayerDoc", () => {

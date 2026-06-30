@@ -3,6 +3,7 @@ import {
   Code2,
   Download,
   Eye,
+  EyeOff,
   FileImage,
   FlaskConical,
   Layers3,
@@ -29,6 +30,7 @@ import {
   updateSelectedImageAsset,
   updateSelectedLayerStyle,
   updateSelectedText,
+  updateWorkspaceSectionVisibility,
   type EditorWorkspace
 } from "./editorWorkspace.js";
 import { createIntakeWorkspaceFromBrowserFile } from "./imageFileIntake.js";
@@ -221,6 +223,11 @@ function CanvasPreview({
 }) {
   const assetById = useMemo(() => new Map(workspace.doc.assets.map((asset) => [asset.id, asset])), [workspace.doc.assets]);
   const viewport = createPreviewViewport({ mode: previewMode, canvas: workspace.doc.canvas });
+  const visibleSectionIds = useMemo(
+    () => new Set(workspace.doc.sections.filter((section) => section.visible !== false).map((section) => section.id)),
+    [workspace.doc.sections]
+  );
+  const visibleLayers = workspace.doc.layers.filter((layer) => !layer.sectionId || visibleSectionIds.has(layer.sectionId));
 
   return (
     <section className="canvas-panel">
@@ -268,7 +275,9 @@ function CanvasPreview({
           background: workspace.doc.canvas.background ?? "#ffffff"
         }}
       >
-        {workspace.doc.sections.map((section) => (
+        {workspace.doc.sections
+          .filter((section) => section.visible !== false)
+          .map((section) => (
           <div
             className="canvas-section"
             key={section.id}
@@ -282,7 +291,7 @@ function CanvasPreview({
             {showLabels ? <span className="section-badge">{section.name}</span> : null}
           </div>
         ))}
-        {workspace.doc.layers.map((layer) => (
+        {visibleLayers.map((layer) => (
           <CanvasLayer
             key={layer.id}
             layer={layer}
@@ -439,17 +448,31 @@ function Inspector({
   );
 }
 
-function SectionOrder({ workspace, onChange }: { workspace: EditorWorkspace; onChange: (workspace: EditorWorkspace) => void }) {
+function SectionOrder({ workspace, onChange }: { workspace: EditorWorkspace; onChange: (workspace: EditorWorkspace, message?: string) => void }) {
   return (
     <div className="section-order">
       <div className="sidebar-title">Sections</div>
       {workspace.doc.sections.map((section, index) => (
-        <div className="section-row" key={section.id}>
-          <button type="button" onClick={() => onChange(moveWorkspaceSection(workspace, section.id, Math.max(0, index - 1)))} aria-label={`Move ${section.name} up`}>
+        <div className={`section-row ${section.visible === false ? "hidden" : ""}`} key={section.id}>
+          <button type="button" onClick={() => onChange(moveWorkspaceSection(workspace, section.id, Math.max(0, index - 1)), "Section order updated")} aria-label={`Move ${section.name} up`}>
             Up
           </button>
-          <button type="button" onClick={() => onChange(moveWorkspaceSection(workspace, section.id, index + 1))} aria-label={`Move ${section.name} down`}>
+          <button type="button" onClick={() => onChange(moveWorkspaceSection(workspace, section.id, index + 1), "Section order updated")} aria-label={`Move ${section.name} down`}>
             Down
+          </button>
+          <button
+            className="section-visibility"
+            type="button"
+            onClick={() =>
+              onChange(
+                updateWorkspaceSectionVisibility(workspace, section.id, section.visible === false),
+                `${section.name} ${section.visible === false ? "shown" : "hidden"}`
+              )
+            }
+            aria-label={`${section.visible === false ? "Show" : "Hide"} ${section.name}`}
+            aria-pressed={section.visible !== false}
+          >
+            {section.visible === false ? <EyeOff size={13} /> : <Eye size={13} />}
           </button>
           <span>{section.name}</span>
         </div>
@@ -923,7 +946,7 @@ export function App() {
         ))}
         <AnalysisPlanPanel intake={intake} onChange={updateIntake} onBuild={buildFromAnalysisPlan} onUploadFile={(file) => void importPngFile(file)} uploadError={uploadError} />
         <ProjectExportPanel workspace={workspace} />
-        <SectionOrder workspace={workspace} onChange={(next) => updateWorkspace(next, "Section order updated")} />
+        <SectionOrder workspace={workspace} onChange={updateWorkspace} />
       </aside>
 
       <section className="studio-main">

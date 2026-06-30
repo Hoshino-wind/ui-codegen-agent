@@ -25,3 +25,13 @@ test("renderLayerDocSnapshot paints editable component and asset layers into the
   assert.deepEqual(pixelAt(snapshot, 98, 174), [20, 184, 166, 255]);
   assert.notDeepEqual(pixelAt(snapshot, 866, 50), [248, 250, 252, 255]);
 });
+
+test("renderLayerDocSnapshot does not paint layers from hidden sections", () => {
+  const doc = createSampleHomepageLayerDoc();
+  const proof = doc.sections.find((section) => section.id === "proof");
+  proof.visible = false;
+
+  const snapshot = renderLayerDocSnapshot(doc);
+
+  assert.deepEqual(pixelAt(snapshot, 100, 265), [248, 250, 252, 255]);
+});

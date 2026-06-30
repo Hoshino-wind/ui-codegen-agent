@@ -119,6 +119,11 @@ function paintLayer(data: Uint8ClampedArray, canvasWidth: number, canvasHeight: 
   }
 }
 
+function visibleLayers(doc: LayerDoc): LayerNode[] {
+  const hiddenSectionIds = new Set(doc.sections.filter((section) => section.visible === false).map((section) => section.id));
+  return doc.layers.filter((layer) => !layer.sectionId || !hiddenSectionIds.has(layer.sectionId));
+}
+
 /**
  * Create an origin-clean candidate snapshot from the current LayerDoc preview
  * model. The browser editor uses this when it cannot access privileged page
@@ -131,7 +136,7 @@ export function renderLayerDocSnapshot(doc: LayerDoc): ImageDataSnapshot {
   const data = new Uint8ClampedArray(width * height * 4);
 
   paintRect(data, width, height, { x: 0, y: 0, width, height }, background.map(clampChannel) as Rgba);
-  for (const layer of doc.layers) {
+  for (const layer of visibleLayers(doc)) {
     paintLayer(data, width, height, layer);
   }
 

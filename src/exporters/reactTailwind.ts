@@ -92,6 +92,10 @@ function sectionLayers(doc: LayerDoc, section: SectionNode): LayerNode[] {
   return section.layerIds.map((layerId) => byId.get(layerId)).filter((layer): layer is LayerNode => Boolean(layer));
 }
 
+function visibleSections(doc: LayerDoc): SectionNode[] {
+  return doc.sections.filter((section) => section.visible !== false);
+}
+
 function renderSection(doc: LayerDoc, section: SectionNode): string {
   const layers = sectionLayers(doc, section)
     .map((layer) => `        ${renderLayer(doc, layer)}`)
@@ -113,7 +117,7 @@ export function exportReactTailwind(doc: LayerDoc, options: ReactTailwindExportO
     throw new Error("componentName must be a PascalCase identifier.");
   }
 
-  const sections = doc.sections.map((section) => renderSection(doc, section)).join("\n");
+  const sections = visibleSections(doc).map((section) => renderSection(doc, section)).join("\n");
   const orphanLayers = doc.layers
     .filter((layer) => !layer.sectionId)
     .map((layer) => `      ${renderLayer(doc, layer)}`)

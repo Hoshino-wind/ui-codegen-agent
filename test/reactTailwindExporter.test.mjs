@@ -93,3 +93,41 @@ test("exportReactTailwind preserves controlled layer styles in React style props
   assert.match(output.code, /borderRadius: 16/);
   assert.match(output.code, /padding: "12px 24px"/);
 });
+
+test("exportReactTailwind omits hidden sections while preserving them in LayerDoc", () => {
+  const doc = createLayerDoc({
+    name: "Hidden section export",
+    canvas: { width: 960, height: 960 },
+    sections: [
+      { id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 960, height: 480 }, layerIds: ["headline"] },
+      { id: "pricing", name: "Pricing", visible: false, bounds: { x: 0, y: 480, width: 960, height: 480 }, layerIds: ["price-card"] }
+    ],
+    layers: [
+      {
+        id: "headline",
+        sectionId: "hero",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 80, y: 96, width: 520, height: 72 },
+        content: { text: "Visible export" }
+      },
+      {
+        id: "price-card",
+        sectionId: "pricing",
+        kind: "card",
+        track: "component",
+        editable: true,
+        bounds: { x: 80, y: 560, width: 360, height: 180 },
+        content: { text: "Hidden export" }
+      }
+    ]
+  });
+
+  const output = exportReactTailwind(doc, { componentName: "HiddenSectionExport" });
+
+  assert.match(output.code, /data-section-id="hero"/);
+  assert.match(output.code, /Visible export/);
+  assert.doesNotMatch(output.code, /data-section-id="pricing"/);
+  assert.doesNotMatch(output.code, /Hidden export/);
+});

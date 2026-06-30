@@ -70,3 +70,40 @@ test("renderHtmlPreview renders controlled layer styles into CSS", () => {
   assert.match(html, /padding:12px 24px/);
   assert.match(html, /opacity:0.9/);
 });
+
+test("renderHtmlPreview omits layers that belong to hidden sections", () => {
+  const doc = createLayerDoc({
+    name: "Hidden section preview",
+    canvas: { width: 640, height: 800, background: "#ffffff" },
+    sections: [
+      { id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 640, height: 400 }, layerIds: ["headline"] },
+      { id: "pricing", name: "Pricing", visible: false, bounds: { x: 0, y: 400, width: 640, height: 400 }, layerIds: ["price-card"] }
+    ],
+    layers: [
+      {
+        id: "headline",
+        sectionId: "hero",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 40, y: 40, width: 320, height: 48 },
+        content: { text: "Visible headline" }
+      },
+      {
+        id: "price-card",
+        sectionId: "pricing",
+        kind: "card",
+        track: "component",
+        editable: true,
+        bounds: { x: 40, y: 460, width: 320, height: 160 },
+        content: { text: "Hidden pricing" }
+      }
+    ]
+  });
+
+  const html = renderHtmlPreview(doc);
+
+  assert.match(html, /Visible headline/);
+  assert.doesNotMatch(html, /price-card/);
+  assert.doesNotMatch(html, /Hidden pricing/);
+});
