@@ -1,4 +1,4 @@
-import type { AssetNode, LayerDoc, LayerNode, LayerStyle, Rect, SectionNode } from "../layerdoc/types.js";
+import type { AssetNode, ComponentNode, LayerDoc, LayerNode, LayerStyle, Rect, SectionNode } from "../layerdoc/types.js";
 
 export interface ReactTailwindExportOptions {
   componentName: string;
@@ -19,6 +19,16 @@ function escapeAttribute(value: string): string {
 
 function isPascalCaseIdentifier(value: string): boolean {
   return /^[A-Z][A-Za-z0-9]*$/.test(value);
+}
+
+function toPascalCase(value: string): string {
+  const normalized = value
+    .split(/[^A-Za-z0-9]+/)
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+    .join("");
+
+  return normalized && /^[A-Z]/.test(normalized) ? normalized : "LayerDocComponent";
 }
 
 function paddingValue(style: LayerStyle): string | undefined {
@@ -69,8 +79,17 @@ function assetById(doc: LayerDoc, assetId: string | undefined): AssetNode | unde
   return doc.assets.find((asset) => asset.id === assetId);
 }
 
-function renderLayer(doc: LayerDoc, layer: LayerNode): string {
-  const baseProps = `data-layer-id="${escapeAttribute(layer.id)}" data-kind="${layer.kind}" data-track="${layer.track}" className="absolute" style=${inlineStyle(layer.bounds, layer.style)}`;
+function relativeBounds(bounds: Rect, origin: Rect): Rect {
+  return {
+    x: bounds.x - origin.x,
+    y: bounds.y - origin.y,
+    width: bounds.width,
+    height: bounds.height
+  };
+}
+
+function renderLayer(doc: LayerDoc, layer: LayerNode, bounds: Rect = layer.bounds): string {
+  const baseProps = `data-layer-id="${escapeAttribute(layer.id)}" data-kind="${layer.kind}" data-track="${layer.track}" className="absolute" style=${inlineStyle(bounds, layer.style)}`;
 
   if (layer.track === "asset") {
     const asset = assetById(doc, layer.assetId);
@@ -92,18 +111,58 @@ function sectionLayers(doc: LayerDoc, section: SectionNode): LayerNode[] {
   return section.layerIds.map((layerId) => byId.get(layerId)).filter((layer): layer is LayerNode => Boolean(layer));
 }
 
+function componentFunctionName(component: ComponentNode): string {
+  return isPascalCaseIdentifier(component.id) ? component.id : toPascalCase(component.id);
+}
+
+function sectionComponents(doc: LayerDoc, section: SectionNode): ComponentNode[] {
+  const sectionLayerIds = new Set(section.layerIds);
+  return doc.components.filter((component) => component.exportable && component.layerIds.some((layerId) => sectionLayerIds.has(layerId)));
+}
+
 function visibleSections(doc: LayerDoc): SectionNode[] {
   return doc.sections.filter((section) => section.visible !== false);
 }
 
+function visibleExportableComponents(doc: LayerDoc): ComponentNode[] {
+  const visibleLayerIds = new Set(visibleSections(doc).flatMap((section) => section.layerIds));
+  return doc.components.filter((component) => component.exportable && component.layerIds.some((layerId) => visibleLayerIds.has(layerId)));
+}
+
 function renderSection(doc: LayerDoc, section: SectionNode): string {
+  const components = sectionComponents(doc, section);
+  const componentLayerIds = new Set(components.flatMap((component) => component.layerIds));
+  const componentCalls = components.map((component) => `        <${componentFunctionName(component)} />`);
   const layers = sectionLayers(doc, section)
-    .map((layer) => `        ${renderLayer(doc, layer)}`)
-    .join("\n");
+    .filter((layer) => !componentLayerIds.has(layer.id))
+    .map((layer) => `        ${renderLayer(doc, layer, relativeBounds(layer.bounds, section.bounds))}`);
+  const body = [...componentCalls, ...layers].join("\n");
 
   return `      <section data-section-id="${escapeAttribute(section.id)}" className="absolute" style=${inlineStyle(section.bounds)}>
-${layers}
+${body}
       </section>`;
+}
+
+function renderComponent(doc: LayerDoc, component: ComponentNode): string | null {
+  const layers = component.layerIds.map((layerId) => doc.layers.find((layer) => layer.id === layerId)).filter((layer): layer is LayerNode => Boolean(layer));
+  if (layers.length === 0) {
+    return null;
+  }
+
+  const section = doc.sections.find((candidate) => candidate.id === layers[0].sectionId);
+  const origin = section?.bounds ?? { x: 0, y: 0, width: doc.canvas.width, height: doc.canvas.height };
+  const componentLayers = layers
+    .map((layer) => `      ${renderLayer(doc, layer, relativeBounds(layer.bounds, origin))}`)
+    .join("\n");
+
+  return `function ${componentFunctionName(component)}() {
+  return (
+    <div data-component-id="${escapeAttribute(component.id)}" className="absolute inset-0">
+${componentLayers}
+    </div>
+  );
+}
+`;
 }
 
 /**
@@ -117,6 +176,10 @@ export function exportReactTailwind(doc: LayerDoc, options: ReactTailwindExportO
     throw new Error("componentName must be a PascalCase identifier.");
   }
 
+  const componentFunctions = visibleExportableComponents(doc)
+    .map((component) => renderComponent(doc, component))
+    .filter((component): component is string => Boolean(component))
+    .join("\n");
   const sections = visibleSections(doc).map((section) => renderSection(doc, section)).join("\n");
   const orphanLayers = doc.layers
     .filter((layer) => !layer.sectionId)
@@ -126,7 +189,7 @@ export function exportReactTailwind(doc: LayerDoc, options: ReactTailwindExportO
 
   return {
     fileName: `${options.componentName}.tsx`,
-    code: `export function ${options.componentName}() {
+    code: `${componentFunctions ? `${componentFunctions}\n` : ""}export function ${options.componentName}() {
   return (
     <main data-layerdoc-version="${doc.version}" className="relative overflow-hidden" style={{ width: ${doc.canvas.width}, height: ${doc.canvas.height}, background: "${doc.canvas.background ?? "#ffffff"}" }}>
 ${body}

@@ -10,6 +10,7 @@ test("exportReactTailwind turns LayerDoc sections into a React component with Ta
     sections: [
       { id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 1440, height: 640 }, layerIds: ["headline", "cta", "cover"] }
     ],
+    components: [{ id: "HeroSection", layerIds: ["headline", "cta"], exportable: true }],
     assets: [{ id: "cover-image", type: "image", source: "reference-crop", uri: "/assets/cover.png" }],
     layers: [
       {
@@ -47,12 +48,43 @@ test("exportReactTailwind turns LayerDoc sections into a React component with Ta
 
   assert.equal(output.fileName, "MarketingHome.tsx");
   assert.match(output.code, /export function MarketingHome/);
+  assert.match(output.code, /function HeroSection\(\)/);
+  assert.match(output.code, /<HeroSection \/>/);
+  assert.match(output.code, /data-component-id="HeroSection"/);
   assert.match(output.code, /data-section-id="hero"/);
   assert.match(output.code, /data-layer-id="headline"/);
   assert.match(output.code, /Turn AI visuals into production UI/);
   assert.match(output.code, /className="absolute/);
   assert.match(output.code, /src="\/assets\/cover\.png"/);
   assert.match(output.code, /alt="Generated landing page preview"/);
+});
+
+test("exportReactTailwind positions section layers relative to their section bounds", () => {
+  const doc = createLayerDoc({
+    name: "Relative export",
+    canvas: { width: 960, height: 960 },
+    sections: [
+      { id: "proof", name: "Proof", bounds: { x: 0, y: 480, width: 960, height: 240 }, layerIds: ["quote"] }
+    ],
+    components: [{ id: "ProofSection", layerIds: ["quote"], exportable: true }],
+    layers: [
+      {
+        id: "quote",
+        sectionId: "proof",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 80, y: 520, width: 500, height: 48 },
+        content: { text: "Exports at the same visual position" }
+      }
+    ]
+  });
+
+  const output = exportReactTailwind(doc, { componentName: "RelativeExport" });
+
+  assert.match(output.code, /data-section-id="proof"[\s\S]*top: 480/);
+  assert.match(output.code, /data-layer-id="quote"[\s\S]*top: 40/);
+  assert.doesNotMatch(output.code, /data-layer-id="quote"[\s\S]*top: 520/);
 });
 
 test("exportReactTailwind rejects invalid component names before writing project files", () => {
@@ -102,6 +134,7 @@ test("exportReactTailwind omits hidden sections while preserving them in LayerDo
       { id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 960, height: 480 }, layerIds: ["headline"] },
       { id: "pricing", name: "Pricing", visible: false, bounds: { x: 0, y: 480, width: 960, height: 480 }, layerIds: ["price-card"] }
     ],
+    components: [{ id: "PricingSection", layerIds: ["price-card"], exportable: true }],
     layers: [
       {
         id: "headline",
@@ -129,5 +162,6 @@ test("exportReactTailwind omits hidden sections while preserving them in LayerDo
   assert.match(output.code, /data-section-id="hero"/);
   assert.match(output.code, /Visible export/);
   assert.doesNotMatch(output.code, /data-section-id="pricing"/);
+  assert.doesNotMatch(output.code, /function PricingSection/);
   assert.doesNotMatch(output.code, /Hidden export/);
 });
