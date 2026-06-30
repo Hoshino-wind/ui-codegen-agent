@@ -166,6 +166,24 @@ test("updateSelectedLayerStyle patches typography controls through preview and e
   assert.match(projectComponent, /data-layer-id="hero-title"[\s\S]+fontSize: 54/);
 });
 
+test("updateSelectedLayerStyle patches border and opacity controls through preview and export outputs", () => {
+  const workspace = selectWorkspaceLayer(createEditorWorkspace(createSampleHomepageLayerDoc()), "hero-cta");
+  const next = updateSelectedLayerStyle(workspace, {
+    borderColor: "#0f766e",
+    opacity: 0.82
+  });
+  const layer = next.doc.layers.find((candidate) => candidate.id === "hero-cta");
+  const projectComponent = next.projectExport.files.find((file) => file.path === "src/ProductionHomepage.tsx").contents;
+
+  assert.equal(layer.style.borderColor, "#0f766e");
+  assert.equal(layer.style.opacity, 0.82);
+  assert.match(next.previewHtml, /data-layer-id="hero-cta"[\s\S]+border-color:#0f766e/);
+  assert.match(next.previewHtml, /data-layer-id="hero-cta"[\s\S]+opacity:0.82/);
+  assert.match(next.reactExport.code, /data-layer-id="hero-cta"[\s\S]+borderColor: "#0f766e"/);
+  assert.match(next.reactExport.code, /data-layer-id="hero-cta"[\s\S]+opacity: 0.82/);
+  assert.match(projectComponent, /data-layer-id="hero-cta"[\s\S]+borderColor: "#0f766e"/);
+});
+
 test("updateSelectedImageAsset replaces the selected image source", () => {
   const workspace = selectWorkspaceLayer(createEditorWorkspace(createSampleHomepageLayerDoc()), "hero-image");
   const next = updateSelectedImageAsset(workspace, { uri: "/assets/hero-upload.png", source: "uploaded" });

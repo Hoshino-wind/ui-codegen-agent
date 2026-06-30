@@ -123,6 +123,10 @@ function numberFromInput(value: string): number {
   return Number.parseInt(value, 10);
 }
 
+function numberFromDecimalInput(value: string): number {
+  return Number.parseFloat(value);
+}
+
 function layerKindLabel(layer: LayerNode): string {
   return `${layer.kind} / ${layer.track}`;
 }
@@ -222,9 +226,13 @@ function CanvasLayer({
     height: layer.bounds.height * scale,
     backgroundColor: layer.style?.backgroundColor,
     color: layer.style?.textColor,
+    borderColor: layer.style?.borderColor,
+    borderStyle: layer.style?.borderColor ? "solid" : undefined,
+    borderWidth: layer.style?.borderColor ? 1 : undefined,
     fontSize: layer.style?.fontSize ? layer.style.fontSize * scale : undefined,
     fontWeight: layer.style?.fontWeight,
-    borderRadius: layer.style?.borderRadius ? layer.style.borderRadius * scale : undefined
+    borderRadius: layer.style?.borderRadius ? layer.style.borderRadius * scale : undefined,
+    opacity: layer.style?.opacity
   };
 
   return (
@@ -503,6 +511,14 @@ function Inspector({
             onChange={(event) => patchStyle({ textColor: event.target.value })}
           />
         </label>
+        <label className="field two-col">
+          <span>Border color</span>
+          <input
+            type="color"
+            value={styleValue(layer.style, "borderColor", "#111827")}
+            onChange={(event) => patchStyle({ borderColor: event.target.value })}
+          />
+        </label>
         <label className="field">
           <span>Radius</span>
           <input
@@ -556,6 +572,17 @@ function Inspector({
             min="0"
             value={styleValue(layer.style, "gap", "0")}
             onChange={(event) => patchStyle({ gap: numberFromInput(event.target.value) })}
+          />
+        </label>
+        <label className="field">
+          <span>Opacity</span>
+          <input
+            type="number"
+            min="0"
+            max="1"
+            step="0.05"
+            value={styleValue(layer.style, "opacity", "1")}
+            onChange={(event) => patchStyle({ opacity: numberFromDecimalInput(event.target.value) })}
           />
         </label>
       </div>

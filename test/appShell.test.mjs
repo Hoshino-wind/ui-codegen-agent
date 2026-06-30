@@ -116,6 +116,17 @@ test("app shell exposes controlled typography style editing", () => {
   assert.match(source, /fontWeight: numberFromInput/);
 });
 
+test("app shell exposes controlled border and opacity style editing", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /Border color/);
+  assert.match(source, /Opacity/);
+  assert.match(source, /borderColor: layer\.style\?\.borderColor/);
+  assert.match(source, /opacity: layer\.style\?\.opacity/);
+  assert.match(source, /borderColor: event\.target\.value/);
+  assert.match(source, /opacity: numberFromDecimalInput/);
+});
+
 test("app shell materializes uploaded PNG reference crops before building LayerDoc", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 
