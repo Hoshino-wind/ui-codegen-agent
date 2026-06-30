@@ -17,6 +17,12 @@ export interface ProjectExportFile {
   contents: string;
 }
 
+export interface ProjectReferenceVisual {
+  file: string;
+  role: "visual_verification_reference";
+  sourceUri: string | null;
+}
+
 export interface ProjectExportManifest {
   packageName: string;
   componentName: string;
@@ -24,6 +30,7 @@ export interface ProjectExportManifest {
   layerDocHash: string;
   integrationContract: string;
   handoffSummary: string;
+  referenceVisual: ProjectReferenceVisual;
   files: string[];
   scores: VerificationReport;
   audit: LayerDocAudit;
@@ -66,6 +73,7 @@ export interface ProjectHandoffSummary {
       project_fit_score: number;
     };
     visualEvidence: VerificationReport["evidence"]["visual"];
+    referenceVisual: ProjectReferenceVisual;
     gatesFile: string;
   };
   audit: {
@@ -428,6 +436,14 @@ function packageJsonFor(manifest: ProjectExportManifest): string {
       vite: "^8.1.0"
     }
   });
+}
+
+function referenceVisualFor(sourceImage: LayerDoc["metadata"]["sourceImage"]): ProjectReferenceVisual {
+  return {
+    file: "reference.png",
+    role: "visual_verification_reference",
+    sourceUri: sourceImage?.uri ?? null
+  };
 }
 
 function qualityGateScriptFor(): string {
@@ -1820,6 +1836,7 @@ Generated assets:
 - \`handoff-summary.json\`: machine-readable integration summary for CI, importers, and downstream project handoff
 - \`integration-contract.json\`: stable mapping from visible LayerDoc objects to project files and DOM selectors
 - \`manifest.json\`, \`layerdoc.schema.json\`: project package manifest and LayerDoc source contract
+- \`${manifest.referenceVisual.file}\`: original target visual expected by preview verification; homepage pipeline exports copy this automatically
 - \`layerdoc-audit.json\`: structure, track, and asset-compliance audit
 - \`verification-report.json\`, \`quality-gates.json\`, \`scripts/verify-layerdoc.mjs\`, \`scripts/verify-contract.mjs\`, \`scripts/verify-preview.mjs\`, \`scripts/verify-gates.mjs\`: executable source, contract, visual, and quality gate handoff
 
@@ -1827,8 +1844,8 @@ Verification:
 - Run \`npm run verify:layerdoc\` after editing \`layerdoc.json\` to catch broken graph references before integration.
 - Run \`npm run verify:contract\` to confirm \`integration-contract.json\` still matches the LayerDoc source, project selectors, preview selectors, section order, layer bounds, layer style, layer copy, assets, responsive CSS, and interaction metadata.
 - Hidden sections remain editable in \`layerdoc.json\` but are intentionally omitted from rendered project, preview, and responsive CSS contract requirements.
-- Put the original target visual at \`reference.png\`.
-- Run \`npm run verify:preview -- --reference ./reference.png\` to render \`preview.html\`, capture \`verification-artifacts/candidate.png\`, produce \`verification-artifacts/diff.png\`, and update \`verification-report.json\`.
+- Put the original target visual at \`${manifest.referenceVisual.file}\`.
+- Run \`npm run verify:preview -- --reference ./${manifest.referenceVisual.file}\` to render \`preview.html\`, capture \`verification-artifacts/candidate.png\`, produce \`verification-artifacts/diff.png\`, and update \`verification-report.json\`.
 - Run \`npm run verify:gates\` after preview verification to enforce score thresholds and LayerDoc asset compliance.
 
 Verifier scores:
@@ -1890,6 +1907,7 @@ function createHandoffSummary(
         project_fit_score: manifest.scores.projectFitScore
       },
       visualEvidence: manifest.scores.evidence.visual,
+      referenceVisual: manifest.referenceVisual,
       gatesFile: "quality-gates.json"
     },
     audit: {
@@ -1914,6 +1932,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
   const audit = createLayerDocAudit(sourceDoc);
   const packageName = options.packageName ?? toKebabCase(options.componentName);
   const sourceHash = layerDocHash(sourceDoc);
+  const referenceVisual = referenceVisualFor(sourceDoc.metadata.sourceImage);
   const files = [
     "README.md",
     "handoff-summary.json",
@@ -1945,6 +1964,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     layerDocHash: sourceHash,
     integrationContract: "integration-contract.json",
     handoffSummary: "handoff-summary.json",
+    referenceVisual,
     files,
     scores: report,
     audit

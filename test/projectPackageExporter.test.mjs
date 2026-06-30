@@ -245,6 +245,11 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.manifest.layerDocHash, /^sha256:[a-f0-9]{64}$/);
   assert.equal(output.manifest.integrationContract, "integration-contract.json");
   assert.equal(output.manifest.handoffSummary, "handoff-summary.json");
+  assert.deepEqual(output.manifest.referenceVisual, {
+    file: "reference.png",
+    role: "visual_verification_reference",
+    sourceUri: "/references/production-homepage.png"
+  });
   assert.deepEqual(paths, [
     "README.md",
     "handoff-summary.json",
@@ -287,6 +292,8 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "src/ProductionHomepage.tsx").contents, /export function ProductionHomepage/);
   assert.match(output.files.find((file) => file.path === "layerdoc.json").contents, /"schema": "layerdoc"/);
   const contract = JSON.parse(output.files.find((file) => file.path === "integration-contract.json").contents);
+  const manifest = JSON.parse(output.files.find((file) => file.path === "manifest.json").contents);
+  assert.deepEqual(manifest.referenceVisual, output.manifest.referenceVisual);
   assert.equal(contract.component.name, "ProductionHomepage");
   assert.equal(contract.component.file, "src/ProductionHomepage.tsx");
   assert.equal(contract.layerDoc.file, "layerdoc.json");
@@ -380,6 +387,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     project_fit_score: output.manifest.scores.projectFitScore
   });
   assert.equal(handoffSummary.quality.visualEvidence.kind, "none");
+  assert.deepEqual(handoffSummary.quality.referenceVisual, output.manifest.referenceVisual);
   assert.equal(handoffSummary.audit.file, "layerdoc-audit.json");
   assert.equal(handoffSummary.audit.assetCompliancePassed, true);
   assert.deepEqual(handoffSummary.audit.editableCoverage, {
