@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 
+import { PNG } from "pngjs";
+
 import {
   createLayerDoc,
   createProjectExportPackage,
@@ -41,6 +43,30 @@ function createExportDoc() {
   });
 }
 
+function writeSolidPng(filePath, width, height, color, edits = []) {
+  const png = new PNG({ width, height });
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = (width * y + x) << 2;
+      png.data[index] = color[0];
+      png.data[index + 1] = color[1];
+      png.data[index + 2] = color[2];
+      png.data[index + 3] = color[3];
+    }
+  }
+
+  for (const edit of edits) {
+    const index = (width * edit.y + edit.x) << 2;
+    png.data[index] = edit.color[0];
+    png.data[index + 1] = edit.color[1];
+    png.data[index + 2] = edit.color[2];
+    png.data[index + 3] = edit.color[3];
+  }
+
+  writeFileSync(filePath, PNG.sync.write(png));
+}
+
 test("createProjectExportPackage returns project-ready files derived from one LayerDoc", () => {
   const doc = createExportDoc();
   const output = createProjectExportPackage(doc, { componentName: "ProductionHomepage" });
@@ -58,6 +84,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     "preview.html",
     "quality-gates.json",
     "scripts/verify-gates.mjs",
+    "scripts/verify-preview.mjs",
     "src/App.tsx",
     "src/index.css",
     "src/main.tsx",
@@ -69,7 +96,11 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.deepEqual(output.manifest.files.sort(), paths);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"scripts"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"dev": "vite"/);
+  assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:preview": "node scripts\/verify-preview\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:gates": "node scripts\/verify-gates\.mjs"/);
+  assert.match(output.files.find((file) => file.path === "package.json").contents, /"playwright"/);
+  assert.match(output.files.find((file) => file.path === "package.json").contents, /"pixelmatch"/);
+  assert.match(output.files.find((file) => file.path === "package.json").contents, /"pngjs"/);
   assert.match(output.files.find((file) => file.path === "src\/main.tsx").contents, /createRoot/);
   assert.match(output.files.find((file) => file.path === "src\/App.tsx").contents, /<ProductionHomepage \/>/);
   assert.match(output.files.find((file) => file.path === "src\/index.css").contents, /@import "tailwindcss"/);
@@ -82,10 +113,13 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "verification-report.json").contents, /"evidence"/);
   assert.match(output.files.find((file) => file.path === "quality-gates.json").contents, /"visualSimilarity": 85/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-gates.mjs").contents, /verification-report\.json/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /preview\.html/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /verification-report\.json/);
   assert.match(output.files.find((file) => file.path === "preview.html").contents, /data-layerdoc="0.1.0"/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm install/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run dev/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:gates/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:preview -- --reference/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /visual_evidence:/);
 });
 
@@ -95,13 +129,14 @@ test("writeProjectExportPackage writes every package file under the target direc
 
   const written = writeProjectExportPackage(output, directory);
 
-  assert.equal(written.files.length, 16);
+  assert.equal(written.files.length, 17);
   assert.equal(existsSync(join(directory, "src", "ProductionHomepage.tsx")), true);
   assert.equal(existsSync(join(directory, "layerdoc-audit.json")), true);
   assert.equal(existsSync(join(directory, "src", "main.tsx")), true);
   assert.equal(existsSync(join(directory, "package.json")), true);
   assert.equal(existsSync(join(directory, "vite.config.ts")), true);
   assert.equal(existsSync(join(directory, "scripts", "verify-gates.mjs")), true);
+  assert.equal(existsSync(join(directory, "scripts", "verify-preview.mjs")), true);
   assert.equal(existsSync(join(directory, "verification-report.json")), true);
   assert.equal(existsSync(join(directory, "quality-gates.json")), true);
   assert.equal(existsSync(join(directory, "manifest.json")), true);
@@ -111,6 +146,32 @@ test("writeProjectExportPackage writes every package file under the target direc
     written.files.map((file) => file.relativePath).sort(),
     output.files.map((file) => file.path).sort()
   );
+});
+
+test("exported preview verifier script updates the handoff report from candidate screenshots", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-preview-verifier-"));
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const referencePath = join(directory, "reference.png");
+  const candidatePath = join(directory, "candidate.png");
+  writeSolidPng(referencePath, 2, 1, [255, 255, 255, 255]);
+  writeSolidPng(candidatePath, 2, 1, [255, 255, 255, 255], [{ x: 1, y: 0, color: [15, 23, 42, 255] }]);
+
+  const result = spawnSync(
+    process.execPath,
+    ["scripts/verify-preview.mjs", "--reference", referencePath, "--candidate", candidatePath, "--out", "verification-artifacts", "--threshold", "0"],
+    { cwd: directory, encoding: "utf8", env: { ...process.env, NODE_PATH: join(process.cwd(), "node_modules") } }
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /"visualSimilarity": 50/);
+  assert.equal(existsSync(join(directory, "verification-artifacts", "diff.png")), true);
+  const report = JSON.parse(readFileSync(join(directory, "verification-report.json"), "utf8"));
+  assert.equal(report.visualSimilarity, 50);
+  assert.equal(report.evidence.visual.kind, "html-screenshot");
+  assert.equal(report.visualDiff.diffPath, "verification-artifacts/diff.png");
+  assert.deepEqual(report.visualDiff.problemAreas, [{ x: 1, y: 0, width: 1, height: 1 }]);
 });
 
 test("exported quality gate script passes and fails from project files", () => {
