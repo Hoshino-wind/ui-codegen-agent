@@ -65,11 +65,13 @@ test("homepage pipeline CLI runs PNG intake, verification, and project export", 
   assert.equal(existsSync(join(outputDir, "intake", "assets", "hero-crop.png")), true);
   assert.equal(existsSync(join(outputDir, "project", "src", "ProductionHomepage.tsx")), true);
   assert.equal(existsSync(join(outputDir, "project", "assets", "hero-crop.png")), true);
+  assert.equal(existsSync(join(outputDir, "project", "public", "assets", "hero-crop.png")), true);
   assert.equal(existsSync(join(outputDir, "verification", "diff.png")), true);
   assert.equal(pipelineReport.intake.sectionCount, 8);
   assert.equal(pipelineReport.intake.layerCount, 18);
   assert.equal(pipelineReport.verification.passed, true);
   assert.equal(pipelineReport.verification.scores.visualSimilarity, 100);
+  assert.deepEqual(pipelineReport.project.copiedAssets.sort(), ["assets/hero-crop.png", "public/assets/hero-crop.png"]);
   assert.equal(projectManifest.scores.visualSimilarity, 100);
   assert.match(readFileSync(join(outputDir, "project", "src", "ProductionHomepage.tsx"), "utf8"), /Pipeline Homepage|Imported hero headline/);
 });

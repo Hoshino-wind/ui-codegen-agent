@@ -202,6 +202,7 @@ export async function runHomepagePipelineCli(args: string[]): Promise<number> {
     const verificationDir = join(outputDir, "verification");
     const projectDir = join(outputDir, "project");
     const projectAssetDir = join(projectDir, "assets");
+    const projectPublicAssetDir = join(projectDir, "public", "assets");
     const pipelineReportPath = join(outputDir, "pipeline-report.json");
     const analysisPlanPath = join(intakeDir, "analysis-plan.json");
     const imageManifestPath = join(intakeDir, "image-manifest.json");
@@ -243,7 +244,9 @@ export async function runHomepagePipelineCli(args: string[]): Promise<number> {
       report: verification.report
     });
     const writtenProject = writeProjectExportPackage(projectPackage, projectDir);
-    const copiedAssets = copyDirectory(intakeAssetDir, projectAssetDir);
+    const previewAssets = copyDirectory(intakeAssetDir, projectAssetDir).map((file) => join("assets", file));
+    const publicAssets = copyDirectory(intakeAssetDir, projectPublicAssetDir).map((file) => join("public", "assets", file));
+    const copiedAssets = [...previewAssets, ...publicAssets];
 
     const pipelineReport = {
       name: intake.layerDoc.metadata.name,
