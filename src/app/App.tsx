@@ -222,6 +222,8 @@ function CanvasLayer({
     height: layer.bounds.height * scale,
     backgroundColor: layer.style?.backgroundColor,
     color: layer.style?.textColor,
+    fontSize: layer.style?.fontSize ? layer.style.fontSize * scale : undefined,
+    fontWeight: layer.style?.fontWeight,
     borderRadius: layer.style?.borderRadius ? layer.style.borderRadius * scale : undefined
   };
 
@@ -508,6 +510,25 @@ function Inspector({
             min="0"
             value={styleValue(layer.style, "borderRadius", "0")}
             onChange={(event) => patchStyle({ borderRadius: numberFromInput(event.target.value) })}
+          />
+        </label>
+        <label className="field">
+          <span>Font size</span>
+          <input
+            type="number"
+            min="1"
+            value={styleValue(layer.style, "fontSize", "0")}
+            onChange={(event) => patchStyle({ fontSize: numberFromInput(event.target.value) })}
+          />
+        </label>
+        <label className="field">
+          <span>Font weight</span>
+          <input
+            type="number"
+            min="1"
+            step="10"
+            value={styleValue(layer.style, "fontWeight", "0")}
+            onChange={(event) => patchStyle({ fontWeight: numberFromInput(event.target.value) })}
           />
         </label>
         <label className="field">

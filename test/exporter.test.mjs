@@ -82,7 +82,9 @@ test("renderHtmlPreview renders controlled layer styles into CSS", () => {
           borderColor: "#22c55e",
           borderRadius: 14,
           padding: { x: 24, y: 12 },
-          opacity: 0.9
+          opacity: 0.9,
+          fontSize: 18,
+          fontWeight: 760
         },
         content: { text: "Generate" }
       }
@@ -97,6 +99,8 @@ test("renderHtmlPreview renders controlled layer styles into CSS", () => {
   assert.match(html, /border-radius:14px/);
   assert.match(html, /padding:12px 24px/);
   assert.match(html, /opacity:0.9/);
+  assert.match(html, /font-size:18px/);
+  assert.match(html, /font-weight:760/);
 });
 
 test("renderHtmlPreview projects responsive rules into media query CSS", () => {

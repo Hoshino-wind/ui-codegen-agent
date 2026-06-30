@@ -107,6 +107,15 @@ test("app shell exposes controlled spacing style editing", () => {
   assert.match(source, /padding: \{ y:/);
 });
 
+test("app shell exposes controlled typography style editing", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /Font size/);
+  assert.match(source, /Font weight/);
+  assert.match(source, /fontSize: numberFromInput/);
+  assert.match(source, /fontWeight: numberFromInput/);
+});
+
 test("app shell materializes uploaded PNG reference crops before building LayerDoc", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 

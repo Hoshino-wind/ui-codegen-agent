@@ -152,6 +152,8 @@ export function createLayerDocJsonSchema(): Record<string, unknown> {
                 textColor: { type: "string" },
                 borderColor: { type: "string" },
                 borderRadius: { type: "number" },
+                fontSize: { type: "number", exclusiveMinimum: 0 },
+                fontWeight: { type: "number", exclusiveMinimum: 0 },
                 padding: {
                   type: "object",
                   additionalProperties: false,

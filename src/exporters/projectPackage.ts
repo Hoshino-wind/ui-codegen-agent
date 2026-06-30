@@ -561,6 +561,8 @@ function declarationsForResponsiveChanges(changes) {
       rawDeclaration("color", style.textColor),
       rawDeclaration("border-color", style.borderColor),
       pxDeclaration("border-radius", style.borderRadius),
+      pxDeclaration("font-size", style.fontSize),
+      numericDeclaration("font-weight", style.fontWeight),
       numericDeclaration("opacity", style.opacity),
       pxDeclaration("gap", style.gap)
     );
@@ -730,6 +732,8 @@ function styleFragments(style, format) {
         stringStyleFragment("color", style.textColor, format),
         stringStyleFragment("borderColor", style.borderColor, format),
         numberStyleFragment("borderRadius", style.borderRadius, format),
+        numberStyleFragment("fontSize", style.fontSize, format),
+        numberStyleFragment("fontWeight", style.fontWeight, format),
         numberStyleFragment("opacity", style.opacity, format),
         numberStyleFragment("gap", style.gap, format)
       ]
@@ -738,6 +742,8 @@ function styleFragments(style, format) {
         stringStyleFragment("color", style.textColor, format),
         stringStyleFragment("border-color", style.borderColor, format),
         numberStyleFragment("border-radius", style.borderRadius, format, "px"),
+        numberStyleFragment("font-size", style.fontSize, format, "px"),
+        numberStyleFragment("font-weight", style.fontWeight, format),
         numberStyleFragment("opacity", style.opacity, format),
         numberStyleFragment("gap", style.gap, format, "px")
       ];

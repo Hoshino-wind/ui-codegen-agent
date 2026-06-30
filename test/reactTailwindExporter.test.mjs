@@ -111,7 +111,9 @@ test("exportReactTailwind preserves controlled layer styles in React style props
           backgroundColor: "#111827",
           textColor: "#ffffff",
           borderRadius: 16,
-          padding: { x: 24, y: 12 }
+          padding: { x: 24, y: 12 },
+          fontSize: 18,
+          fontWeight: 760
         },
         content: { text: "Export" }
       }
@@ -124,6 +126,8 @@ test("exportReactTailwind preserves controlled layer styles in React style props
   assert.match(output.code, /color: "#ffffff"/);
   assert.match(output.code, /borderRadius: 16/);
   assert.match(output.code, /padding: "12px 24px"/);
+  assert.match(output.code, /fontSize: 18/);
+  assert.match(output.code, /fontWeight: 760/);
 });
 
 test("exportReactTailwind projects responsive rules into component CSS", () => {

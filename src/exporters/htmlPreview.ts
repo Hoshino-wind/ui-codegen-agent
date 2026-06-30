@@ -40,6 +40,12 @@ function styleFor(bounds: Rect, style?: LayerStyle): string {
   if (style?.borderRadius !== undefined) {
     declarations.push(`border-radius:${style.borderRadius}px`);
   }
+  if (style?.fontSize !== undefined) {
+    declarations.push(`font-size:${style.fontSize}px`);
+  }
+  if (style?.fontWeight !== undefined) {
+    declarations.push(`font-weight:${style.fontWeight}`);
+  }
   if (style?.padding) {
     const vertical = style.padding.y ?? style.padding.top ?? style.padding.bottom ?? 0;
     const horizontal = style.padding.x ?? style.padding.left ?? style.padding.right ?? 0;

@@ -57,6 +57,12 @@ function inlineStyle(bounds: Rect, style?: LayerStyle): string {
   if (style?.borderRadius !== undefined) {
     entries.push(`borderRadius: ${style.borderRadius}`);
   }
+  if (style?.fontSize !== undefined) {
+    entries.push(`fontSize: ${style.fontSize}`);
+  }
+  if (style?.fontWeight !== undefined) {
+    entries.push(`fontWeight: ${style.fontWeight}`);
+  }
   if (style) {
     const padding = paddingValue(style);
     if (padding) {

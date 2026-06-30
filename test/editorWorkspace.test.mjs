@@ -148,6 +148,24 @@ test("updateSelectedLayerStyle patches spacing controls through preview and expo
   assert.match(projectComponent, /data-layer-id="hero-cta"[\s\S]+padding: "14px 28px"/);
 });
 
+test("updateSelectedLayerStyle patches typography controls through preview and export outputs", () => {
+  const workspace = selectWorkspaceLayer(createEditorWorkspace(createSampleHomepageLayerDoc()), "hero-title");
+  const next = updateSelectedLayerStyle(workspace, {
+    fontSize: 54,
+    fontWeight: 860
+  });
+  const layer = next.doc.layers.find((candidate) => candidate.id === "hero-title");
+  const projectComponent = next.projectExport.files.find((file) => file.path === "src/ProductionHomepage.tsx").contents;
+
+  assert.equal(layer.style.fontSize, 54);
+  assert.equal(layer.style.fontWeight, 860);
+  assert.match(next.previewHtml, /data-layer-id="hero-title"[\s\S]+font-size:54px/);
+  assert.match(next.previewHtml, /data-layer-id="hero-title"[\s\S]+font-weight:860/);
+  assert.match(next.reactExport.code, /data-layer-id="hero-title"[\s\S]+fontSize: 54/);
+  assert.match(next.reactExport.code, /data-layer-id="hero-title"[\s\S]+fontWeight: 860/);
+  assert.match(projectComponent, /data-layer-id="hero-title"[\s\S]+fontSize: 54/);
+});
+
 test("updateSelectedImageAsset replaces the selected image source", () => {
   const workspace = selectWorkspaceLayer(createEditorWorkspace(createSampleHomepageLayerDoc()), "hero-image");
   const next = updateSelectedImageAsset(workspace, { uri: "/assets/hero-upload.png", source: "uploaded" });
