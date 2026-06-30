@@ -74,6 +74,8 @@ const workflowIcons = {
   Verifier: CheckCircle2
 };
 
+type PreviewSurface = "canvas" | "html";
+
 function formatScore(value: number | null): string {
   return value === null ? "n/a" : String(value);
 }
@@ -213,15 +215,19 @@ function CanvasLayer({
 
 function CanvasPreview({
   previewMode,
+  previewSurface,
   workspace,
   showLabels,
   onPreviewModeChange,
+  onPreviewSurfaceChange,
   onSelectLayer
 }: {
   previewMode: PreviewMode;
+  previewSurface: PreviewSurface;
   workspace: EditorWorkspace;
   showLabels: boolean;
   onPreviewModeChange: (mode: PreviewMode) => void;
+  onPreviewSurfaceChange: (surface: PreviewSurface) => void;
   onSelectLayer: (layerId: string) => void;
 }) {
   const assetById = useMemo(() => new Map(workspace.doc.assets.map((asset) => [asset.id, asset])), [workspace.doc.assets]);
@@ -237,11 +243,38 @@ function CanvasPreview({
     <section className="canvas-panel">
       <div className="panel-heading">
         <div>
-          <h2>Canvas Preview</h2>
-          <p>LayerDoc renders real editable objects, not a flattened screenshot.</p>
+          <h2>{previewSurface === "html" ? "HTML Preview" : "Canvas Preview"}</h2>
+          <p>
+            {previewSurface === "html"
+              ? "Generated HTML renders the same LayerDoc source used by export and verifier."
+              : "LayerDoc renders real editable objects, not a flattened screenshot."}
+          </p>
         </div>
         <div className="canvas-toolbar" aria-label="Canvas toolbar">
-          <button className="tool active" type="button" aria-label="Select">
+          <div className="preview-surface-tabs" aria-label="Preview surface">
+            <button
+              className={previewSurface === "canvas" ? "active" : ""}
+              type="button"
+              aria-pressed={previewSurface === "canvas"}
+              onClick={() => onPreviewSurfaceChange("canvas")}
+            >
+              Canvas
+            </button>
+            <button
+              className={previewSurface === "html" ? "active" : ""}
+              type="button"
+              aria-pressed={previewSurface === "html"}
+              onClick={() => onPreviewSurfaceChange("html")}
+            >
+              HTML Preview
+            </button>
+          </div>
+          <button
+            className={`tool ${previewSurface === "canvas" ? "active" : ""}`}
+            type="button"
+            aria-label="Select"
+            onClick={() => onPreviewSurfaceChange("canvas")}
+          >
             <MousePointer2 size={16} />
           </button>
           <button
@@ -272,40 +305,56 @@ function CanvasPreview({
         ))}
       </div>
       <div
-        className={`layerdoc-canvas ${previewMode}`}
+        className={`layerdoc-canvas ${previewMode} ${previewSurface === "html" ? "html-preview-surface" : ""}`}
         style={{
           width: viewport.display.width,
           height: viewport.display.height,
           background: workspace.doc.canvas.background ?? "#ffffff"
         }}
       >
-        {workspace.doc.sections
-          .filter((section) => section.visible !== false)
-          .map((section) => (
-          <div
-            className="canvas-section"
-            key={section.id}
+        {previewSurface === "html" ? (
+          <iframe
+            className="html-preview-frame"
+            title="Generated HTML Preview"
+            sandbox=""
+            srcDoc={workspace.previewHtml}
             style={{
-              left: section.bounds.x * viewport.scale,
-              top: section.bounds.y * viewport.scale,
-              width: section.bounds.width * viewport.scale,
-              height: section.bounds.height * viewport.scale
+              width: workspace.doc.canvas.width,
+              height: workspace.doc.canvas.height,
+              transform: `scale(${viewport.scale})`
             }}
-          >
-            {showLabels ? <span className="section-badge">{section.name}</span> : null}
-          </div>
-        ))}
-        {visibleLayers.map((layer) => (
-          <CanvasLayer
-            key={layer.id}
-            layer={layer}
-            assetUri={assetById.get(layer.assetId ?? "")?.uri}
-            isSelected={workspace.selectedLayerId === layer.id}
-            scale={viewport.scale}
-            showLabels={showLabels}
-            onSelect={() => onSelectLayer(layer.id)}
           />
-        ))}
+        ) : (
+          <>
+            {workspace.doc.sections
+              .filter((section) => section.visible !== false)
+              .map((section) => (
+                <div
+                  className="canvas-section"
+                  key={section.id}
+                  style={{
+                    left: section.bounds.x * viewport.scale,
+                    top: section.bounds.y * viewport.scale,
+                    width: section.bounds.width * viewport.scale,
+                    height: section.bounds.height * viewport.scale
+                  }}
+                >
+                  {showLabels ? <span className="section-badge">{section.name}</span> : null}
+                </div>
+              ))}
+            {visibleLayers.map((layer) => (
+              <CanvasLayer
+                key={layer.id}
+                layer={layer}
+                assetUri={assetById.get(layer.assetId ?? "")?.uri}
+                isSelected={workspace.selectedLayerId === layer.id}
+                scale={viewport.scale}
+                showLabels={showLabels}
+                onSelect={() => onSelectLayer(layer.id)}
+              />
+            ))}
+          </>
+        )}
         {problemAreas.map((area) => (
           <div
             aria-label={`Verifier problem area ${area.label}`}
@@ -825,6 +874,7 @@ export function App() {
   const [workspace, setWorkspace] = useState(() => createEditorWorkspace(createSampleHomepageLayerDoc()));
   const [intake, setIntake] = useState(() => createIntakeWorkspace({ uri: "homepage_source.png", width: 1440, height: 1760 }));
   const [previewMode, setPreviewMode] = useState<PreviewMode>("desktop");
+  const [previewSurface, setPreviewSurface] = useState<PreviewSurface>("canvas");
   const [showLabels, setShowLabels] = useState(true);
   const [lastAction, setLastAction] = useState("Auto-saved LayerDoc state");
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -1031,11 +1081,16 @@ export function App() {
         </div>
         <CanvasPreview
           previewMode={previewMode}
+          previewSurface={previewSurface}
           workspace={workspace}
           showLabels={showLabels}
           onPreviewModeChange={(mode) => {
             setPreviewMode(mode);
             setLastAction(`${mode === "mobile" ? "Mobile" : "Desktop"} preview selected`);
+          }}
+          onPreviewSurfaceChange={(surface) => {
+            setPreviewSurface(surface);
+            setLastAction(`${surface === "html" ? "HTML preview" : "Canvas preview"} selected`);
           }}
           onSelectLayer={(layerId) => updateWorkspace(selectWorkspaceLayer(workspace, layerId), `Selected ${layerId}`)}
         />

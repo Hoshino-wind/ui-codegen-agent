@@ -792,6 +792,33 @@ button {
   flex: 0 0 auto;
 }
 
+.preview-surface-tabs {
+  display: inline-grid;
+  grid-template-columns: 78px 112px;
+  height: 32px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.preview-surface-tabs button {
+  min-width: 0;
+  height: 30px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 0;
+  color: #475569;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 780;
+}
+
+.preview-surface-tabs button.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .tool {
   width: 32px;
   flex: 0 0 32px;
@@ -844,6 +871,23 @@ button {
   border-color: #0f766e;
   border-radius: 18px;
   box-shadow: 0 12px 24px rgba(15, 118, 110, 0.12);
+}
+
+.html-preview-surface {
+  background:
+    linear-gradient(45deg, rgba(148, 163, 184, 0.14) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(148, 163, 184, 0.14) 25%, transparent 25%),
+    #ffffff;
+  background-size: 16px 16px;
+}
+
+.html-preview-frame {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border: 0;
+  transform-origin: top left;
+  background: #ffffff;
 }
 
 .canvas-section {

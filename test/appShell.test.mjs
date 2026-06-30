@@ -35,3 +35,12 @@ test("app shell exposes verifier problem areas in the editor surface", () => {
   assert.match(source, /problem-area-overlay/);
   assert.match(source, /Problem areas/);
 });
+
+test("app shell exposes the generated HTML preview as a real iframe surface", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /previewSurface/);
+  assert.match(source, /HTML Preview/);
+  assert.match(source, /srcDoc=\{workspace\.previewHtml\}/);
+  assert.match(source, /html-preview-frame/);
+});
