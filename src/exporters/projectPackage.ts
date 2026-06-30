@@ -2,7 +2,7 @@ import type { LayerDoc } from "../layerdoc/types.js";
 import { createLayerDocAudit, type LayerDocAudit } from "../layerdoc/audit.js";
 import { createLayerDocJsonSchema } from "../layerdoc/jsonSchema.js";
 import { defaultVerificationGates, type VerificationGates } from "../verifier/gates.js";
-import { createVerificationReport, type VerificationReport } from "../verifier/report.js";
+import { createVerificationReport, layerDocWithVerificationReport, type VerificationReport } from "../verifier/report.js";
 import { renderHtmlPreview } from "./htmlPreview.js";
 import { exportReactTailwind } from "./reactTailwind.js";
 
@@ -1769,11 +1769,12 @@ Verifier scores:
  * derived artifacts with traceable layer ids.
  */
 export function createProjectExportPackage(doc: LayerDoc, options: ProjectExportPackageOptions): ProjectExportPackage {
-  const reactExport = exportReactTailwind(doc, { componentName: options.componentName });
   const report = options.report ?? createVerificationReport(doc);
-  const audit = createLayerDocAudit(doc);
+  const sourceDoc = layerDocWithVerificationReport(doc, report);
+  const reactExport = exportReactTailwind(sourceDoc, { componentName: options.componentName });
+  const audit = createLayerDocAudit(sourceDoc);
   const packageName = options.packageName ?? toKebabCase(options.componentName);
-  const sourceHash = layerDocHash(doc);
+  const sourceHash = layerDocHash(sourceDoc);
   const files = [
     "README.md",
     "index.html",
@@ -1807,7 +1808,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     scores: report,
     audit
   };
-  const integrationContract = createIntegrationContract(doc, options.componentName, reactExport.fileName, sourceHash);
+  const integrationContract = createIntegrationContract(sourceDoc, options.componentName, reactExport.fileName, sourceHash);
 
   return {
     manifest,
@@ -1817,10 +1818,10 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
       { path: "integration-contract.json", contents: stableJson(integrationContract) },
       { path: "layerdoc-audit.json", contents: stableJson(audit) },
       { path: "layerdoc.schema.json", contents: stableJson(createLayerDocJsonSchema()) },
-      { path: "layerdoc.json", contents: stableJson(doc) },
+      { path: "layerdoc.json", contents: stableJson(sourceDoc) },
       { path: "manifest.json", contents: stableJson(manifest) },
       { path: "package.json", contents: packageJsonFor(manifest) },
-      { path: "preview.html", contents: renderHtmlPreview(doc) },
+      { path: "preview.html", contents: renderHtmlPreview(sourceDoc) },
       { path: "quality-gates.json", contents: stableJson(defaultVerificationGates) },
       { path: "scripts/verify-contract.mjs", contents: contractVerifierScriptFor() },
       { path: "scripts/verify-gates.mjs", contents: qualityGateScriptFor() },

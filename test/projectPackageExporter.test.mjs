@@ -364,6 +364,30 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "README.md").contents, /visual_evidence:/);
 });
 
+test("createProjectExportPackage stores verifier scores on the exported LayerDoc source", () => {
+  const doc = createExportDoc();
+  const report = {
+    ...createVerificationReport(doc, { visualSimilarity: 93.5 }),
+    projectFitScore: 94
+  };
+
+  const output = createProjectExportPackage(doc, { componentName: "ProductionHomepage", report });
+  const layerDoc = JSON.parse(output.files.find((file) => file.path === "layerdoc.json").contents);
+  const contract = JSON.parse(output.files.find((file) => file.path === "integration-contract.json").contents);
+  const manifest = JSON.parse(output.files.find((file) => file.path === "manifest.json").contents);
+
+  assert.equal(doc.verification.scores.visualSimilarity, null);
+  assert.deepEqual(layerDoc.verification.scores, {
+    visualSimilarity: 93.5,
+    structureScore: report.structureScore,
+    componentScore: report.componentScore,
+    projectFitScore: 94
+  });
+  assert.deepEqual(layerDoc.verification.issues, report.issues);
+  assert.equal(manifest.layerDocHash, output.manifest.layerDocHash);
+  assert.equal(contract.layerDoc.hash, output.manifest.layerDocHash);
+});
+
 test("writeProjectExportPackage writes every package file under the target directory", () => {
   const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-export-"));
   const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });

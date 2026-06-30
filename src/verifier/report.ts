@@ -107,3 +107,18 @@ export function createVerificationReport(doc: LayerDoc, input: VerificationInput
     issues: validation.issues
   };
 }
+
+export function layerDocWithVerificationReport(doc: LayerDoc, report: VerificationReport): LayerDoc {
+  return {
+    ...doc,
+    verification: {
+      scores: {
+        visualSimilarity: report.visualSimilarity,
+        structureScore: report.structureScore,
+        componentScore: report.componentScore,
+        projectFitScore: report.projectFitScore
+      },
+      issues: report.issues.map((issue) => ({ ...issue }))
+    }
+  };
+}

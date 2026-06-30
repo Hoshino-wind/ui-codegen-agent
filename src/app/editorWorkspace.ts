@@ -14,7 +14,7 @@ import { exportReactTailwind, type ReactTailwindExportResult } from "../exporter
 import type { ImageAssetPatch, LayerBoundsPatch, SectionRegenerationRequestInput } from "../editor/operations.js";
 import { createLayerDocAudit, type LayerDocAudit } from "../layerdoc/audit.js";
 import type { LayerDoc, LayerNode, LayerStyle } from "../layerdoc/types.js";
-import { createVerificationReport, type VerificationReport, type VerificationVisualEvidence } from "../verifier/report.js";
+import { createVerificationReport, layerDocWithVerificationReport, type VerificationReport, type VerificationVisualEvidence } from "../verifier/report.js";
 import type { PngSnapshotComparisonResult } from "../verifier/visualDiff.js";
 
 export interface EditorWorkspace {
@@ -39,24 +39,9 @@ function selectedLayerExists(doc: LayerDoc, layerId: string): boolean {
   return doc.layers.some((layer) => layer.id === layerId);
 }
 
-function docWithVerificationReport(doc: LayerDoc, report: VerificationReport): LayerDoc {
-  return {
-    ...doc,
-    verification: {
-      scores: {
-        visualSimilarity: report.visualSimilarity,
-        structureScore: report.structureScore,
-        componentScore: report.componentScore,
-        projectFitScore: report.projectFitScore
-      },
-      issues: report.issues.map((issue) => ({ ...issue }))
-    }
-  };
-}
-
 function materialize(doc: LayerDoc, selectedLayerId: string): EditorWorkspace {
   const report = createVerificationReport(doc);
-  const verifiedDoc = docWithVerificationReport(doc, report);
+  const verifiedDoc = layerDocWithVerificationReport(doc, report);
   const audit = createLayerDocAudit(verifiedDoc);
 
   return {
@@ -95,7 +80,7 @@ export function applyWorkspaceVisualDiff(
   visualEvidence?: VerificationVisualEvidence
 ): EditorWorkspace {
   const report = createVerificationReport(workspace.doc, { visualDiff, visualEvidence });
-  const verifiedDoc = docWithVerificationReport(workspace.doc, report);
+  const verifiedDoc = layerDocWithVerificationReport(workspace.doc, report);
 
   return {
     ...workspace,
