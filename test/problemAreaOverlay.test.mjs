@@ -31,3 +31,52 @@ test("createProblemAreaAnnotations keeps tiny mismatches visible in the editor",
 
   assert.deepEqual(annotations[0].bounds, { x: 1.25, y: 1.5, width: 6, height: 6 });
 });
+
+test("createProblemAreaAnnotations identifies the most specific affected layer", () => {
+  const annotations = createProblemAreaAnnotations(
+    [{ x: 112, y: 124, width: 30, height: 18 }],
+    {
+      scale: 0.5,
+      layers: [
+        {
+          id: "hero-art",
+          kind: "image",
+          track: "asset",
+          editable: true,
+          bounds: { x: 80, y: 96, width: 340, height: 220 }
+        },
+        {
+          id: "hero-title",
+          kind: "text",
+          track: "component",
+          editable: true,
+          bounds: { x: 104, y: 118, width: 180, height: 48 }
+        }
+      ]
+    }
+  );
+
+  assert.equal(annotations[0].affectedLayerId, "hero-title");
+  assert.equal(annotations[0].affectedLayerLabel, "hero-title");
+});
+
+test("createProblemAreaAnnotations leaves unmatched problem areas unbound", () => {
+  const annotations = createProblemAreaAnnotations(
+    [{ x: 500, y: 600, width: 40, height: 30 }],
+    {
+      scale: 1,
+      layers: [
+        {
+          id: "hero-title",
+          kind: "text",
+          track: "component",
+          editable: true,
+          bounds: { x: 104, y: 118, width: 180, height: 48 }
+        }
+      ]
+    }
+  );
+
+  assert.equal(annotations[0].affectedLayerId, null);
+  assert.equal(annotations[0].affectedLayerLabel, null);
+});

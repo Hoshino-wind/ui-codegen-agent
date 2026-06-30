@@ -265,7 +265,8 @@ function CanvasPreview({
   showLabels,
   onPreviewModeChange,
   onPreviewSurfaceChange,
-  onSelectLayer
+  onSelectLayer,
+  onFocusProblemArea
 }: {
   previewMode: PreviewMode;
   previewSurface: PreviewSurface;
@@ -274,6 +275,7 @@ function CanvasPreview({
   onPreviewModeChange: (mode: PreviewMode) => void;
   onPreviewSurfaceChange: (surface: PreviewSurface) => void;
   onSelectLayer: (layerId: string) => void;
+  onFocusProblemArea: (layerId: string) => void;
 }) {
   const assetById = useMemo(() => new Map(workspace.doc.assets.map((asset) => [asset.id, asset])), [workspace.doc.assets]);
   const viewport = createPreviewViewport({ mode: previewMode, canvas: workspace.doc.canvas });
@@ -282,7 +284,10 @@ function CanvasPreview({
     [workspace.doc.sections]
   );
   const visibleLayers = workspace.doc.layers.filter((layer) => !layer.sectionId || visibleSectionIds.has(layer.sectionId));
-  const problemAreas = createProblemAreaAnnotations(workspace.report.visualDiff?.problemAreas ?? [], { scale: viewport.scale });
+  const problemAreas = createProblemAreaAnnotations(workspace.report.visualDiff?.problemAreas ?? [], {
+    scale: viewport.scale,
+    layers: visibleLayers
+  });
 
   return (
     <section className="canvas-panel">
@@ -401,10 +406,21 @@ function CanvasPreview({
           </>
         )}
         {problemAreas.map((area) => (
-          <div
-            aria-label={`Verifier problem area ${area.label}`}
+          <button
+            aria-label={
+              area.affectedLayerId
+                ? `Focus ${area.affectedLayerId} from verifier problem area ${area.label}`
+                : `Verifier problem area ${area.label}`
+            }
             className="problem-area-overlay"
+            disabled={!area.affectedLayerId}
             key={area.id}
+            type="button"
+            onClick={() => {
+              if (area.affectedLayerId) {
+                onFocusProblemArea(area.affectedLayerId);
+              }
+            }}
             style={{
               left: area.bounds.x,
               top: area.bounds.y,
@@ -412,8 +428,8 @@ function CanvasPreview({
               height: area.bounds.height
             }}
           >
-            <span>{area.label}</span>
-          </div>
+            <span>{area.affectedLayerLabel ? `${area.label} / ${area.affectedLayerLabel}` : area.label}</span>
+          </button>
         ))}
       </div>
     </section>
@@ -1370,6 +1386,9 @@ export function App() {
             setLastAction(`${surface === "html" ? "HTML preview" : "Canvas preview"} selected`);
           }}
           onSelectLayer={(layerId) => updateWorkspace(selectWorkspaceLayer(workspace, layerId), `Selected ${layerId}`)}
+          onFocusProblemArea={(layerId) =>
+            updateWorkspace(selectWorkspaceLayer(workspace, layerId), `Verifier problem focuses ${layerId}`)
+          }
         />
       </section>
 
