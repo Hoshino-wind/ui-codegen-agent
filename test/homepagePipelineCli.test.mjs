@@ -179,6 +179,38 @@ test("homepage pipeline CLI rejects provided analysis plans for a different PNG 
   assert.match(result.stderr, /Analysis Plan canvas 800x960 must match source PNG 640x960/);
 });
 
+test("homepage pipeline CLI rejects malformed analysis plan JSON with stable guidance", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-homepage-plan-malformed-"));
+  const inputPath = join(directory, "homepage.png");
+  const candidatePath = join(directory, "candidate.png");
+  const analysisPlanPath = join(directory, "analysis-plan.json");
+  const outputDir = join(directory, "run");
+  writeHomepagePng(inputPath);
+  writeHomepagePng(candidatePath);
+  writeFileSync(analysisPlanPath, JSON.stringify({
+    name: "Malformed plan",
+    canvas: { width: 640, height: 960 },
+    sections: [{ id: "hero", name: "Hero" }]
+  }, null, 2));
+
+  const result = spawnSync(process.execPath, [
+    cliPath,
+    "--input",
+    inputPath,
+    "--candidate",
+    candidatePath,
+    "--analysis-plan",
+    analysisPlanPath,
+    "--out",
+    outputDir,
+    "--component",
+    "ProductionHomepage"
+  ], { cwd: rootDir, encoding: "utf8" });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Input file is not a Homepage Analysis Plan/);
+});
+
 test("homepage pipeline CLI rejects missing required arguments with usage guidance", () => {
   const result = spawnSync(process.execPath, [cliPath], { cwd: rootDir, encoding: "utf8" });
 

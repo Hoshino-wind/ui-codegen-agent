@@ -19,6 +19,7 @@ export { createStoredZipArchive } from "./exporters/zipArchive.js";
 export {
   addAnalysisLayer,
   createHomepageAnalysisPlan,
+  parseHomepageAnalysisPlanJson,
   toPngIntakeSections,
   updateAnalysisLayer,
   validateHomepageAnalysisPlan

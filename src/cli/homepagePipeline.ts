@@ -5,10 +5,10 @@ import process from "node:process";
 
 import { createProjectExportPackage } from "../exporters/projectPackage.js";
 import { writeProjectExportPackage } from "../exporters/projectPackageWriter.js";
+import { parseHomepageAnalysisPlanJson, type HomepageAnalysisPlan } from "../importers/homepageAnalysisPlan.js";
 import { createHomepageLayerDocFromPng } from "../importers/homepagePngPipeline.js";
 import { runLayerDocPreviewVerification } from "../verifier/previewRun.js";
 import { runLayerDocVerification } from "../verifier/run.js";
-import type { HomepageAnalysisPlan } from "../importers/homepageAnalysisPlan.js";
 import { CliError, readOptionValue } from "./shared.js";
 
 interface HomepagePipelineCliOptions {
@@ -160,7 +160,7 @@ function writeJson(path: string, value: unknown): void {
 }
 
 function readAnalysisPlan(path: string): HomepageAnalysisPlan {
-  return JSON.parse(readFileSync(path, "utf8")) as HomepageAnalysisPlan;
+  return parseHomepageAnalysisPlanJson(readFileSync(path, "utf8"));
 }
 
 function copyDirectory(sourceDir: string, targetDir: string): string[] {

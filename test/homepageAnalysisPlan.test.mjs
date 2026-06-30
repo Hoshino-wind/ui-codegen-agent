@@ -10,6 +10,7 @@ import {
   addAnalysisLayer,
   createHomepageAnalysisPlan,
   createImageManifestFromPng,
+  parseHomepageAnalysisPlanJson,
   seedHomepageAnalysisPlan,
   toPngIntakeSections,
   updateAnalysisLayer,
@@ -156,6 +157,40 @@ test("homepage analysis plan preserves layer style through PNG intake sections",
 
   sections[0].layers[0].style.padding.x = 99;
   assert.equal(updated.sections[0].layers[0].style.padding.x, 6);
+});
+
+test("parseHomepageAnalysisPlanJson imports saved plan JSON after shape checks", () => {
+  const plan = addAnalysisLayer(
+    createHomepageAnalysisPlan({
+      name: "Saved homepage",
+      canvas: { width: 160, height: 800 }
+    }),
+    "hero",
+    {
+      id: "hero-title",
+      kind: "text",
+      bounds: { x: 12, y: 20, width: 80, height: 20 },
+      text: "Saved hero"
+    }
+  );
+
+  const parsed = parseHomepageAnalysisPlanJson(JSON.stringify(plan));
+
+  assert.equal(parsed.name, "Saved homepage");
+  assert.equal(parsed.sections[0].layers[0].text, "Saved hero");
+});
+
+test("parseHomepageAnalysisPlanJson rejects malformed plan sections before intake", () => {
+  const malformedPlan = {
+    name: "Malformed homepage",
+    canvas: { width: 160, height: 800 },
+    sections: [{ id: "hero", name: "Hero" }]
+  };
+
+  assert.throws(
+    () => parseHomepageAnalysisPlanJson(JSON.stringify(malformedPlan)),
+    /Input file is not a Homepage Analysis Plan/
+  );
 });
 
 test("validateHomepageAnalysisPlan reports duplicate ids and out-of-canvas bounds", () => {

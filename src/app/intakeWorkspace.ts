@@ -2,6 +2,7 @@ import {
   addAnalysisLayer,
   updateAnalysisLayer,
   createHomepageAnalysisPlan,
+  parseHomepageAnalysisPlanJson,
   toPngIntakeSections,
   validateHomepageAnalysisPlan,
   type AnalysisLayerPatch,
@@ -63,69 +64,6 @@ function materialize(
     layerCount: analysisPlan.sections.reduce((total, section) => total + section.layers.length, 0),
     ready: issues.length === 0
   };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-// Saved Analysis Plan files are external input, so only trust them after checking the graph shape used by intake.
-function isRectCandidate(value: unknown): value is Rect {
-  return (
-    isRecord(value) &&
-    typeof value.x === "number" &&
-    typeof value.y === "number" &&
-    typeof value.width === "number" &&
-    typeof value.height === "number"
-  );
-}
-
-function isAnalysisLayerCandidate(value: unknown): value is PngIntakeLayerPlan {
-  return (
-    isRecord(value) &&
-    typeof value.id === "string" &&
-    typeof value.kind === "string" &&
-    isRectCandidate(value.bounds)
-  );
-}
-
-function isAnalysisSectionCandidate(value: unknown): value is HomepageAnalysisPlan["sections"][number] {
-  return (
-    isRecord(value) &&
-    typeof value.id === "string" &&
-    typeof value.name === "string" &&
-    isRectCandidate(value.bounds) &&
-    Array.isArray(value.layers) &&
-    value.layers.every(isAnalysisLayerCandidate)
-  );
-}
-
-function isHomepageAnalysisPlanCandidate(value: unknown): value is HomepageAnalysisPlan {
-  return (
-    isRecord(value) &&
-    typeof value.name === "string" &&
-    isRecord(value.canvas) &&
-    typeof value.canvas.width === "number" &&
-    typeof value.canvas.height === "number" &&
-    Array.isArray(value.sections) &&
-    value.sections.every(isAnalysisSectionCandidate)
-  );
-}
-
-function parseAnalysisPlanJson(contents: string): HomepageAnalysisPlan {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(contents);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Invalid JSON.";
-    throw new Error(`Analysis Plan JSON could not be parsed: ${message}`);
-  }
-
-  if (!isHomepageAnalysisPlanCandidate(parsed)) {
-    throw new Error("Input file is not a Homepage Analysis Plan.");
-  }
-
-  return parsed;
 }
 
 function assertPlanCanvasMatchesSource(plan: HomepageAnalysisPlan, sourceImage: SourceImageMetadata): void {
@@ -311,7 +249,7 @@ export function createIntakeWorkspace(sourceImage: SourceImageMetadata): IntakeW
 }
 
 export function createIntakeWorkspaceFromAnalysisPlanJson(sourceImage: SourceImageMetadata, contents: string): IntakeWorkspace {
-  const analysisPlan = parseAnalysisPlanJson(contents);
+  const analysisPlan = parseHomepageAnalysisPlanJson(contents);
   assertPlanCanvasMatchesSource(analysisPlan, sourceImage);
   const firstSection = analysisPlan.sections[0];
 

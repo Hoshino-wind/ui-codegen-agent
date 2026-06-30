@@ -1,5 +1,5 @@
-import type { Canvas, LayerStyle, Rect } from "../layerdoc/types.js";
-import type { PngIntakeLayerPlan, PngIntakeSectionPlan } from "./pngIntake.js";
+import type { Canvas, LayerKind, LayerStyle, Rect } from "../layerdoc/types.js";
+import type { PngIntakeAssetPlan, PngIntakeLayerPlan, PngIntakeSectionPlan } from "./pngIntake.js";
 
 export interface HomepageAnalysisPlan {
   name: string;
@@ -16,6 +16,26 @@ export interface CreateHomepageAnalysisPlanInput {
 export type AnalysisLayerPatch = Partial<Omit<PngIntakeLayerPlan, "id" | "kind">>;
 
 const defaultSectionNames = ["Hero", "Proof", "Workflow", "Features", "Editor", "Export", "Verifier", "Final CTA"];
+const layerKinds: readonly LayerKind[] = [
+  "section",
+  "group",
+  "text",
+  "button",
+  "nav",
+  "card",
+  "form",
+  "input",
+  "list",
+  "table",
+  "image",
+  "icon",
+  "background",
+  "chart",
+  "map",
+  "scene3d"
+];
+const assetSources: readonly PngIntakeAssetPlan["source"][] = ["reference-crop", "generated", "uploaded", "remote", "project"];
+const assetTypes: readonly PngIntakeAssetPlan["type"][] = ["image", "video", "font", "json", "model", "other"];
 
 function toKebabCase(value: string): string {
   return value
@@ -67,6 +87,138 @@ function clonePlan(plan: HomepageAnalysisPlan): HomepageAnalysisPlan {
 
 function isRectInsideCanvas(rect: Rect, canvas: Canvas): boolean {
   return rect.width > 0 && rect.height > 0 && rect.x >= 0 && rect.y >= 0 && rect.x + rect.width <= canvas.width && rect.y + rect.height <= canvas.height;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isOptionalString(value: unknown): value is string | undefined {
+  return value === undefined || typeof value === "string";
+}
+
+function isOptionalBoolean(value: unknown): value is boolean | undefined {
+  return value === undefined || typeof value === "boolean";
+}
+
+function isRectCandidate(value: unknown): value is Rect {
+  return isRecord(value) && isFiniteNumber(value.x) && isFiniteNumber(value.y) && isFiniteNumber(value.width) && isFiniteNumber(value.height);
+}
+
+function isCanvasCandidate(value: unknown): value is Canvas {
+  return isRecord(value) && isFiniteNumber(value.width) && isFiniteNumber(value.height) && isOptionalString(value.background);
+}
+
+function isLayerKindCandidate(value: unknown): value is LayerKind {
+  return typeof value === "string" && layerKinds.includes(value as LayerKind);
+}
+
+function isLayerSpacingCandidate(value: unknown): boolean {
+  if (value === undefined) {
+    return true;
+  }
+  if (!isRecord(value)) {
+    return false;
+  }
+  return ["x", "y", "top", "right", "bottom", "left"].every((key) => value[key] === undefined || isFiniteNumber(value[key]));
+}
+
+function isLayerStyleCandidate(value: unknown): value is LayerStyle | undefined {
+  if (value === undefined) {
+    return true;
+  }
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    isOptionalString(value.backgroundColor) &&
+    isOptionalString(value.textColor) &&
+    isOptionalString(value.borderColor) &&
+    isOptionalString(value.fontFamily) &&
+    ["borderRadius", "fontSize", "fontWeight", "lineHeight", "letterSpacing", "gap", "opacity"].every(
+      (key) => value[key] === undefined || isFiniteNumber(value[key])
+    ) &&
+    isLayerSpacingCandidate(value.padding)
+  );
+}
+
+function isAssetSourceCandidate(value: unknown): value is PngIntakeAssetPlan["source"] | undefined {
+  return value === undefined || (typeof value === "string" && assetSources.includes(value as PngIntakeAssetPlan["source"]));
+}
+
+function isAssetTypeCandidate(value: unknown): value is PngIntakeAssetPlan["type"] | undefined {
+  return value === undefined || (typeof value === "string" && assetTypes.includes(value as PngIntakeAssetPlan["type"]));
+}
+
+function isAnalysisAssetCandidate(value: unknown): value is PngIntakeAssetPlan | undefined {
+  if (value === undefined) {
+    return true;
+  }
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    isOptionalString(value.fileName) &&
+    (value.cropBounds === undefined || isRectCandidate(value.cropBounds)) &&
+    isOptionalString(value.uri) &&
+    isAssetSourceCandidate(value.source) &&
+    isAssetTypeCandidate(value.type)
+  );
+}
+
+function isAnalysisLayerCandidate(value: unknown): value is PngIntakeLayerPlan {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    isLayerKindCandidate(value.kind) &&
+    isRectCandidate(value.bounds) &&
+    isOptionalString(value.text) &&
+    isOptionalString(value.alt) &&
+    isOptionalBoolean(value.editable) &&
+    isLayerStyleCandidate(value.style) &&
+    isAnalysisAssetCandidate(value.asset)
+  );
+}
+
+function isAnalysisSectionCandidate(value: unknown): value is PngIntakeSectionPlan {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.name === "string" &&
+    isRectCandidate(value.bounds) &&
+    Array.isArray(value.layers) &&
+    value.layers.every(isAnalysisLayerCandidate)
+  );
+}
+
+function isHomepageAnalysisPlanCandidate(value: unknown): value is HomepageAnalysisPlan {
+  return (
+    isRecord(value) &&
+    typeof value.name === "string" &&
+    isCanvasCandidate(value.canvas) &&
+    Array.isArray(value.sections) &&
+    value.sections.every(isAnalysisSectionCandidate)
+  );
+}
+
+export function parseHomepageAnalysisPlanJson(contents: string): HomepageAnalysisPlan {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(contents);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Invalid JSON.";
+    throw new Error(`Analysis Plan JSON could not be parsed: ${message}`);
+  }
+
+  if (!isHomepageAnalysisPlanCandidate(parsed)) {
+    throw new Error("Input file is not a Homepage Analysis Plan.");
+  }
+
+  return clonePlan(parsed);
 }
 
 function evenlySizedSections(names: string[], canvas: Canvas): PngIntakeSectionPlan[] {
