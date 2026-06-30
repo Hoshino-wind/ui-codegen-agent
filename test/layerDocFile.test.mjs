@@ -4,11 +4,48 @@ import test from "node:test";
 import {
   createLayerDocDownload,
   createProjectPackageDownload,
+  createProjectPackageZipDownload,
   createReactExportDownload,
   createVerificationReportDownload,
   createWorkspaceFromLayerDocJson
 } from "../dist/app/layerDocFile.js";
 import { createSampleHomepageLayerDoc } from "../dist/app/sampleDocument.js";
+
+function readUInt16LE(bytes, offset) {
+  return bytes[offset] | (bytes[offset + 1] << 8);
+}
+
+function readUInt32LE(bytes, offset) {
+  return bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24);
+}
+
+function zipCentralDirectoryNames(bytes) {
+  const decoder = new TextDecoder();
+  let eocdOffset = -1;
+  for (let offset = bytes.length - 22; offset >= 0; offset -= 1) {
+    if (readUInt32LE(bytes, offset) === 0x06054b50) {
+      eocdOffset = offset;
+      break;
+    }
+  }
+  assert.notEqual(eocdOffset, -1, "ZIP end-of-central-directory record was not found.");
+
+  const entryCount = readUInt16LE(bytes, eocdOffset + 10);
+  let offset = readUInt32LE(bytes, eocdOffset + 16);
+  const names = [];
+
+  for (let index = 0; index < entryCount; index += 1) {
+    assert.equal(readUInt32LE(bytes, offset), 0x02014b50);
+    const fileNameLength = readUInt16LE(bytes, offset + 28);
+    const extraLength = readUInt16LE(bytes, offset + 30);
+    const commentLength = readUInt16LE(bytes, offset + 32);
+    const nameStart = offset + 46;
+    names.push(decoder.decode(bytes.slice(nameStart, nameStart + fileNameLength)));
+    offset = nameStart + fileNameLength + extraLength + commentLength;
+  }
+
+  return names;
+}
 
 test("createWorkspaceFromLayerDocJson imports a valid LayerDoc into the editor workspace", () => {
   const doc = createSampleHomepageLayerDoc();
@@ -106,6 +143,22 @@ test("createProjectPackageDownload serializes every project package file in one 
   assert.match(payload.files.find((file) => file.path === "preview.html").contents, /data-layerdoc/);
   assert.match(payload.files.find((file) => file.path === "layerdoc.json").contents, /"schema": "layerdoc"/);
   assert.equal(artifact.contents.endsWith("\n"), true);
+});
+
+test("createProjectPackageZipDownload serializes the project package as a real ZIP archive", () => {
+  const workspace = createWorkspaceFromLayerDocJson(JSON.stringify(createSampleHomepageLayerDoc()));
+  const artifact = createProjectPackageZipDownload(workspace);
+
+  assert.equal(artifact.fileName, "production-homepage.zip");
+  assert.equal(artifact.mimeType, "application/zip");
+  assert.equal(artifact.contents instanceof Uint8Array, true);
+  assert.equal(artifact.contents[0], 0x50);
+  assert.equal(artifact.contents[1], 0x4b);
+  assert.equal(artifact.contents[2], 0x03);
+  assert.equal(artifact.contents[3], 0x04);
+  assert.deepEqual(zipCentralDirectoryNames(artifact.contents).sort(), workspace.projectExport.files.map((file) => file.path).sort());
+  assert.equal(zipCentralDirectoryNames(artifact.contents).includes("layerdoc-audit.json"), true);
+  assert.equal(zipCentralDirectoryNames(artifact.contents).includes("src/ProductionHomepage.tsx"), true);
 });
 
 test("createVerificationReportDownload serializes verifier scores without inventing screenshot similarity", () => {

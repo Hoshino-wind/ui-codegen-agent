@@ -13,6 +13,7 @@ export {
 } from "./exporters/projectPackage.js";
 export { writeProjectExportPackage } from "./exporters/projectPackageWriter.js";
 export { exportReactTailwind } from "./exporters/reactTailwind.js";
+export { createStoredZipArchive } from "./exporters/zipArchive.js";
 export {
   addAnalysisLayer,
   createHomepageAnalysisPlan,
@@ -105,6 +106,7 @@ export type {
   ProjectExportPackage,
   ProjectExportPackageOptions
 } from "./exporters/projectPackage.js";
+export type { ZipArchiveFile } from "./exporters/zipArchive.js";
 export type {
   WrittenProjectExportFile,
   WrittenProjectExportPackage

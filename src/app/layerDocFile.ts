@@ -1,11 +1,12 @@
 import { validateLayerDoc } from "../layerdoc/validation.js";
 import type { LayerDoc } from "../layerdoc/types.js";
+import { createStoredZipArchive } from "../exporters/zipArchive.js";
 import { createEditorWorkspace, type EditorWorkspace } from "./editorWorkspace.js";
 
 export interface LayerDocDownloadArtifact {
   fileName: string;
-  mimeType: "application/json" | "text/plain;charset=utf-8";
-  contents: string;
+  mimeType: "application/json" | "application/zip" | "text/plain;charset=utf-8";
+  contents: string | Uint8Array;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -84,6 +85,14 @@ export function createProjectPackageDownload(workspace: EditorWorkspace): LayerD
     fileName: "project-package.json",
     mimeType: "application/json",
     contents: `${JSON.stringify(workspace.projectExport, null, 2)}\n`
+  };
+}
+
+export function createProjectPackageZipDownload(workspace: EditorWorkspace): LayerDocDownloadArtifact {
+  return {
+    fileName: `${workspace.projectExport.manifest.packageName}.zip`,
+    mimeType: "application/zip",
+    contents: createStoredZipArchive(workspace.projectExport.files)
   };
 }
 

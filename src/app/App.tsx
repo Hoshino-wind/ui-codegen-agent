@@ -51,11 +51,13 @@ import {
 import {
   createLayerDocDownload,
   createProjectPackageDownload,
+  createProjectPackageZipDownload,
   createReactExportDownload,
   createVerificationReportDownload,
   createWorkspaceFromLayerDocJson,
   type LayerDocDownloadArtifact
 } from "./layerDocFile.js";
+import { triggerBrowserDownload } from "./browserDownload.js";
 import { createImageAssetPatchFromFile, readBrowserFileAsDataUrl } from "./imageAssetUpload.js";
 import { renderLayerDocSnapshot } from "./layerDocSnapshot.js";
 import { createPreviewViewport, type PreviewMode } from "./previewViewport.js";
@@ -573,7 +575,15 @@ function SectionOrder({ workspace, onChange }: { workspace: EditorWorkspace; onC
   );
 }
 
-function ProjectExportPanel({ workspace, onDownload }: { workspace: EditorWorkspace; onDownload: () => void }) {
+function ProjectExportPanel({
+  workspace,
+  onDownload,
+  onDownloadZip
+}: {
+  workspace: EditorWorkspace;
+  onDownload: () => void;
+  onDownloadZip: () => void;
+}) {
   const auditStatus = workspace.audit.structure.valid && workspace.audit.assetCompliance.passed ? "ready" : "review";
   const assetCoverage = `${Math.round(workspace.audit.assetCompliance.assetCoverageRatio * 100)}%`;
 
@@ -596,10 +606,16 @@ function ProjectExportPanel({ workspace, onDownload }: { workspace: EditorWorksp
         <strong>{workspace.projectExport.manifest.packageName}</strong>
         <span>{workspace.projectExport.files.length} files</span>
       </div>
-      <button className="export-package-download" type="button" onClick={onDownload}>
-        <Download size={13} />
-        Export Project
-      </button>
+      <div className="export-package-actions">
+        <button className="export-package-download primary" type="button" onClick={onDownloadZip}>
+          <Download size={13} />
+          Export ZIP
+        </button>
+        <button className="export-package-download" type="button" onClick={onDownload}>
+          <Download size={13} />
+          Export Project
+        </button>
+      </div>
       <div className="export-file-list">
         {workspace.projectExport.files.map((file) => (
           <div className="export-file-row" key={file.path}>
@@ -953,14 +969,7 @@ export function App() {
   }
 
   function downloadArtifact(artifact: LayerDocDownloadArtifact) {
-    const blob = new Blob([artifact.contents], { type: artifact.mimeType });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-
-    anchor.href = url;
-    anchor.download = artifact.fileName;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    triggerBrowserDownload(artifact);
   }
 
   function saveLayerDocFile() {
@@ -977,6 +986,12 @@ export function App() {
 
   function exportProjectPackage() {
     const artifact = createProjectPackageDownload(workspace);
+    downloadArtifact(artifact);
+    setLastAction(`Exported ${artifact.fileName}`);
+  }
+
+  function exportProjectZip() {
+    const artifact = createProjectPackageZipDownload(workspace);
     downloadArtifact(artifact);
     setLastAction(`Exported ${artifact.fileName}`);
   }
@@ -1097,7 +1112,7 @@ export function App() {
           <WorkspaceStep item={item} index={index} key={item.label} />
         ))}
         <AnalysisPlanPanel intake={intake} onChange={updateIntake} onBuild={buildFromAnalysisPlan} onUploadFile={(file) => void importPngFile(file)} uploadError={uploadError} />
-        <ProjectExportPanel workspace={workspace} onDownload={exportProjectPackage} />
+        <ProjectExportPanel workspace={workspace} onDownload={exportProjectPackage} onDownloadZip={exportProjectZip} />
         <SectionOrder workspace={workspace} onChange={updateWorkspace} />
       </aside>
 

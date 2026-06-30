@@ -671,6 +671,13 @@ button {
   font-weight: 820;
 }
 
+.export-package-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
 .export-package-download {
   display: inline-flex;
   align-items: center;
@@ -685,6 +692,11 @@ button {
   background: #f0fdfa;
   font-size: 12px;
   font-weight: 820;
+}
+
+.export-package-download.primary {
+  color: #ffffff;
+  background: var(--accent);
 }
 
 .export-file-list {

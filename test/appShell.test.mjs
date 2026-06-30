@@ -28,6 +28,13 @@ test("app shell exposes a project package export action", () => {
   assert.match(source, /createProjectPackageDownload/);
 });
 
+test("app shell exposes a project ZIP export action", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /Export ZIP/);
+  assert.match(source, /createProjectPackageZipDownload/);
+});
+
 test("app shell exposes verifier problem areas in the editor surface", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 
