@@ -31,6 +31,12 @@ export interface Canvas {
   background?: string;
 }
 
+export interface SourceImageProvenance {
+  uri: string;
+  width: number;
+  height: number;
+}
+
 export interface TokenSet {
   colors: Record<string, string>;
   typography: Record<string, unknown>;
@@ -146,6 +152,7 @@ export interface LayerDoc {
   metadata: {
     name: string;
     createdAt: string;
+    sourceImage?: SourceImageProvenance;
   };
   canvas: Canvas;
   tokens: TokenSet;
@@ -168,6 +175,7 @@ export interface LayerDoc {
 export interface CreateLayerDocInput {
   name: string;
   canvas: Canvas;
+  sourceImage?: SourceImageProvenance;
   tokens?: Partial<TokenSet>;
   sections?: SectionNode[];
   layers?: LayerNode[];

@@ -27,6 +27,10 @@ function cloneSection(section: SectionNode): SectionNode {
 function cloneDoc(doc: LayerDoc): LayerDoc {
   return {
     ...doc,
+    metadata: {
+      ...doc.metadata,
+      ...(doc.metadata.sourceImage ? { sourceImage: { ...doc.metadata.sourceImage } } : {})
+    },
     canvas: { ...doc.canvas },
     tokens: {
       colors: { ...doc.tokens.colors },

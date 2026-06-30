@@ -35,6 +35,10 @@ LayerDoc owns:
 - `responsive`: breakpoint rules and layout changes.
 - `verification`: visual, structural, component, and project-fit evidence.
 
+LayerDoc metadata can also carry `sourceImage` provenance for the original AI
+visual. That reference is evidence for verification and handoff, not the source
+of truth for editable structure.
+
 ## Classification Tracks
 
 The first step after image analysis is classification, not code generation.
@@ -138,6 +142,9 @@ After the plan is confirmed, PNG intake turns it into an
 ```
 
 The rest of the system consumes the resulting LayerDoc.
+The imported LayerDoc preserves `metadata.sourceImage` so exported packages and
+verification reports can trace back to the original AI visual without treating
+that PNG as the editable source.
 
 For the homepage MVP, ingestion enforces 8-15 sections so the product stays
 focused on real page structure rather than single-canvas bitmap conversion.

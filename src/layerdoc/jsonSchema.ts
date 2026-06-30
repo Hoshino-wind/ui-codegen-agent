@@ -90,7 +90,17 @@ export function createLayerDocJsonSchema(): Record<string, unknown> {
         additionalProperties: false,
         properties: {
           name: { type: "string", minLength: 1 },
-          createdAt: { type: "string" }
+          createdAt: { type: "string" },
+          sourceImage: {
+            type: "object",
+            required: ["uri", "width", "height"],
+            additionalProperties: false,
+            properties: {
+              uri: { type: "string", minLength: 1 },
+              width: { type: "number", exclusiveMinimum: 0 },
+              height: { type: "number", exclusiveMinimum: 0 }
+            }
+          }
         }
       },
       canvas: {

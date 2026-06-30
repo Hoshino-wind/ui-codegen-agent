@@ -24,6 +24,7 @@ function createExportDoc() {
   return createLayerDoc({
     name: "Production Homepage",
     canvas: { width: 1440, height: 900, background: "#ffffff" },
+    sourceImage: { uri: "/references/production-homepage.png", width: 1440, height: 900 },
     sections: [{ id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 1440, height: 900 }, layerIds: ["headline", "cta"] }],
     components: [{ id: "HeroSection", layerIds: ["headline", "cta"], exportable: true }],
     responsive: {
@@ -322,6 +323,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   });
   const layerDocSchema = JSON.parse(output.files.find((file) => file.path === "layerdoc.schema.json").contents);
   assert.equal(layerDocSchema.properties.schema.const, "layerdoc");
+  assert.deepEqual(layerDocSchema.properties.metadata.properties.sourceImage.required, ["uri", "width", "height"]);
   assert.equal(
     layerDocSchema.properties.verification.properties.issues.items.properties.code.enum.includes("section_empty"),
     true
@@ -351,6 +353,11 @@ test("createProjectExportPackage returns project-ready files derived from one La
     file: "layerdoc.json",
     schemaFile: "layerdoc.schema.json",
     hash: output.manifest.layerDocHash
+  });
+  assert.deepEqual(handoffSummary.sourceVisual, {
+    uri: "/references/production-homepage.png",
+    width: 1440,
+    height: 900
   });
   assert.deepEqual(handoffSummary.entrypoint, {
     component: "ProductionHomepage",

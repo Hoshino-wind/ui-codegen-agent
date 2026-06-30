@@ -65,6 +65,7 @@ test("createLayerDocFromImageManifest converts image analysis sections into a va
   const validation = validateLayerDoc(doc);
 
   assert.equal(doc.metadata.name, "AI homepage");
+  assert.deepEqual(doc.metadata.sourceImage, { uri: "/references/home.png", width: 1440, height: 1200 });
   assert.equal(doc.sections.length, 8);
   assert.equal(doc.assets[0].id, "hero-crop");
   assert.equal(doc.layers.find((layer) => layer.id === "hero-title").track, "component");

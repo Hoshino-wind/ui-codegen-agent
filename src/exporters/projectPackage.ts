@@ -43,6 +43,7 @@ export interface ProjectHandoffSummary {
     schemaFile: string;
     hash: string;
   };
+  sourceVisual?: NonNullable<LayerDoc["metadata"]["sourceImage"]>;
   entrypoint: {
     component: string;
     file: string;
@@ -1849,7 +1850,8 @@ function handoffCommands(): ProjectHandoffCommand[] {
 function createHandoffSummary(
   manifest: ProjectExportManifest,
   contract: ProjectIntegrationContract,
-  audit: LayerDocAudit
+  audit: LayerDocAudit,
+  sourceImage: LayerDoc["metadata"]["sourceImage"]
 ): ProjectHandoffSummary {
   return {
     version: "0.1.0",
@@ -1860,6 +1862,7 @@ function createHandoffSummary(
       schemaFile: "layerdoc.schema.json",
       hash: manifest.layerDocHash
     },
+    ...(sourceImage ? { sourceVisual: { ...sourceImage } } : {}),
     entrypoint: {
       component: contract.component.name,
       file: contract.component.file,
@@ -1941,7 +1944,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     audit
   };
   const integrationContract = createIntegrationContract(sourceDoc, options.componentName, reactExport.fileName, sourceHash);
-  const handoffSummary = createHandoffSummary(manifest, integrationContract, audit);
+  const handoffSummary = createHandoffSummary(manifest, integrationContract, audit, sourceDoc.metadata.sourceImage);
 
   return {
     manifest,

@@ -160,6 +160,7 @@ export function createLayerDocFromImageManifest(
       width: manifest.sourceImage.width,
       height: manifest.sourceImage.height
     },
+    sourceImage: { ...manifest.sourceImage },
     sections: manifest.sections.map(createSection),
     layers,
     assets,
