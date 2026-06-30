@@ -37,6 +37,14 @@ export interface SourceImageProvenance {
   height: number;
 }
 
+export interface AnalysisPlanProvenance {
+  source: "seeded" | "provided" | "editor" | "manual";
+  name: string;
+  sectionCount: number;
+  layerCount: number;
+  uri?: string;
+}
+
 export interface TokenSet {
   colors: Record<string, string>;
   typography: Record<string, unknown>;
@@ -153,6 +161,7 @@ export interface LayerDoc {
     name: string;
     createdAt: string;
     sourceImage?: SourceImageProvenance;
+    analysisPlan?: AnalysisPlanProvenance;
   };
   canvas: Canvas;
   tokens: TokenSet;
@@ -176,6 +185,7 @@ export interface CreateLayerDocInput {
   name: string;
   canvas: Canvas;
   sourceImage?: SourceImageProvenance;
+  analysisPlan?: AnalysisPlanProvenance;
   tokens?: Partial<TokenSet>;
   sections?: SectionNode[];
   layers?: LayerNode[];

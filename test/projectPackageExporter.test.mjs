@@ -25,6 +25,13 @@ function createExportDoc() {
     name: "Production Homepage",
     canvas: { width: 1440, height: 900, background: "#ffffff" },
     sourceImage: { uri: "/references/production-homepage.png", width: 1440, height: 900 },
+    analysisPlan: {
+      source: "provided",
+      name: "Production homepage plan",
+      sectionCount: 1,
+      layerCount: 2,
+      uri: "/references/analysis-plan.json"
+    },
     sections: [{ id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 1440, height: 900 }, layerIds: ["headline", "cta"] }],
     components: [{ id: "HeroSection", layerIds: ["headline", "cta"], exportable: true }],
     responsive: {
@@ -250,6 +257,13 @@ test("createProjectExportPackage returns project-ready files derived from one La
     role: "visual_verification_reference",
     sourceUri: "/references/production-homepage.png"
   });
+  assert.deepEqual(output.manifest.analysisPlan, {
+    source: "provided",
+    name: "Production homepage plan",
+    sectionCount: 1,
+    layerCount: 2,
+    uri: "/references/analysis-plan.json"
+  });
   assert.deepEqual(paths, [
     "README.md",
     "handoff-summary.json",
@@ -298,6 +312,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   const contract = JSON.parse(output.files.find((file) => file.path === "integration-contract.json").contents);
   const manifest = JSON.parse(output.files.find((file) => file.path === "manifest.json").contents);
   assert.deepEqual(manifest.referenceVisual, output.manifest.referenceVisual);
+  assert.deepEqual(manifest.analysisPlan, output.manifest.analysisPlan);
   assert.equal(contract.component.name, "ProductionHomepage");
   assert.equal(contract.component.file, "src/ProductionHomepage.tsx");
   assert.equal(contract.layerDoc.file, "layerdoc.json");
@@ -335,6 +350,8 @@ test("createProjectExportPackage returns project-ready files derived from one La
   const layerDocSchema = JSON.parse(output.files.find((file) => file.path === "layerdoc.schema.json").contents);
   assert.equal(layerDocSchema.properties.schema.const, "layerdoc");
   assert.deepEqual(layerDocSchema.properties.metadata.properties.sourceImage.required, ["uri", "width", "height"]);
+  assert.deepEqual(layerDocSchema.properties.metadata.properties.analysisPlan.required, ["source", "name", "sectionCount", "layerCount"]);
+  assert.deepEqual(layerDocSchema.properties.metadata.properties.analysisPlan.properties.source.enum, ["seeded", "provided", "editor", "manual"]);
   assert.equal(
     layerDocSchema.properties.verification.properties.issues.items.properties.code.enum.includes("section_empty"),
     true
@@ -370,6 +387,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     width: 1440,
     height: 900
   });
+  assert.deepEqual(handoffSummary.sourceAnalysisPlan, output.manifest.analysisPlan);
   assert.deepEqual(handoffSummary.entrypoint, {
     component: "ProductionHomepage",
     file: "src/ProductionHomepage.tsx",

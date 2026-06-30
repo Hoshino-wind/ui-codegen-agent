@@ -30,7 +30,8 @@ export function createLayerDoc(input: CreateLayerDocInput): LayerDoc {
     metadata: {
       name: input.name,
       createdAt: new Date(0).toISOString(),
-      ...(input.sourceImage ? { sourceImage: { ...input.sourceImage } } : {})
+      ...(input.sourceImage ? { sourceImage: { ...input.sourceImage } } : {}),
+      ...(input.analysisPlan ? { analysisPlan: { ...input.analysisPlan } } : {})
     },
     canvas: { ...input.canvas },
     tokens: {

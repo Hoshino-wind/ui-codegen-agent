@@ -6,12 +6,13 @@ import { createHomepageAnalysisPlan, toPngIntakeSections, validateHomepageAnalys
 import { seedHomepageAnalysisPlan } from "./homepageSeed.js";
 import { createLayerDocFromImageManifest, type ImageAnalysisManifest } from "./imageManifest.js";
 import { createImageManifestFromPng } from "./pngIntake.js";
-import type { LayerDoc } from "../layerdoc/types.js";
+import type { AnalysisPlanProvenance, LayerDoc } from "../layerdoc/types.js";
 
 export interface HomepagePngPipelineInput {
   name: string;
   sourcePngPath: string;
   analysisPlan?: HomepageAnalysisPlan;
+  analysisPlanUri?: string;
   assetOutputDir?: string;
   publicAssetBaseUri?: string;
   canvasBackground?: string;
@@ -42,6 +43,16 @@ function assertAnalysisPlanCanvasMatchesSource(plan: HomepageAnalysisPlan | unde
   }
 }
 
+function analysisPlanProvenance(plan: HomepageAnalysisPlan, source: AnalysisPlanProvenance["source"], uri?: string): AnalysisPlanProvenance {
+  return {
+    source,
+    name: plan.name,
+    sectionCount: plan.sections.length,
+    layerCount: plan.sections.reduce((total, section) => total + section.layers.length, 0),
+    ...(uri ? { uri } : {})
+  };
+}
+
 /**
  * Run the PNG intake half of the production chain:
  * source PNG -> analysis plan -> image manifest with crops -> LayerDoc.
@@ -58,6 +69,12 @@ export function createHomepageLayerDocFromPng(input: HomepagePngPipelineInput): 
   });
   const shouldSeed = input.seedAnnotations ?? !input.analysisPlan;
   const analysisPlan = shouldSeed ? seedHomepageAnalysisPlan(scaffold) : scaffold;
+  const provenanceSource = shouldSeed ? "seeded" : "provided";
+  const provenance = analysisPlanProvenance(
+    analysisPlan,
+    provenanceSource,
+    provenanceSource === "provided" ? input.analysisPlanUri : undefined
+  );
   const issues = validateHomepageAnalysisPlan(analysisPlan);
   if (issues.length > 0) {
     throw new Error(`Cannot create LayerDoc from invalid analysis plan: ${issues.join(" ")}`);
@@ -69,7 +86,8 @@ export function createHomepageLayerDocFromPng(input: HomepagePngPipelineInput): 
     sections: toPngIntakeSections(analysisPlan),
     assetOutputDir: input.assetOutputDir,
     publicAssetBaseUri: input.publicAssetBaseUri,
-    canvasBackground: input.canvasBackground
+    canvasBackground: input.canvasBackground,
+    analysisPlan: provenance
   });
 
   return {

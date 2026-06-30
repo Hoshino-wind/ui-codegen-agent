@@ -89,6 +89,10 @@ The repository currently implements the core LayerDoc domain layer:
 - Write current verifier scores back into `LayerDoc.verification` so saved
   LayerDoc files carry quality state while screenshot evidence remains in the
   external verifier report.
+- Preserve Analysis Plan provenance in `LayerDoc.metadata.analysisPlan` and
+  exported project handoff files so downstream consumers can see whether the
+  editable structure came from a seeded scaffold, provided plan, or editor
+  review.
 
 The first target page type is an AI-generated marketing homepage with 8-15
 sections/layers.
@@ -147,9 +151,10 @@ After the plan is confirmed, PNG intake turns it into an
 ```
 
 The rest of the system consumes the resulting LayerDoc.
-The imported LayerDoc preserves `metadata.sourceImage` so exported packages and
-verification reports can trace back to the original AI visual without treating
-that PNG as the editable source.
+The imported LayerDoc preserves `metadata.sourceImage` and
+`metadata.analysisPlan` so exported packages and verification reports can trace
+back to both the original AI visual and the confirmed structure source without
+treating the PNG as the editable source.
 
 For the homepage MVP, ingestion enforces 8-15 sections so the product stays
 focused on real page structure rather than single-canvas bitmap conversion.

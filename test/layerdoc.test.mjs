@@ -12,7 +12,14 @@ test("createLayerDoc returns a complete editable production asset shell", () => 
   const doc = createLayerDoc({
     name: "Landing page concept",
     canvas: { width: 1440, height: 1200 },
-    sourceImage: { uri: "/references/landing-ai.png", width: 1440, height: 1200 }
+    sourceImage: { uri: "/references/landing-ai.png", width: 1440, height: 1200 },
+    analysisPlan: {
+      source: "provided",
+      name: "Human reviewed homepage plan",
+      sectionCount: 8,
+      layerCount: 24,
+      uri: "/references/analysis-plan.json"
+    }
   });
 
   assert.equal(doc.schema, "layerdoc");
@@ -34,6 +41,13 @@ test("createLayerDoc returns a complete editable production asset shell", () => 
   ]);
   assert.equal(doc.metadata.name, "Landing page concept");
   assert.deepEqual(doc.metadata.sourceImage, { uri: "/references/landing-ai.png", width: 1440, height: 1200 });
+  assert.deepEqual(doc.metadata.analysisPlan, {
+    source: "provided",
+    name: "Human reviewed homepage plan",
+    sectionCount: 8,
+    layerCount: 24,
+    uri: "/references/analysis-plan.json"
+  });
   assert.deepEqual(doc.generation.sectionRequests, []);
   assert.equal(doc.verification.scores.visualSimilarity, null);
 });

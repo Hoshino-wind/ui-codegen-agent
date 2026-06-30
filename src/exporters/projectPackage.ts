@@ -31,6 +31,7 @@ export interface ProjectExportManifest {
   integrationContract: string;
   handoffSummary: string;
   referenceVisual: ProjectReferenceVisual;
+  analysisPlan?: NonNullable<LayerDoc["metadata"]["analysisPlan"]>;
   files: string[];
   scores: VerificationReport;
   audit: LayerDocAudit;
@@ -51,6 +52,7 @@ export interface ProjectHandoffSummary {
     hash: string;
   };
   sourceVisual?: NonNullable<LayerDoc["metadata"]["sourceImage"]>;
+  sourceAnalysisPlan?: NonNullable<LayerDoc["metadata"]["analysisPlan"]>;
   entrypoint: {
     component: string;
     file: string;
@@ -1883,7 +1885,8 @@ function createHandoffSummary(
   manifest: ProjectExportManifest,
   contract: ProjectIntegrationContract,
   audit: LayerDocAudit,
-  sourceImage: LayerDoc["metadata"]["sourceImage"]
+  sourceImage: LayerDoc["metadata"]["sourceImage"],
+  analysisPlan: LayerDoc["metadata"]["analysisPlan"]
 ): ProjectHandoffSummary {
   return {
     version: "0.1.0",
@@ -1895,6 +1898,7 @@ function createHandoffSummary(
       hash: manifest.layerDocHash
     },
     ...(sourceImage ? { sourceVisual: { ...sourceImage } } : {}),
+    ...(analysisPlan ? { sourceAnalysisPlan: { ...analysisPlan } } : {}),
     entrypoint: {
       component: contract.component.name,
       file: contract.component.file,
@@ -1975,12 +1979,19 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     integrationContract: "integration-contract.json",
     handoffSummary: "handoff-summary.json",
     referenceVisual,
+    ...(sourceDoc.metadata.analysisPlan ? { analysisPlan: { ...sourceDoc.metadata.analysisPlan } } : {}),
     files,
     scores: report,
     audit
   };
   const integrationContract = createIntegrationContract(sourceDoc, options.componentName, reactExport.fileName, sourceHash);
-  const handoffSummary = createHandoffSummary(manifest, integrationContract, audit, sourceDoc.metadata.sourceImage);
+  const handoffSummary = createHandoffSummary(
+    manifest,
+    integrationContract,
+    audit,
+    sourceDoc.metadata.sourceImage,
+    sourceDoc.metadata.analysisPlan
+  );
 
   return {
     manifest,

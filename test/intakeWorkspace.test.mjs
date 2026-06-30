@@ -123,6 +123,12 @@ test("buildWorkspaceFromIntake converts annotations into the editable LayerDoc w
   assert.equal(workspace.doc.sections.length, 8);
   assert.equal(workspace.selectedLayerId, "hero-title");
   assert.equal(workspace.doc.layers.some((layer) => layer.id === "hero-image" && layer.track === "asset"), true);
+  assert.deepEqual(workspace.doc.metadata.analysisPlan, {
+    source: "editor",
+    name: "Imported Homepage",
+    sectionCount: 8,
+    layerCount: 18
+  });
   assert.match(workspace.previewHtml, /Imported hero headline/);
   assert.equal(workspace.report.structureScore, 100);
 });

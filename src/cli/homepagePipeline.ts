@@ -232,6 +232,7 @@ export async function runHomepagePipelineCli(args: string[]): Promise<number> {
       name: options.name ?? sourceAnalysisPlan?.name ?? defaultNameFor(inputPath),
       sourcePngPath: inputPath,
       analysisPlan: sourceAnalysisPlan,
+      analysisPlanUri: sourceAnalysisPlanPath,
       assetOutputDir: intakeAssetDir,
       publicAssetBaseUri: "assets"
     });

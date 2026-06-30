@@ -100,6 +100,18 @@ export function createLayerDocJsonSchema(): Record<string, unknown> {
               width: { type: "number", exclusiveMinimum: 0 },
               height: { type: "number", exclusiveMinimum: 0 }
             }
+          },
+          analysisPlan: {
+            type: "object",
+            required: ["source", "name", "sectionCount", "layerCount"],
+            additionalProperties: false,
+            properties: {
+              source: { enum: ["seeded", "provided", "editor", "manual"] },
+              name: { type: "string", minLength: 1 },
+              sectionCount: { type: "number", minimum: 0 },
+              layerCount: { type: "number", minimum: 0 },
+              uri: { type: "string", minLength: 1 }
+            }
           }
         }
       },

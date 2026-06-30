@@ -273,6 +273,12 @@ function toManifest(intake: IntakeWorkspace): ImageAnalysisManifest {
       width: intake.sourceImage.width,
       height: intake.sourceImage.height
     },
+    analysisPlan: {
+      source: "editor",
+      name: intake.analysisPlan.name,
+      sectionCount: intake.analysisPlan.sections.length,
+      layerCount: intake.layerCount
+    },
     canvas: {
       width: intake.sourceImage.width,
       height: intake.sourceImage.height,

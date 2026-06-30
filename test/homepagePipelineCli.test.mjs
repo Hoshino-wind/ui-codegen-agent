@@ -138,6 +138,13 @@ test("homepage pipeline CLI can build from a provided analysis plan", () => {
   assert.equal(pipelineReport.intake.sourceAnalysisPlanPath, analysisPlanPath);
   assert.equal(pipelineReport.intake.sectionCount, 8);
   assert.equal(pipelineReport.intake.layerCount, 8);
+  assert.deepEqual(layerDoc.metadata.analysisPlan, {
+    source: "provided",
+    name: "Provided Plan Homepage",
+    sectionCount: 8,
+    layerCount: 8,
+    uri: analysisPlanPath
+  });
   assert.equal(layerDoc.layers.some((layer) => layer.id === "hero-copy" && layer.content.text === "Provided hero headline"), true);
   assert.match(exportedComponent, /Provided hero headline/);
 });
