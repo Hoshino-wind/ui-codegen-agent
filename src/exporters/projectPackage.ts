@@ -738,6 +738,32 @@ function sourceHasScopedFragment(source, selector, fragment) {
   return scopedSourceSegment(source, selector).includes(fragment);
 }
 
+function visibleSectionIds(layerDoc) {
+  return (layerDoc.sections ?? [])
+    .filter((section) => section.visible !== false && typeof section.id === "string" && section.id.length > 0)
+    .map((section) => section.id);
+}
+
+function sectionOrderRequirement(layerDoc) {
+  const expected = visibleSectionIds(layerDoc);
+  return expected.length > 1 ? { path: "sections", expected } : null;
+}
+
+function sectionOrderFromSource(source, expected) {
+  return expected
+    .map((sectionId) => ({
+      sectionId,
+      index: findDomAttribute(source, \`data-section-id="\${sectionId}"\`)
+    }))
+    .filter((entry) => entry.index !== -1)
+    .sort((a, b) => a.index - b.index)
+    .map((entry) => entry.sectionId);
+}
+
+function sameOrder(left, right) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
 function responsiveCssRequirements(contract) {
   return (contract.responsiveRules ?? []).flatMap((rule, index) => {
     const fragments = [
@@ -875,6 +901,17 @@ try {
       ));
     }
   }
+  const sectionOrder = sectionOrderRequirement(layerDoc);
+  if (sectionOrder) {
+    const actual = sectionOrderFromSource(componentSource, sectionOrder.expected);
+    if (actual.length === sectionOrder.expected.length && !sameOrder(actual, sectionOrder.expected)) {
+      issues.push(issue(
+        "project_section_order_mismatch",
+        sectionOrder.path,
+        \`Project file \${componentPath} section order \${actual.join(" -> ")} does not match LayerDoc order \${sectionOrder.expected.join(" -> ")}.\`
+      ));
+    }
+  }
   for (const entry of layerBoundsRequirements(layerDoc, "react")) {
     if (!sourceHasScopedFragment(componentSource, entry.selector, entry.fragment)) {
       issues.push(issue(
@@ -948,6 +985,17 @@ try {
         "preview_selector_missing",
         entry.path,
         \`Preview file \${previewPath} does not contain selector \${entry.selector}.\`
+      ));
+    }
+  }
+  const sectionOrder = sectionOrderRequirement(layerDoc);
+  if (sectionOrder) {
+    const actual = sectionOrderFromSource(previewSource, sectionOrder.expected);
+    if (actual.length === sectionOrder.expected.length && !sameOrder(actual, sectionOrder.expected)) {
+      issues.push(issue(
+        "preview_section_order_mismatch",
+        sectionOrder.path,
+        \`Preview file \${previewPath} section order \${actual.join(" -> ")} does not match LayerDoc order \${sectionOrder.expected.join(" -> ")}.\`
       ));
     }
   }
@@ -1624,7 +1672,7 @@ Generated assets:
 
 Verification:
 - Run \`npm run verify:layerdoc\` after editing \`layerdoc.json\` to catch broken graph references before integration.
-- Run \`npm run verify:contract\` to confirm \`integration-contract.json\` still matches the LayerDoc source, project selectors, preview selectors, layer bounds, layer style, layer copy, assets, responsive CSS, and interaction metadata.
+- Run \`npm run verify:contract\` to confirm \`integration-contract.json\` still matches the LayerDoc source, project selectors, preview selectors, section order, layer bounds, layer style, layer copy, assets, responsive CSS, and interaction metadata.
 - Put the original target visual at \`reference.png\`.
 - Run \`npm run verify:preview -- --reference ./reference.png\` to render \`preview.html\`, capture \`verification-artifacts/candidate.png\`, produce \`verification-artifacts/diff.png\`, and update \`verification-report.json\`.
 - Run \`npm run verify:gates\` after preview verification to enforce score thresholds and LayerDoc asset compliance.

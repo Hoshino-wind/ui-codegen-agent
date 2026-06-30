@@ -106,6 +106,37 @@ function createStyledExportDoc() {
   });
 }
 
+function createSectionOrderExportDoc() {
+  return createLayerDoc({
+    name: "Ordered Homepage",
+    canvas: { width: 1440, height: 900, background: "#ffffff" },
+    sections: [
+      { id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 1440, height: 480 }, layerIds: ["headline"] },
+      { id: "proof", name: "Proof", bounds: { x: 0, y: 480, width: 1440, height: 420 }, layerIds: ["quote"] }
+    ],
+    layers: [
+      {
+        id: "headline",
+        sectionId: "hero",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 120, y: 120, width: 620, height: 96 },
+        content: { text: "LayerDoc first" }
+      },
+      {
+        id: "quote",
+        sectionId: "proof",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 120, y: 560, width: 620, height: 72 },
+        content: { text: "Proof section" }
+      }
+    ]
+  });
+}
+
 function createAssetExportDoc() {
   return createLayerDoc({
     name: "Asset Homepage",
@@ -269,6 +300,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_layer_copy_missing/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_layer_bounds_missing/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_layer_style_missing/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_section_order_mismatch/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-layerdoc.mjs").contents, /layerdoc\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /preview\.html/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /verification-report\.json/);
@@ -440,6 +472,46 @@ test("exported integration contract verifier checks preview layer style", () => 
   assert.match(failed.stdout, /preview\.html/);
   assert.match(failed.stdout, /data-layer-id=\\"cta\\"/);
   assert.match(failed.stdout, /background-color:#111827/);
+});
+
+test("exported integration contract verifier checks project section order", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-section-order-verifier-"));
+  const output = createProjectExportPackage(createSectionOrderExportDoc(), { componentName: "OrderedHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const componentPath = join(directory, "src", "OrderedHomepage.tsx");
+  const componentSource = readFileSync(componentPath, "utf8");
+  const staleSource = componentSource
+    .replace('data-section-id="hero"', 'data-section-id="__tmp__"')
+    .replace('data-section-id="proof"', 'data-section-id="hero"')
+    .replace('data-section-id="__tmp__"', 'data-section-id="proof"');
+  writeFileSync(componentPath, staleSource);
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /project_section_order_mismatch/);
+  assert.match(failed.stdout, /src\/OrderedHomepage\.tsx/);
+  assert.match(failed.stdout, /hero -> proof/);
+});
+
+test("exported integration contract verifier checks preview section order", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-preview-section-order-verifier-"));
+  const output = createProjectExportPackage(createSectionOrderExportDoc(), { componentName: "OrderedHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const previewPath = join(directory, "preview.html");
+  const previewSource = readFileSync(previewPath, "utf8");
+  const staleSource = previewSource
+    .replace('data-section-id="hero"', 'data-section-id="__tmp__"')
+    .replace('data-section-id="proof"', 'data-section-id="hero"')
+    .replace('data-section-id="__tmp__"', 'data-section-id="proof"');
+  writeFileSync(previewPath, staleSource);
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /preview_section_order_mismatch/);
+  assert.match(failed.stdout, /preview\.html/);
+  assert.match(failed.stdout, /hero -> proof/);
 });
 
 test("exported integration contract verifier checks project interaction metadata", () => {
