@@ -45,6 +45,14 @@ export interface LayerDocStructureAudit {
   issues: VerificationIssue[];
 }
 
+export interface LayerDocEditableCoverage {
+  visibleSections: number;
+  sectionsWithEditableLayers: number;
+  editableSectionRatio: number;
+  editableLayerRatio: number;
+  sectionsWithoutEditableLayers: string[];
+}
+
 export interface LayerDocSectionAudit {
   sectionId: string;
   name: string;
@@ -58,6 +66,7 @@ export interface LayerDocAudit {
   summary: LayerDocAuditSummary;
   tracks: LayerDocTrackCounts;
   structure: LayerDocStructureAudit;
+  editableCoverage: LayerDocEditableCoverage;
   assetCompliance: LayerDocAssetCompliance;
   sectionBreakdown: LayerDocSectionAudit[];
 }
@@ -149,6 +158,28 @@ function assetFindings(
   return findings;
 }
 
+function editableCoverage(doc: LayerDoc): LayerDocEditableCoverage {
+  const byId = new Map(doc.layers.map((layer) => [layer.id, layer]));
+  const visibleSections = doc.sections.filter((section) => section.visible !== false);
+  const visibleLayerGroups = visibleSections.map((section) =>
+    section.layerIds.map((layerId) => byId.get(layerId)).filter((layer): layer is LayerNode => Boolean(layer))
+  );
+  const visibleLayers = visibleLayerGroups.flat();
+  const sectionsWithoutEditableLayers = visibleSections
+    .filter((section, index) => !visibleLayerGroups[index].some((layer) => layer.editable))
+    .map((section) => section.id);
+  const sectionsWithEditableLayers = visibleSections.length - sectionsWithoutEditableLayers.length;
+  const editableLayers = visibleLayers.filter((layer) => layer.editable).length;
+
+  return {
+    visibleSections: visibleSections.length,
+    sectionsWithEditableLayers,
+    editableSectionRatio: ratio(sectionsWithEditableLayers, visibleSections.length),
+    editableLayerRatio: ratio(editableLayers, visibleLayers.length),
+    sectionsWithoutEditableLayers
+  };
+}
+
 /**
  * Turn the LayerDoc graph into an audit artifact a project reviewer can inspect
  * without reverse-engineering scores or reading generated code.
@@ -176,6 +207,7 @@ export function createLayerDocAudit(doc: LayerDoc): LayerDocAudit {
       valid: validation.valid,
       issues: validation.issues
     },
+    editableCoverage: editableCoverage(doc),
     assetCompliance: {
       passed: !projectFit.fullPageBitmapRisk && sectionAssets.length === 0 && assetIssues.length === 0,
       assetCoverageRatio: projectFit.assetCoverageRatio,

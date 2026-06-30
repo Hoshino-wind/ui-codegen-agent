@@ -67,6 +67,13 @@ test("createLayerDocAudit summarizes editable structure and LayerDoc tracks", ()
   assert.deepEqual(audit.tracks, { component: 2, asset: 1, approximation: 1, layout: 0 });
   assert.equal(audit.structure.valid, true);
   assert.deepEqual(audit.structure.issues, []);
+  assert.deepEqual(audit.editableCoverage, {
+    visibleSections: 2,
+    sectionsWithEditableLayers: 2,
+    editableSectionRatio: 1,
+    editableLayerRatio: 0.75,
+    sectionsWithoutEditableLayers: []
+  });
   assert.equal(audit.assetCompliance.passed, true);
   assert.equal(audit.assetCompliance.assetCoverageRatio, 0.04);
   assert.equal(audit.assetCompliance.fullPageBitmapRisk, false);
@@ -171,4 +178,59 @@ test("createLayerDocAudit flags section-sized bitmap shortcuts as non-compliant"
     { sectionId: "proof", assetId: "proof-shot-asset", coverageRatio: 1 }
   ]);
   assert.match(audit.assetCompliance.findings.join(" "), /section bitmap shortcut/i);
+});
+
+test("createLayerDocAudit reports visible sections without editable layers", () => {
+  const doc = createLayerDoc({
+    name: "Non-editable section",
+    canvas: { width: 1000, height: 1200 },
+    sections: [
+      { id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 1000, height: 400 }, layerIds: ["headline"] },
+      { id: "visual-only", name: "Visual Only", bounds: { x: 0, y: 400, width: 1000, height: 400 }, layerIds: ["visual-shot"] },
+      { id: "hidden-draft", name: "Hidden Draft", visible: false, bounds: { x: 0, y: 800, width: 1000, height: 400 }, layerIds: ["hidden-shot"] }
+    ],
+    assets: [
+      { id: "visual-shot-asset", type: "image", source: "uploaded", bounds: { x: 80, y: 480, width: 320, height: 180 } },
+      { id: "hidden-shot-asset", type: "image", source: "uploaded", bounds: { x: 80, y: 880, width: 320, height: 180 } }
+    ],
+    layers: [
+      {
+        id: "headline",
+        sectionId: "hero",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 80, y: 120, width: 420, height: 64 },
+        content: { text: "Editable hero" }
+      },
+      {
+        id: "visual-shot",
+        sectionId: "visual-only",
+        kind: "image",
+        track: "asset",
+        editable: false,
+        bounds: { x: 80, y: 480, width: 320, height: 180 },
+        assetId: "visual-shot-asset"
+      },
+      {
+        id: "hidden-shot",
+        sectionId: "hidden-draft",
+        kind: "image",
+        track: "asset",
+        editable: false,
+        bounds: { x: 80, y: 880, width: 320, height: 180 },
+        assetId: "hidden-shot-asset"
+      }
+    ]
+  });
+
+  const audit = createLayerDocAudit(doc);
+
+  assert.deepEqual(audit.editableCoverage, {
+    visibleSections: 2,
+    sectionsWithEditableLayers: 1,
+    editableSectionRatio: 0.5,
+    editableLayerRatio: 0.5,
+    sectionsWithoutEditableLayers: ["visual-only"]
+  });
 });

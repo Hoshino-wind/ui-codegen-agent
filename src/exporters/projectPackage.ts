@@ -72,6 +72,7 @@ export interface ProjectHandoffSummary {
     file: string;
     assetCompliancePassed: boolean;
     structureValid: boolean;
+    editableCoverage: LayerDocAudit["editableCoverage"];
   };
   commands: ProjectHandoffCommand[];
 }
@@ -1890,7 +1891,8 @@ function createHandoffSummary(
     audit: {
       file: "layerdoc-audit.json",
       assetCompliancePassed: audit.assetCompliance.passed,
-      structureValid: audit.structure.valid
+      structureValid: audit.structure.valid,
+      editableCoverage: audit.editableCoverage
     },
     commands: handoffCommands()
   };

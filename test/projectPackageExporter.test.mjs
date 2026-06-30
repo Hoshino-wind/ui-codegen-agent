@@ -382,6 +382,13 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.equal(handoffSummary.quality.visualEvidence.kind, "none");
   assert.equal(handoffSummary.audit.file, "layerdoc-audit.json");
   assert.equal(handoffSummary.audit.assetCompliancePassed, true);
+  assert.deepEqual(handoffSummary.audit.editableCoverage, {
+    visibleSections: 1,
+    sectionsWithEditableLayers: 1,
+    editableSectionRatio: 1,
+    editableLayerRatio: 1,
+    sectionsWithoutEditableLayers: []
+  });
   assert.deepEqual(
     handoffSummary.commands.map((command) => command.command),
     [
