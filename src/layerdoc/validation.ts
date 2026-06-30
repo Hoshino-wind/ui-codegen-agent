@@ -34,6 +34,8 @@ export function validateLayerDoc(doc: LayerDoc): ValidationResult {
   const issues: VerificationIssue[] = [];
   const sectionIds = new Set(doc.sections.map((section) => section.id));
   const layerIds = new Set(doc.layers.map((layer) => layer.id));
+  const sectionsById = new Map(doc.sections.map((section) => [section.id, section]));
+  const layersById = new Map(doc.layers.map((layer) => [layer.id, layer]));
   const assetIds = new Set(doc.assets.map((asset) => asset.id));
   const duplicateIds = collectDuplicateIds([
     ...doc.sections.map((section) => section.id),
@@ -61,8 +63,17 @@ export function validateLayerDoc(doc: LayerDoc): ValidationResult {
     }
 
     for (const layerId of section.layerIds) {
-      if (!layerIds.has(layerId)) {
+      const layer = layersById.get(layerId);
+      if (!layer) {
         issues.push(issue("layer_missing", `${path}.layerIds`, `Section "${section.id}" references missing layer "${layerId}".`));
+      } else if (layer.sectionId !== section.id) {
+        issues.push(
+          issue(
+            "layer_section_mismatch",
+            `${path}.layerIds`,
+            `Section "${section.id}" includes layer "${layerId}" but that layer points at section "${layer.sectionId ?? "none"}".`
+          )
+        );
       }
     }
   }
@@ -75,8 +86,19 @@ export function validateLayerDoc(doc: LayerDoc): ValidationResult {
       issues.push(issue("bounds_outside_canvas", `${path}.bounds`, `Layer "${layer.id}" exceeds the canvas.`));
     }
 
-    if (layer.sectionId && !sectionIds.has(layer.sectionId)) {
-      issues.push(issue("section_missing", `${path}.sectionId`, `Layer "${layer.id}" references missing section "${layer.sectionId}".`));
+    if (layer.sectionId) {
+      const section = sectionsById.get(layer.sectionId);
+      if (!section) {
+        issues.push(issue("section_missing", `${path}.sectionId`, `Layer "${layer.id}" references missing section "${layer.sectionId}".`));
+      } else if (!section.layerIds.includes(layer.id)) {
+        issues.push(
+          issue(
+            "layer_section_mismatch",
+            `${path}.sectionId`,
+            `Layer "${layer.id}" points at section "${layer.sectionId}" but that section does not include the layer id.`
+          )
+        );
+      }
     }
 
     if (layer.track !== classifyLayer(layer)) {

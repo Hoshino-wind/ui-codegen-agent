@@ -99,6 +99,59 @@ test("validateLayerDoc rejects visible sections without editable layers", () => 
   });
 });
 
+test("validateLayerDoc rejects mismatched section layer membership", () => {
+  const doc = createLayerDoc({
+    name: "Membership mismatch",
+    canvas: { width: 320, height: 240 },
+    sections: [
+      { id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 320, height: 120 }, layerIds: ["headline", "cta"] },
+      { id: "proof", name: "Proof", bounds: { x: 0, y: 120, width: 320, height: 120 }, layerIds: ["quote"] }
+    ],
+    layers: [
+      {
+        id: "headline",
+        sectionId: "hero",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 20, y: 20, width: 180, height: 32 },
+        content: { text: "Hello" }
+      },
+      {
+        id: "cta",
+        sectionId: "proof",
+        kind: "button",
+        track: "component",
+        editable: true,
+        bounds: { x: 20, y: 72, width: 120, height: 32 },
+        content: { text: "Start" }
+      },
+      {
+        id: "quote",
+        sectionId: "hero",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 20, y: 148, width: 220, height: 32 },
+        content: { text: "Trusted" }
+      }
+    ]
+  });
+
+  const result = validateLayerDoc(doc);
+
+  assert.equal(result.valid, false);
+  assert.deepEqual(
+    result.issues.map((issue) => [issue.code, issue.path]),
+    [
+      ["layer_section_mismatch", "sections[0].layerIds"],
+      ["layer_section_mismatch", "sections[1].layerIds"],
+      ["layer_section_mismatch", "layers[1].sectionId"],
+      ["layer_section_mismatch", "layers[2].sectionId"]
+    ]
+  );
+});
+
 test("validateLayerDoc rejects regeneration requests for missing sections", () => {
   const doc = createLayerDoc({
     name: "Broken regeneration",

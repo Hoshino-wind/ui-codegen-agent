@@ -156,6 +156,10 @@ test("createProjectExportPackage returns project-ready files derived from one La
     layerDocSchema.properties.verification.properties.issues.items.properties.code.enum.includes("section_empty"),
     true
   );
+  assert.equal(
+    layerDocSchema.properties.verification.properties.issues.items.properties.code.enum.includes("layer_section_mismatch"),
+    true
+  );
   assert.match(output.files.find((file) => file.path === "layerdoc-audit.json").contents, /"assetCompliance"/);
   assert.match(output.files.find((file) => file.path === "verification-report.json").contents, /"structureScore": 100/);
   assert.match(output.files.find((file) => file.path === "verification-report.json").contents, /"evidence"/);
@@ -270,6 +274,22 @@ test("exported LayerDoc verifier script rejects visible empty sections", () => {
   assert.notEqual(failed.status, 0);
   assert.match(failed.stdout, /section_empty/);
   assert.match(failed.stdout, /sections\[0\]\.layerIds/);
+});
+
+test("exported LayerDoc verifier script rejects mismatched section membership", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-membership-verifier-"));
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const layerDocPath = join(directory, "layerdoc.json");
+  const layerDoc = JSON.parse(readFileSync(layerDocPath, "utf8"));
+  layerDoc.sections[0].layerIds = ["headline"];
+  writeFileSync(layerDocPath, `${JSON.stringify(layerDoc, null, 2)}\n`);
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-layerdoc.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /layer_section_mismatch/);
+  assert.match(failed.stdout, /layers\[1\]\.sectionId/);
 });
 
 test("exported preview verifier script updates the handoff report from candidate screenshots", () => {
