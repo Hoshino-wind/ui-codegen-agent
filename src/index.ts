@@ -30,6 +30,7 @@ export { renderLayerDocSnapshot } from "./app/layerDocSnapshot.js";
 export { createProblemAreaAnnotations } from "./app/problemAreaOverlay.js";
 export { runWorkspacePreviewVerification, runWorkspaceVisualVerification } from "./app/workspaceVerifier.js";
 export { classifyLayer } from "./layerdoc/classification.js";
+export { createLayerDocAudit } from "./layerdoc/audit.js";
 export { createLayerDoc } from "./layerdoc/factory.js";
 export { scoreProjectFit } from "./layerdoc/scoring.js";
 export { validateLayerDoc } from "./layerdoc/validation.js";
@@ -39,6 +40,15 @@ export { compareImageDataSnapshots } from "./verifier/imageDataDiff.js";
 export { runLayerDocPreviewVerification } from "./verifier/previewRun.js";
 export { runLayerDocVerification } from "./verifier/run.js";
 export { comparePngSnapshots } from "./verifier/visualDiff.js";
+export type {
+  LayerDocAssetCompliance,
+  LayerDocAudit,
+  LayerDocAuditSummary,
+  LayerDocRiskyAsset,
+  LayerDocSectionAudit,
+  LayerDocStructureAudit,
+  LayerDocTrackCounts
+} from "./layerdoc/audit.js";
 export type {
   AssetNode,
   Canvas,

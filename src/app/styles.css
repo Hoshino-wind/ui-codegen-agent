@@ -581,6 +581,81 @@ button {
   background: var(--surface);
 }
 
+.layerdoc-audit-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: 8px;
+  padding: 10px;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  background: #f0f9ff;
+}
+
+.layerdoc-audit-card.review {
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+.layerdoc-audit-head,
+.layerdoc-audit-grid {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.layerdoc-audit-head {
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.layerdoc-audit-head span {
+  color: #0369a1;
+  font-size: 10px;
+  font-weight: 820;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.layerdoc-audit-card.review .layerdoc-audit-head span {
+  color: #9a3412;
+}
+
+.layerdoc-audit-head strong {
+  color: #075985;
+  font-size: 12px;
+  font-weight: 820;
+}
+
+.layerdoc-audit-card.review .layerdoc-audit-head strong {
+  color: #7c2d12;
+}
+
+.layerdoc-audit-grid {
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.layerdoc-audit-grid span,
+.layerdoc-audit-card small {
+  overflow: hidden;
+  color: #334155;
+  font-size: 10px;
+  font-weight: 740;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layerdoc-audit-grid span {
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.layerdoc-audit-card small {
+  color: #9a3412;
+}
+
 .export-package-head strong {
   overflow: hidden;
   color: var(--text);

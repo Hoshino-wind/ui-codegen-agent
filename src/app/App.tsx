@@ -574,9 +574,24 @@ function SectionOrder({ workspace, onChange }: { workspace: EditorWorkspace; onC
 }
 
 function ProjectExportPanel({ workspace, onDownload }: { workspace: EditorWorkspace; onDownload: () => void }) {
+  const auditStatus = workspace.audit.structure.valid && workspace.audit.assetCompliance.passed ? "ready" : "review";
+  const assetCoverage = `${Math.round(workspace.audit.assetCompliance.assetCoverageRatio * 100)}%`;
+
   return (
     <div className="project-export-panel">
       <div className="sidebar-title">Project Package</div>
+      <div className={`layerdoc-audit-card ${auditStatus}`}>
+        <div className="layerdoc-audit-head">
+          <span>LayerDoc Audit</span>
+          <strong>{auditStatus}</strong>
+        </div>
+        <div className="layerdoc-audit-grid">
+          <span>{workspace.audit.summary.editableLayers} editable</span>
+          <span>{workspace.audit.summary.exportableComponents} components</span>
+          <span>{assetCoverage} assets</span>
+        </div>
+        {workspace.audit.assetCompliance.findings[0] ? <small>{workspace.audit.assetCompliance.findings[0]}</small> : null}
+      </div>
       <div className="export-package-head">
         <strong>{workspace.projectExport.manifest.packageName}</strong>
         <span>{workspace.projectExport.files.length} files</span>

@@ -51,6 +51,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.deepEqual(paths, [
     "README.md",
     "index.html",
+    "layerdoc-audit.json",
     "layerdoc.json",
     "manifest.json",
     "package.json",
@@ -76,6 +77,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "tsconfig.json").contents, /"jsx": "react-jsx"/);
   assert.match(output.files.find((file) => file.path === "src/ProductionHomepage.tsx").contents, /export function ProductionHomepage/);
   assert.match(output.files.find((file) => file.path === "layerdoc.json").contents, /"schema": "layerdoc"/);
+  assert.match(output.files.find((file) => file.path === "layerdoc-audit.json").contents, /"assetCompliance"/);
   assert.match(output.files.find((file) => file.path === "verification-report.json").contents, /"structureScore": 100/);
   assert.match(output.files.find((file) => file.path === "quality-gates.json").contents, /"visualSimilarity": 85/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-gates.mjs").contents, /verification-report\.json/);
@@ -91,8 +93,9 @@ test("writeProjectExportPackage writes every package file under the target direc
 
   const written = writeProjectExportPackage(output, directory);
 
-  assert.equal(written.files.length, 15);
+  assert.equal(written.files.length, 16);
   assert.equal(existsSync(join(directory, "src", "ProductionHomepage.tsx")), true);
+  assert.equal(existsSync(join(directory, "layerdoc-audit.json")), true);
   assert.equal(existsSync(join(directory, "src", "main.tsx")), true);
   assert.equal(existsSync(join(directory, "package.json")), true);
   assert.equal(existsSync(join(directory, "vite.config.ts")), true);

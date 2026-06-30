@@ -79,6 +79,7 @@ test("createProjectPackageDownload serializes every project package file in one 
     [
       "README.md",
       "index.html",
+      "layerdoc-audit.json",
       "layerdoc.json",
       "manifest.json",
       "package.json",
@@ -96,6 +97,7 @@ test("createProjectPackageDownload serializes every project package file in one 
   );
   assert.match(payload.files.find((file) => file.path === "package.json").contents, /"dev": "vite"/);
   assert.match(payload.files.find((file) => file.path === "package.json").contents, /"verify:gates"/);
+  assert.match(payload.files.find((file) => file.path === "layerdoc-audit.json").contents, /"assetCompliance"/);
   assert.match(payload.files.find((file) => file.path === "src/main.tsx").contents, /createRoot/);
   assert.match(payload.files.find((file) => file.path === "src/App.tsx").contents, /ProductionHomepage/);
   assert.match(payload.files.find((file) => file.path === "verification-report.json").contents, /"structureScore": 100/);

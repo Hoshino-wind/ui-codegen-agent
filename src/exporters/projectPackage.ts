@@ -1,4 +1,5 @@
 import type { LayerDoc } from "../layerdoc/types.js";
+import { createLayerDocAudit, type LayerDocAudit } from "../layerdoc/audit.js";
 import { defaultVerificationGates, type VerificationGates } from "../verifier/gates.js";
 import { createVerificationReport, type VerificationReport } from "../verifier/report.js";
 import { renderHtmlPreview } from "./htmlPreview.js";
@@ -21,6 +22,7 @@ export interface ProjectExportManifest {
   source: "layerdoc";
   files: string[];
   scores: VerificationReport;
+  audit: LayerDocAudit;
 }
 
 export type ProjectQualityGates = VerificationGates;
@@ -233,6 +235,7 @@ Generated assets:
 - \`src/${manifest.componentName}.tsx\`: React + Tailwind component export
 - \`preview.html\`: deterministic HTML verification preview
 - \`manifest.json\`: project package manifest and quality scores
+- \`layerdoc-audit.json\`: structure, track, and asset-compliance audit
 - \`verification-report.json\`, \`quality-gates.json\`, \`scripts/verify-gates.mjs\`: executable quality gate handoff
 
 Verification:
@@ -254,10 +257,12 @@ Verifier scores:
 export function createProjectExportPackage(doc: LayerDoc, options: ProjectExportPackageOptions): ProjectExportPackage {
   const reactExport = exportReactTailwind(doc, { componentName: options.componentName });
   const report = options.report ?? createVerificationReport(doc);
+  const audit = createLayerDocAudit(doc);
   const packageName = options.packageName ?? toKebabCase(options.componentName);
   const files = [
     "README.md",
     "index.html",
+    "layerdoc-audit.json",
     "layerdoc.json",
     "manifest.json",
     "package.json",
@@ -277,7 +282,8 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     componentName: options.componentName,
     source: "layerdoc",
     files,
-    scores: report
+    scores: report,
+    audit
   };
 
   return {
@@ -285,6 +291,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     files: [
       { path: "README.md", contents: readmeFor(manifest) },
       { path: "index.html", contents: indexHtmlFor(options.componentName) },
+      { path: "layerdoc-audit.json", contents: stableJson(audit) },
       { path: "layerdoc.json", contents: stableJson(doc) },
       { path: "manifest.json", contents: stableJson(manifest) },
       { path: "package.json", contents: packageJsonFor(manifest) },

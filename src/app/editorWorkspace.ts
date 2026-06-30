@@ -4,6 +4,7 @@ import { renderHtmlPreview } from "../exporters/htmlPreview.js";
 import { createProjectExportPackage, type ProjectExportPackage } from "../exporters/projectPackage.js";
 import { exportReactTailwind, type ReactTailwindExportResult } from "../exporters/reactTailwind.js";
 import type { ImageAssetPatch, LayerBoundsPatch, SectionRegenerationRequestInput } from "../editor/operations.js";
+import { createLayerDocAudit, type LayerDocAudit } from "../layerdoc/audit.js";
 import type { LayerDoc, LayerNode, LayerStyle } from "../layerdoc/types.js";
 import { createVerificationReport, type VerificationReport } from "../verifier/report.js";
 import type { PngSnapshotComparisonResult } from "../verifier/visualDiff.js";
@@ -15,6 +16,7 @@ export interface EditorWorkspace {
   reactExport: ReactTailwindExportResult;
   projectExport: ProjectExportPackage;
   report: VerificationReport;
+  audit: LayerDocAudit;
 }
 
 function firstEditableLayerId(doc: LayerDoc): string {
@@ -31,6 +33,7 @@ function selectedLayerExists(doc: LayerDoc, layerId: string): boolean {
 
 function materialize(doc: LayerDoc, selectedLayerId: string): EditorWorkspace {
   const report = createVerificationReport(doc);
+  const audit = createLayerDocAudit(doc);
 
   return {
     doc,
@@ -38,7 +41,8 @@ function materialize(doc: LayerDoc, selectedLayerId: string): EditorWorkspace {
     previewHtml: renderHtmlPreview(doc),
     reactExport: exportReactTailwind(doc, { componentName: "ProductionHomepage" }),
     projectExport: createProjectExportPackage(doc, { componentName: "ProductionHomepage", report }),
-    report
+    report,
+    audit
   };
 }
 

@@ -44,6 +44,14 @@ test("app shell exposes quality gate status in the verifier surface", () => {
   assert.match(source, /Quality gate/);
 });
 
+test("app shell exposes LayerDoc audit status in the project surface", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /LayerDoc Audit/);
+  assert.match(source, /workspace\.audit/);
+  assert.match(source, /assetCompliance/);
+});
+
 test("app shell exposes the generated HTML preview as a real iframe surface", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 
