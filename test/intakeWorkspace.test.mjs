@@ -73,6 +73,19 @@ test("buildWorkspaceFromIntake converts annotations into the editable LayerDoc w
   assert.equal(workspace.report.structureScore, 100);
 });
 
+test("buildWorkspaceFromIntake rejects an empty analysis scaffold before creating LayerDoc", () => {
+  const intake = createIntakeWorkspace({
+    uri: "/uploads/homepage.png",
+    width: 1440,
+    height: 1760
+  });
+
+  assert.throws(
+    () => buildWorkspaceFromIntake(intake),
+    /Cannot build LayerDoc from empty analysis plan: add at least one layer before building/
+  );
+});
+
 test("materializeReferenceCropAssets turns uploaded PNG crop plans into data URI LayerDoc assets", async () => {
   const intake = addHeroAnnotationSet(
     createIntakeWorkspace({

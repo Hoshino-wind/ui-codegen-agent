@@ -211,6 +211,12 @@ function toManifest(intake: IntakeWorkspace): ImageAnalysisManifest {
   };
 }
 
+function assertBuildHasLayers(workspace: IntakeWorkspace): void {
+  if (workspace.layerCount === 0) {
+    throw new Error("Cannot build LayerDoc from empty analysis plan: add at least one layer before building.");
+  }
+}
+
 export function createIntakeWorkspace(sourceImage: SourceImageMetadata): IntakeWorkspace {
   const analysisPlan = createHomepageAnalysisPlan({
     name: "Imported Homepage",
@@ -302,6 +308,7 @@ export function buildWorkspaceFromIntake(workspace: IntakeWorkspace): EditorWork
   if (issues.length > 0) {
     throw new Error(`Cannot build LayerDoc from invalid analysis plan: ${issues.join(" ")}`);
   }
+  assertBuildHasLayers(workspace);
 
   const nextWorkspace = createEditorWorkspace(createLayerDocFromImageManifest(toManifest(workspace)));
   if (workspace.selectedLayerId) {

@@ -87,3 +87,11 @@ test("app shell materializes uploaded PNG reference crops before building LayerD
   assert.match(source, /materializeReferenceCropAssets/);
   assert.match(source, /cropBrowserReferenceAsset/);
 });
+
+test("app shell blocks LayerDoc build until analysis layers exist", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /canBuildLayerDoc/);
+  assert.match(source, /disabled=\{!canBuildLayerDoc\}/);
+  assert.match(source, /Add layers before building/);
+});

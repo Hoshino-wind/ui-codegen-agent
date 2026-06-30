@@ -649,6 +649,7 @@ function AnalysisPlanPanel({
   const section = selectedAnalysisSection(intake);
   const layer = selectedAnalysisLayer(intake);
   const cropBounds = layer?.asset?.cropBounds ?? layer?.bounds ?? { x: 0, y: 0, width: 1, height: 1 };
+  const canBuildLayerDoc = intake.ready && intake.layerCount > 0;
 
   function addLayer(kind: ManualAnalysisLayerKind) {
     onChange(addManualAnalysisLayer(intake, { kind }));
@@ -805,7 +806,7 @@ function AnalysisPlanPanel({
         <button type="button" onClick={() => onChange(addHeroAnnotationSet(intake))}>
           Add hero layers
         </button>
-        <button type="button" onClick={() => void onBuild()}>
+        <button type="button" disabled={!canBuildLayerDoc} onClick={() => void onBuild()}>
           Build LayerDoc
         </button>
       </div>
@@ -813,6 +814,8 @@ function AnalysisPlanPanel({
         <div className="analysis-issues">{uploadError}</div>
       ) : intake.issues.length > 0 ? (
         <div className="analysis-issues">{intake.issues.join(" ")}</div>
+      ) : intake.layerCount === 0 ? (
+        <div className="analysis-issues">Add layers before building</div>
       ) : (
         <div className="analysis-ready">Plan valid for intake</div>
       )}
