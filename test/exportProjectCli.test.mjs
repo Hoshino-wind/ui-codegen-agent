@@ -65,13 +65,25 @@ test("export project CLI writes a project package from a LayerDoc file", () => {
   assert.equal(summary.rootDir, outputDir);
   assert.deepEqual(summary.files.sort(), [
     "README.md",
+    "index.html",
     "layerdoc.json",
     "manifest.json",
+    "package.json",
     "preview.html",
-    "src/ProductionHomepage.tsx"
-  ]);
+    "src/App.tsx",
+    "src/index.css",
+    "src/main.tsx",
+    "src/ProductionHomepage.tsx",
+    "tsconfig.json",
+    "vite.config.ts"
+  ].sort());
   assert.equal(existsSync(join(outputDir, "src", "ProductionHomepage.tsx")), true);
+  assert.equal(existsSync(join(outputDir, "src", "main.tsx")), true);
+  assert.equal(existsSync(join(outputDir, "package.json")), true);
+  assert.equal(existsSync(join(outputDir, "vite.config.ts")), true);
   assert.match(readFileSync(join(outputDir, "src", "ProductionHomepage.tsx"), "utf8"), /Exported from LayerDoc CLI/);
+  assert.match(readFileSync(join(outputDir, "src", "App.tsx"), "utf8"), /<ProductionHomepage \/>/);
+  assert.match(readFileSync(join(outputDir, "package.json"), "utf8"), /"name": "production-homepage"/);
   assert.match(readFileSync(join(outputDir, "manifest.json"), "utf8"), /"packageName": "production-homepage"/);
 });
 

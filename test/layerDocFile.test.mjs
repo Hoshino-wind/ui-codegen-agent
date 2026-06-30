@@ -76,8 +76,24 @@ test("createProjectPackageDownload serializes every project package file in one 
   assert.equal(payload.manifest.source, "layerdoc");
   assert.deepEqual(
     payload.files.map((file) => file.path).sort(),
-    ["README.md", "layerdoc.json", "manifest.json", "preview.html", "src/ProductionHomepage.tsx"].sort()
+    [
+      "README.md",
+      "index.html",
+      "layerdoc.json",
+      "manifest.json",
+      "package.json",
+      "preview.html",
+      "src/App.tsx",
+      "src/index.css",
+      "src/main.tsx",
+      "src/ProductionHomepage.tsx",
+      "tsconfig.json",
+      "vite.config.ts"
+    ].sort()
   );
+  assert.match(payload.files.find((file) => file.path === "package.json").contents, /"dev": "vite"/);
+  assert.match(payload.files.find((file) => file.path === "src/main.tsx").contents, /createRoot/);
+  assert.match(payload.files.find((file) => file.path === "src/App.tsx").contents, /ProductionHomepage/);
   assert.match(payload.files.find((file) => file.path === "src/ProductionHomepage.tsx").contents, /export function ProductionHomepage/);
   assert.match(payload.files.find((file) => file.path === "preview.html").contents, /data-layerdoc/);
   assert.match(payload.files.find((file) => file.path === "layerdoc.json").contents, /"schema": "layerdoc"/);

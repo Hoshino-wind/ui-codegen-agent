@@ -42,22 +42,37 @@ function createExportDoc() {
 test("createProjectExportPackage returns project-ready files derived from one LayerDoc", () => {
   const doc = createExportDoc();
   const output = createProjectExportPackage(doc, { componentName: "ProductionHomepage" });
+  const paths = output.files.map((file) => file.path).sort();
 
   assert.equal(output.manifest.packageName, "production-homepage");
   assert.equal(output.manifest.componentName, "ProductionHomepage");
-  assert.equal(output.manifest.files.length, 5);
-  assert.deepEqual(output.files.map((file) => file.path).sort(), [
+  assert.deepEqual(paths, [
     "README.md",
+    "index.html",
     "layerdoc.json",
     "manifest.json",
+    "package.json",
     "preview.html",
-    "src/ProductionHomepage.tsx"
-  ]);
+    "src/App.tsx",
+    "src/index.css",
+    "src/main.tsx",
+    "src/ProductionHomepage.tsx",
+    "tsconfig.json",
+    "vite.config.ts"
+  ].sort());
+  assert.deepEqual(output.manifest.files.sort(), paths);
+  assert.match(output.files.find((file) => file.path === "package.json").contents, /"scripts"/);
+  assert.match(output.files.find((file) => file.path === "package.json").contents, /"dev": "vite"/);
+  assert.match(output.files.find((file) => file.path === "src\/main.tsx").contents, /createRoot/);
+  assert.match(output.files.find((file) => file.path === "src\/App.tsx").contents, /<ProductionHomepage \/>/);
+  assert.match(output.files.find((file) => file.path === "src\/index.css").contents, /@import "tailwindcss"/);
+  assert.match(output.files.find((file) => file.path === "vite.config.ts").contents, /@vitejs\/plugin-react/);
+  assert.match(output.files.find((file) => file.path === "tsconfig.json").contents, /"jsx": "react-jsx"/);
   assert.match(output.files.find((file) => file.path === "src/ProductionHomepage.tsx").contents, /export function ProductionHomepage/);
   assert.match(output.files.find((file) => file.path === "layerdoc.json").contents, /"schema": "layerdoc"/);
   assert.match(output.files.find((file) => file.path === "preview.html").contents, /data-layerdoc="0.1.0"/);
-  assert.match(output.files.find((file) => file.path === "README.md").contents, /LayerDoc source of truth/);
-  assert.match(output.files.find((file) => file.path === "README.md").contents, /runLayerDocPreviewVerification/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /npm install/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run dev/);
 });
 
 test("writeProjectExportPackage writes every package file under the target directory", () => {
@@ -66,10 +81,14 @@ test("writeProjectExportPackage writes every package file under the target direc
 
   const written = writeProjectExportPackage(output, directory);
 
-  assert.equal(written.files.length, 5);
+  assert.equal(written.files.length, 12);
   assert.equal(existsSync(join(directory, "src", "ProductionHomepage.tsx")), true);
+  assert.equal(existsSync(join(directory, "src", "main.tsx")), true);
+  assert.equal(existsSync(join(directory, "package.json")), true);
+  assert.equal(existsSync(join(directory, "vite.config.ts")), true);
   assert.equal(existsSync(join(directory, "manifest.json")), true);
   assert.match(readFileSync(join(directory, "src", "ProductionHomepage.tsx"), "utf8"), /LayerDoc first/);
+  assert.match(readFileSync(join(directory, "src", "App.tsx"), "utf8"), /ProductionHomepage/);
   assert.deepEqual(
     written.files.map((file) => file.relativePath).sort(),
     output.files.map((file) => file.path).sort()
