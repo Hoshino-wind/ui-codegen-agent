@@ -124,6 +124,7 @@ test("createProjectPackageDownload serializes every project package file in one 
       "preview.html",
       "quality-gates.json",
       "scripts/verify-gates.mjs",
+      "scripts/verify-layerdoc.mjs",
       "scripts/verify-preview.mjs",
       "src/App.tsx",
       "src/index.css",

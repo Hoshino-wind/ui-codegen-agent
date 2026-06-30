@@ -23,7 +23,7 @@ test("createEditorWorkspace derives preview, export, and verifier output from on
   assert.match(workspace.previewHtml, /data-layer-id="hero-title"/);
   assert.match(workspace.reactExport.code, /export function ProductionHomepage/);
   assert.equal(workspace.projectExport.manifest.componentName, "ProductionHomepage");
-  assert.equal(workspace.projectExport.files.length, 18);
+  assert.equal(workspace.projectExport.files.length, 19);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "layerdoc.json"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "layerdoc.schema.json"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "layerdoc-audit.json"), true);
@@ -31,6 +31,7 @@ test("createEditorWorkspace derives preview, export, and verifier output from on
   assert.equal(workspace.projectExport.files.some((file) => file.path === "src/main.tsx"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "verification-report.json"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "scripts/verify-gates.mjs"), true);
+  assert.equal(workspace.projectExport.files.some((file) => file.path === "scripts/verify-layerdoc.mjs"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "scripts/verify-preview.mjs"), true);
   assert.equal(workspace.report.visualSimilarity, null);
   assert.equal(workspace.projectExport.manifest.scores.visualSimilarity, null);

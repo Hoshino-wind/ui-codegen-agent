@@ -55,6 +55,7 @@ function packageJsonFor(manifest: ProjectExportManifest): string {
       dev: "vite",
       build: "tsc --noEmit && vite build",
       preview: "vite preview",
+      "verify:layerdoc": "node scripts/verify-layerdoc.mjs",
       "verify:preview": "node scripts/verify-preview.mjs",
       "verify:gates": "node scripts/verify-gates.mjs"
     },
@@ -112,6 +113,153 @@ const result = {
     componentScore: report.componentScore,
     projectFitScore: report.projectFitScore
   }
+};
+
+process.stdout.write(\`\${JSON.stringify(result, null, 2)}\\n\`);
+if (!result.passed) {
+  process.exitCode = 1;
+}
+`;
+}
+
+function layerDocVerifierScriptFor(): string {
+  return `import { readFileSync } from "node:fs";
+
+function readJson(path) {
+  return JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
+}
+
+function issue(code, path, message) {
+  return { code, path, message };
+}
+
+function isPositiveRect(rect) {
+  return rect && Number.isFinite(rect.x) && Number.isFinite(rect.y) && rect.width > 0 && rect.height > 0;
+}
+
+function fitsCanvas(rect, canvas) {
+  return rect.x >= 0 && rect.y >= 0 && rect.x + rect.width <= canvas.width && rect.y + rect.height <= canvas.height;
+}
+
+function collectDuplicateIds(ids) {
+  const seen = new Set();
+  const duplicates = new Set();
+  for (const id of ids) {
+    if (seen.has(id)) {
+      duplicates.add(id);
+    }
+    seen.add(id);
+  }
+  return [...duplicates];
+}
+
+function classifyLayer(layer) {
+  if (["text", "button", "nav", "card", "form", "input", "list", "table", "icon"].includes(layer.kind)) {
+    return "component";
+  }
+  if (["image", "background"].includes(layer.kind)) {
+    return "asset";
+  }
+  if (["chart", "map", "scene3d"].includes(layer.kind)) {
+    return "approximation";
+  }
+  return "layout";
+}
+
+function validateLayerDoc(doc) {
+  const issues = [];
+  if (doc?.schema !== "layerdoc") {
+    issues.push(issue("schema_invalid", "schema", "LayerDoc schema must be \\"layerdoc\\"."));
+  }
+  if (doc?.version !== "0.1.0") {
+    issues.push(issue("version_invalid", "version", "LayerDoc version must be 0.1.0."));
+  }
+
+  const sections = Array.isArray(doc?.sections) ? doc.sections : [];
+  const layers = Array.isArray(doc?.layers) ? doc.layers : [];
+  const assets = Array.isArray(doc?.assets) ? doc.assets : [];
+  const components = Array.isArray(doc?.components) ? doc.components : [];
+  const interactions = Array.isArray(doc?.interactions) ? doc.interactions : [];
+  const sectionRequests = Array.isArray(doc?.generation?.sectionRequests) ? doc.generation.sectionRequests : [];
+  const canvas = doc?.canvas ?? {};
+
+  const sectionIds = new Set(sections.map((section) => section.id));
+  const layerIds = new Set(layers.map((layer) => layer.id));
+  const assetIds = new Set(assets.map((asset) => asset.id));
+  for (const id of collectDuplicateIds([
+    ...sections.map((section) => section.id),
+    ...layers.map((layer) => layer.id),
+    ...assets.map((asset) => asset.id),
+    ...components.map((component) => component.id),
+    ...interactions.map((interaction) => interaction.id),
+    ...sectionRequests.map((request) => request.id)
+  ])) {
+    issues.push(issue("duplicate_id", id, \`Duplicate id "\${id}" appears in the LayerDoc graph.\`));
+  }
+
+  for (const [index, section] of sections.entries()) {
+    const path = \`sections[\${index}]\`;
+    if (!isPositiveRect(section.bounds)) {
+      issues.push(issue("bounds_invalid", \`\${path}.bounds\`, \`Section "\${section.id}" has non-positive bounds.\`));
+    } else if (!fitsCanvas(section.bounds, canvas)) {
+      issues.push(issue("bounds_outside_canvas", \`\${path}.bounds\`, \`Section "\${section.id}" exceeds the canvas.\`));
+    }
+    for (const layerId of section.layerIds ?? []) {
+      if (!layerIds.has(layerId)) {
+        issues.push(issue("layer_missing", \`\${path}.layerIds\`, \`Section "\${section.id}" references missing layer "\${layerId}".\`));
+      }
+    }
+  }
+
+  for (const [index, layer] of layers.entries()) {
+    const path = \`layers[\${index}]\`;
+    if (!isPositiveRect(layer.bounds)) {
+      issues.push(issue("bounds_invalid", \`\${path}.bounds\`, \`Layer "\${layer.id}" has non-positive bounds.\`));
+    } else if (!fitsCanvas(layer.bounds, canvas)) {
+      issues.push(issue("bounds_outside_canvas", \`\${path}.bounds\`, \`Layer "\${layer.id}" exceeds the canvas.\`));
+    }
+    if (layer.sectionId && !sectionIds.has(layer.sectionId)) {
+      issues.push(issue("section_missing", \`\${path}.sectionId\`, \`Layer "\${layer.id}" references missing section "\${layer.sectionId}".\`));
+    }
+    if (layer.track !== classifyLayer(layer)) {
+      issues.push(issue("track_mismatch", \`\${path}.track\`, \`Layer "\${layer.id}" is "\${layer.kind}" but is routed to "\${layer.track}".\`));
+    }
+    if (layer.track === "asset" && (!layer.assetId || !assetIds.has(layer.assetId))) {
+      issues.push(issue("asset_missing", \`\${path}.assetId\`, \`Asset layer "\${layer.id}" does not point at a known asset.\`));
+    }
+  }
+
+  for (const [index, component] of components.entries()) {
+    for (const layerId of component.layerIds ?? []) {
+      if (!layerIds.has(layerId)) {
+        issues.push(issue("layer_missing", \`components[\${index}].layerIds\`, \`Component "\${component.id}" references missing layer "\${layerId}".\`));
+      }
+    }
+  }
+
+  for (const [index, interaction] of interactions.entries()) {
+    if (!layerIds.has(interaction.layerId)) {
+      issues.push(issue("layer_missing", \`interactions[\${index}].layerId\`, \`Interaction "\${interaction.id}" references missing layer "\${interaction.layerId}".\`));
+    }
+  }
+
+  for (const [index, request] of sectionRequests.entries()) {
+    if (!sectionIds.has(request.sectionId)) {
+      issues.push(issue("section_missing", \`generation.sectionRequests[\${index}].sectionId\`, \`Regeneration request "\${request.id}" references missing section "\${request.sectionId}".\`));
+    }
+  }
+
+  return issues;
+}
+
+const layerDoc = readJson("../layerdoc.json");
+const schema = readJson("../layerdoc.schema.json");
+const issues = validateLayerDoc(layerDoc);
+const result = {
+  passed: issues.length === 0,
+  schema: schema.$id ?? null,
+  layerdocVersion: layerDoc.version ?? null,
+  issues
 };
 
 process.stdout.write(\`\${JSON.stringify(result, null, 2)}\\n\`);
@@ -493,6 +641,7 @@ Run locally:
 - \`npm install\`
 - \`npm run dev\`
 - \`npm run build\`
+- \`npm run verify:layerdoc\`
 - \`npm run verify:preview -- --reference ./reference.png\`
 - \`npm run verify:gates\`
 
@@ -503,9 +652,10 @@ Generated assets:
 - \`preview.html\`: deterministic HTML verification preview
 - \`manifest.json\`, \`layerdoc.schema.json\`: project package manifest and LayerDoc source contract
 - \`layerdoc-audit.json\`: structure, track, and asset-compliance audit
-- \`verification-report.json\`, \`quality-gates.json\`, \`scripts/verify-preview.mjs\`, \`scripts/verify-gates.mjs\`: executable visual verifier and quality gate handoff
+- \`verification-report.json\`, \`quality-gates.json\`, \`scripts/verify-layerdoc.mjs\`, \`scripts/verify-preview.mjs\`, \`scripts/verify-gates.mjs\`: executable source, visual, and quality gate handoff
 
 Verification:
+- Run \`npm run verify:layerdoc\` after editing \`layerdoc.json\` to catch broken graph references before integration.
 - Put the original target visual at \`reference.png\`.
 - Run \`npm run verify:preview -- --reference ./reference.png\` to render \`preview.html\`, capture \`verification-artifacts/candidate.png\`, produce \`verification-artifacts/diff.png\`, and update \`verification-report.json\`.
 - Run \`npm run verify:gates\` after preview verification to enforce the current quality gates.
@@ -540,6 +690,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     "preview.html",
     "quality-gates.json",
     "scripts/verify-gates.mjs",
+    "scripts/verify-layerdoc.mjs",
     "scripts/verify-preview.mjs",
     "src/App.tsx",
     "src/index.css",
@@ -571,6 +722,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
       { path: "preview.html", contents: renderHtmlPreview(doc) },
       { path: "quality-gates.json", contents: stableJson(defaultVerificationGates) },
       { path: "scripts/verify-gates.mjs", contents: qualityGateScriptFor() },
+      { path: "scripts/verify-layerdoc.mjs", contents: layerDocVerifierScriptFor() },
       { path: "scripts/verify-preview.mjs", contents: previewVerifierScriptFor() },
       { path: "src/App.tsx", contents: appShellFor(options.componentName) },
       { path: "src/index.css", contents: indexCssFor() },
