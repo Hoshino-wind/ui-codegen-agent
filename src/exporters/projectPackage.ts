@@ -415,6 +415,7 @@ function packageJsonFor(manifest: ProjectExportManifest): string {
       dev: "vite",
       build: "tsc --noEmit && vite build",
       preview: "vite preview",
+      verify: "npm run verify:layerdoc && npm run verify:contract && npm run verify:preview && npm run verify:gates",
       "verify:layerdoc": "node scripts/verify-layerdoc.mjs",
       "verify:contract": "node scripts/verify-contract.mjs",
       "verify:preview": "node scripts/verify-preview.mjs",
@@ -1830,6 +1831,7 @@ Run locally:
 - \`npm install\`
 - \`npm run dev\`
 - \`npm run build\`
+- \`npm run verify\`
 - \`npm run verify:layerdoc\`
 - \`npm run verify:contract\`
 - \`npm run verify:preview\`
@@ -1869,6 +1871,7 @@ function handoffCommands(): ProjectHandoffCommand[] {
     { label: "Install dependencies", command: "npm install" },
     { label: "Run the project", command: "npm run dev" },
     { label: "Build the project", command: "npm run build" },
+    { label: "Verify full handoff", command: "npm run verify" },
     { label: "Verify LayerDoc source", command: "npm run verify:layerdoc" },
     { label: "Verify integration contract", command: "npm run verify:contract" },
     { label: "Verify visual preview", command: "npm run verify:preview" },

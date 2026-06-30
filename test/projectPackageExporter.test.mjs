@@ -277,6 +277,10 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.deepEqual(output.manifest.files.sort(), paths);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"scripts"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"dev": "vite"/);
+  assert.match(
+    output.files.find((file) => file.path === "package.json").contents,
+    /"verify": "npm run verify:layerdoc && npm run verify:contract && npm run verify:preview && npm run verify:gates"/
+  );
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:preview": "node scripts\/verify-preview\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:gates": "node scripts\/verify-gates\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:layerdoc": "node scripts\/verify-layerdoc\.mjs"/);
@@ -403,6 +407,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
       "npm install",
       "npm run dev",
       "npm run build",
+      "npm run verify",
       "npm run verify:layerdoc",
       "npm run verify:contract",
       "npm run verify:preview",
@@ -425,6 +430,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "preview.html").contents, /data-layerdoc="0.1.0"/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm install/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run dev/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:gates/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:contract/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:layerdoc/);
