@@ -58,6 +58,7 @@ import {
 import { createImageAssetPatchFromFile, readBrowserFileAsDataUrl } from "./imageAssetUpload.js";
 import { renderLayerDocSnapshot } from "./layerDocSnapshot.js";
 import { createPreviewViewport, type PreviewMode } from "./previewViewport.js";
+import { createProblemAreaAnnotations } from "./problemAreaOverlay.js";
 import { createSampleHomepageLayerDoc } from "./sampleDocument.js";
 import { runWorkspacePreviewVerification } from "./workspaceVerifier.js";
 import { createWorkflowSummary, type WorkflowSummaryItem } from "./workflowSummary.js";
@@ -230,6 +231,7 @@ function CanvasPreview({
     [workspace.doc.sections]
   );
   const visibleLayers = workspace.doc.layers.filter((layer) => !layer.sectionId || visibleSectionIds.has(layer.sectionId));
+  const problemAreas = createProblemAreaAnnotations(workspace.report.visualDiff?.problemAreas ?? [], { scale: viewport.scale });
 
   return (
     <section className="canvas-panel">
@@ -303,6 +305,21 @@ function CanvasPreview({
             showLabels={showLabels}
             onSelect={() => onSelectLayer(layer.id)}
           />
+        ))}
+        {problemAreas.map((area) => (
+          <div
+            aria-label={`Verifier problem area ${area.label}`}
+            className="problem-area-overlay"
+            key={area.id}
+            style={{
+              left: area.bounds.x,
+              top: area.bounds.y,
+              width: area.bounds.width,
+              height: area.bounds.height
+            }}
+          >
+            <span>{area.label}</span>
+          </div>
         ))}
       </div>
     </section>
@@ -729,6 +746,7 @@ function VerifierStrip({
   onDownloadReport: () => void;
 }) {
   const visualDiff = workspace.report.visualDiff;
+  const problemAreas = visualDiff?.problemAreas ?? [];
   const scores = [
     ["visual_similarity", workspace.report.visualSimilarity, 85],
     ["structure_score", workspace.report.structureScore, 90],
@@ -769,6 +787,23 @@ function VerifierStrip({
           <strong>Current preview snapshot</strong>
         </div>
         {verifierError ? <div className="verifier-error">{verifierError}</div> : null}
+        {visualDiff ? (
+          <div className="problem-area-list">
+            <div className="problem-area-list-head">
+              <span>Problem areas</span>
+              <strong>{problemAreas.length}</strong>
+            </div>
+            {problemAreas.slice(0, 4).map((area, index) => (
+              <div className="problem-area-row" key={`${area.x}-${area.y}-${area.width}-${area.height}-${index}`}>
+                <span>#{index + 1}</span>
+                <strong>
+                  {area.x},{area.y} / {area.width}x{area.height}
+                </strong>
+              </div>
+            ))}
+            {problemAreas.length > 4 ? <div className="problem-area-more">+{problemAreas.length - 4} more</div> : null}
+          </div>
+        ) : null}
       </div>
       <div className="score-grid">
         {scores.map(([label, value, threshold]) => (

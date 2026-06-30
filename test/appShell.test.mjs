@@ -27,3 +27,11 @@ test("app shell exposes a project package export action", () => {
   assert.match(source, /Export Project/);
   assert.match(source, /createProjectPackageDownload/);
 });
+
+test("app shell exposes verifier problem areas in the editor surface", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /createProblemAreaAnnotations/);
+  assert.match(source, /problem-area-overlay/);
+  assert.match(source, /Problem areas/);
+});

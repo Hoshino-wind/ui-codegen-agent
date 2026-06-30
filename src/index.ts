@@ -27,6 +27,7 @@ export { createImageManifestFromPng } from "./importers/pngIntake.js";
 export { createForeignObjectSnapshotSvg, inlineHtmlImageSources } from "./app/htmlPreviewSnapshot.js";
 export { createImageAssetPatchFromFile, readBrowserFileAsDataUrl } from "./app/imageAssetUpload.js";
 export { renderLayerDocSnapshot } from "./app/layerDocSnapshot.js";
+export { createProblemAreaAnnotations } from "./app/problemAreaOverlay.js";
 export { runWorkspacePreviewVerification, runWorkspaceVisualVerification } from "./app/workspaceVerifier.js";
 export { classifyLayer } from "./layerdoc/classification.js";
 export { createLayerDoc } from "./layerdoc/factory.js";
@@ -83,6 +84,7 @@ export type {
 export type { PngSnapshotComparisonInput, PngSnapshotComparisonResult } from "./verifier/visualDiff.js";
 export type { HtmlImageSourceInliner, HtmlPreviewSnapshotInput } from "./app/htmlPreviewSnapshot.js";
 export type { ImageAssetUploadDependencies, ImageReplacementFileLike } from "./app/imageAssetUpload.js";
+export type { ProblemAreaAnnotation, ProblemAreaAnnotationOptions } from "./app/problemAreaOverlay.js";
 export type {
   WorkspaceCandidateSnapshotInput,
   WorkspaceCandidateSnapshotRenderer,

@@ -940,6 +940,36 @@ button {
   white-space: nowrap;
 }
 
+.problem-area-overlay {
+  position: absolute;
+  z-index: 8;
+  border: 2px solid #dc2626;
+  border-radius: 5px;
+  background: rgba(248, 113, 113, 0.12);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.13);
+  pointer-events: none;
+}
+
+.problem-area-overlay span {
+  position: absolute;
+  left: -2px;
+  top: -18px;
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  max-width: 160px;
+  padding: 0 5px;
+  overflow: hidden;
+  border-radius: 4px;
+  color: #ffffff;
+  background: #dc2626;
+  font-size: 9px;
+  font-weight: 820;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .inspector {
   grid-column: 3;
   grid-row: 2;
@@ -1190,6 +1220,47 @@ button {
   font-weight: 760;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.problem-area-list {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fff7f7;
+}
+
+.problem-area-list-head,
+.problem-area-row {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.problem-area-list-head span,
+.problem-area-row span,
+.problem-area-more {
+  color: #991b1b;
+  font-size: 10px;
+  font-weight: 820;
+}
+
+.problem-area-list-head strong,
+.problem-area-row strong {
+  overflow: hidden;
+  color: #450a0a;
+  font-size: 11px;
+  font-weight: 780;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.problem-area-more {
+  min-height: 18px;
 }
 
 .score-grid {
