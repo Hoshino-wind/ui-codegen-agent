@@ -23,6 +23,7 @@ export { addHeroAnnotationSetToPlan, seedHomepageAnalysisPlan } from "./importer
 export { createLayerDocFromImageManifest } from "./importers/imageManifest.js";
 export { createImageManifestFromPng } from "./importers/pngIntake.js";
 export { createForeignObjectSnapshotSvg, inlineHtmlImageSources } from "./app/htmlPreviewSnapshot.js";
+export { createImageAssetPatchFromFile, readBrowserFileAsDataUrl } from "./app/imageAssetUpload.js";
 export { renderLayerDocSnapshot } from "./app/layerDocSnapshot.js";
 export { runWorkspacePreviewVerification, runWorkspaceVisualVerification } from "./app/workspaceVerifier.js";
 export { classifyLayer } from "./layerdoc/classification.js";
@@ -77,6 +78,7 @@ export type {
 } from "./verifier/run.js";
 export type { PngSnapshotComparisonInput, PngSnapshotComparisonResult } from "./verifier/visualDiff.js";
 export type { HtmlImageSourceInliner, HtmlPreviewSnapshotInput } from "./app/htmlPreviewSnapshot.js";
+export type { ImageAssetUploadDependencies, ImageReplacementFileLike } from "./app/imageAssetUpload.js";
 export type {
   WorkspaceCandidateSnapshotInput,
   WorkspaceCandidateSnapshotRenderer,

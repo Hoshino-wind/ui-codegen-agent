@@ -51,6 +51,7 @@ import {
   createWorkspaceFromLayerDocJson,
   type LayerDocDownloadArtifact
 } from "./layerDocFile.js";
+import { createImageAssetPatchFromFile, readBrowserFileAsDataUrl } from "./imageAssetUpload.js";
 import { renderLayerDocSnapshot } from "./layerDocSnapshot.js";
 import { createPreviewViewport, type PreviewMode } from "./previewViewport.js";
 import { createSampleHomepageLayerDoc } from "./sampleDocument.js";
@@ -304,6 +305,7 @@ function Inspector({
   workspace: EditorWorkspace;
   onChange: (workspace: EditorWorkspace) => void;
 }) {
+  const [assetUploadError, setAssetUploadError] = useState<string | null>(null);
   const layer = selectedLayer(workspace);
   const section = selectedSection(workspace.doc, layer);
   const asset = workspace.doc.assets.find((candidate) => candidate.id === layer.assetId);
@@ -316,6 +318,17 @@ function Inspector({
     const number = numberFromInput(value);
     if (Number.isFinite(number)) {
       onChange(updateSelectedBounds(workspace, { [key]: number }));
+    }
+  }
+
+  async function replaceImageAsset(file: File) {
+    try {
+      const patch = await createImageAssetPatchFromFile(file, { readAsDataUrl: readBrowserFileAsDataUrl });
+      setAssetUploadError(null);
+      onChange(updateSelectedImageAsset(workspace, patch));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Image replacement failed.";
+      setAssetUploadError(message);
     }
   }
 
@@ -379,6 +392,24 @@ function Inspector({
 
       <div className="field-group">
         <h3>Image</h3>
+        {layer.kind === "image" ? (
+          <label className="asset-upload-control">
+            <input
+              aria-label="Replace selected image asset"
+              accept="image/*"
+              type="file"
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0];
+                if (file) {
+                  void replaceImageAsset(file);
+                  event.currentTarget.value = "";
+                }
+              }}
+            />
+            <Upload size={14} />
+            Replace image
+          </label>
+        ) : null}
         <label className="field">
           <span>Asset URI</span>
           <input
@@ -389,6 +420,7 @@ function Inspector({
             readOnly={layer.kind !== "image"}
           />
         </label>
+        {assetUploadError ? <div className="asset-upload-error">{assetUploadError}</div> : null}
         {asset?.uri ? <img className="asset-preview" src={asset.uri} alt={layer.content?.alt ?? ""} /> : <div className="asset-empty">No image asset</div>}
       </div>
 
