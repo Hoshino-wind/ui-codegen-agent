@@ -178,6 +178,20 @@ The analysis plan can come from a vision model, a crop workbench, or manual
 review. The PNG intake module deliberately does not invent semantics by itself;
 it only turns confirmed section/layer structure into project assets.
 
+For end-to-end handoff, the homepage pipeline CLI can consume a confirmed plan
+instead of the deterministic seed scaffold:
+
+```bash
+layerdoc-run-homepage \
+  --input references/homepage.png \
+  --analysis-plan analysis-plan.json \
+  --out artifacts/homepage-run \
+  --component ProductionHomepage
+```
+
+The resulting `pipeline-report.json` records whether the structure came from a
+provided plan or from the seeded MVP scaffold.
+
 The homepage pipeline CLI also copies the original input PNG into the exported
 project as `reference.png`, so the handoff project can rerun visual verification
 without manually locating the source image.

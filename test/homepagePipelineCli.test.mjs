@@ -27,6 +27,31 @@ function writeHomepagePng(filePath) {
   writeFileSync(filePath, PNG.sync.write(png));
 }
 
+function createExternalAnalysisPlan() {
+  const sectionNames = ["Hero", "Proof", "Workflow", "Features", "Editor", "Export", "Verifier", "Final CTA"];
+  return {
+    name: "Provided Plan Homepage",
+    canvas: { width: 640, height: 960 },
+    sections: sectionNames.map((name, index) => {
+      const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const y = index * 120;
+      return {
+        id,
+        name,
+        bounds: { x: 0, y, width: 640, height: 120 },
+        layers: [
+          {
+            id: `${id}-copy`,
+            kind: "text",
+            bounds: { x: 32, y: y + 24, width: 320, height: 40 },
+            text: index === 0 ? "Provided hero headline" : `Provided ${name} copy`
+          }
+        ]
+      };
+    })
+  };
+}
+
 test("homepage pipeline CLI runs PNG intake, verification, and project export", () => {
   const directory = mkdtempSync(join(tmpdir(), "layerdoc-homepage-pipeline-"));
   const inputPath = join(directory, "homepage.png");
@@ -69,6 +94,7 @@ test("homepage pipeline CLI runs PNG intake, verification, and project export", 
   assert.equal(existsSync(join(outputDir, "project", "public", "assets", "hero-crop.png")), true);
   assert.equal(existsSync(join(outputDir, "verification", "diff.png")), true);
   assert.equal(pipelineReport.intake.sectionCount, 8);
+  assert.equal(pipelineReport.intake.analysisPlanSource, "seeded");
   assert.equal(pipelineReport.intake.layerCount, 18);
   assert.equal(pipelineReport.verification.passed, true);
   assert.equal(pipelineReport.verification.scores.visualSimilarity, 100);
@@ -76,6 +102,44 @@ test("homepage pipeline CLI runs PNG intake, verification, and project export", 
   assert.deepEqual(pipelineReport.project.copiedAssets.sort(), ["assets/hero-crop.png", "public/assets/hero-crop.png"]);
   assert.equal(projectManifest.scores.visualSimilarity, 100);
   assert.match(readFileSync(join(outputDir, "project", "src", "ProductionHomepage.tsx"), "utf8"), /Pipeline Homepage|Imported hero headline/);
+});
+
+test("homepage pipeline CLI can build from a provided analysis plan", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-homepage-provided-plan-"));
+  const inputPath = join(directory, "homepage.png");
+  const candidatePath = join(directory, "candidate.png");
+  const analysisPlanPath = join(directory, "analysis-plan.json");
+  const outputDir = join(directory, "run");
+  writeHomepagePng(inputPath);
+  writeHomepagePng(candidatePath);
+  writeFileSync(analysisPlanPath, JSON.stringify(createExternalAnalysisPlan(), null, 2));
+
+  const result = spawnSync(process.execPath, [
+    cliPath,
+    "--input",
+    inputPath,
+    "--candidate",
+    candidatePath,
+    "--analysis-plan",
+    analysisPlanPath,
+    "--out",
+    outputDir,
+    "--component",
+    "ProductionHomepage"
+  ], { cwd: rootDir, encoding: "utf8" });
+
+  assert.equal(result.status, 0, result.stderr);
+  const pipelineReport = JSON.parse(readFileSync(join(outputDir, "pipeline-report.json"), "utf8"));
+  const layerDoc = JSON.parse(readFileSync(join(outputDir, "intake", "layerdoc.json"), "utf8"));
+  const exportedComponent = readFileSync(join(outputDir, "project", "src", "ProductionHomepage.tsx"), "utf8");
+
+  assert.equal(pipelineReport.name, "Provided Plan Homepage");
+  assert.equal(pipelineReport.intake.analysisPlanSource, "provided");
+  assert.equal(pipelineReport.intake.sourceAnalysisPlanPath, analysisPlanPath);
+  assert.equal(pipelineReport.intake.sectionCount, 8);
+  assert.equal(pipelineReport.intake.layerCount, 8);
+  assert.equal(layerDoc.layers.some((layer) => layer.id === "hero-copy" && layer.content.text === "Provided hero headline"), true);
+  assert.match(exportedComponent, /Provided hero headline/);
 });
 
 test("homepage pipeline CLI rejects missing required arguments with usage guidance", () => {

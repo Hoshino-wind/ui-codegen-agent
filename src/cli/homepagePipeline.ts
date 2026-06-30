@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { copyFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, extname, join, resolve } from "node:path";
 import process from "node:process";
 
@@ -8,6 +8,7 @@ import { writeProjectExportPackage } from "../exporters/projectPackageWriter.js"
 import { createHomepageLayerDocFromPng } from "../importers/homepagePngPipeline.js";
 import { runLayerDocPreviewVerification } from "../verifier/previewRun.js";
 import { runLayerDocVerification } from "../verifier/run.js";
+import type { HomepageAnalysisPlan } from "../importers/homepageAnalysisPlan.js";
 import { CliError, readOptionValue } from "./shared.js";
 
 interface HomepagePipelineCliOptions {
@@ -16,6 +17,7 @@ interface HomepagePipelineCliOptions {
   componentName: string;
   name?: string;
   packageName?: string;
+  analysisPlanPath?: string;
   candidatePath?: string;
   browserExecutablePath?: string;
   failOnQuality?: boolean;
@@ -34,6 +36,7 @@ Options:
   --component <ComponentName>  PascalCase React component name for project export.
   --name <name>                Optional LayerDoc/import name. Defaults to the PNG file name.
   --package <package-name>     Optional package name written to project/manifest.json.
+  --analysis-plan <plan.json>  Optional confirmed homepage Analysis Plan from a model, editor, or human review.
   --candidate <candidate.png>  Optional rendered candidate PNG. If omitted, Playwright renders preview.html.
   --browser <executable>       Optional browser executable path for Playwright preview rendering.
   --fail-on-quality            Exit 2 when verifier quality gates fail.
@@ -100,6 +103,13 @@ function parseArgs(args: string[]): ParsedArgs {
       continue;
     }
 
+    if (arg === "--analysis-plan" || arg.startsWith("--analysis-plan=")) {
+      const option = readOptionValue(args, index, "--analysis-plan");
+      values.analysisPlanPath = option.value;
+      index = option.nextIndex;
+      continue;
+    }
+
     if (arg === "--candidate" || arg.startsWith("--candidate=")) {
       const option = readOptionValue(args, index, "--candidate");
       values.candidatePath = option.value;
@@ -137,6 +147,7 @@ function parseArgs(args: string[]): ParsedArgs {
       componentName,
       name: values.name,
       packageName: values.packageName,
+      analysisPlanPath: values.analysisPlanPath,
       candidatePath: values.candidatePath,
       browserExecutablePath: values.browserExecutablePath,
       failOnQuality: values.failOnQuality
@@ -146,6 +157,10 @@ function parseArgs(args: string[]): ParsedArgs {
 
 function writeJson(path: string, value: unknown): void {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+function readAnalysisPlan(path: string): HomepageAnalysisPlan {
+  return JSON.parse(readFileSync(path, "utf8")) as HomepageAnalysisPlan;
 }
 
 function copyDirectory(sourceDir: string, targetDir: string): string[] {
@@ -197,6 +212,8 @@ export async function runHomepagePipelineCli(args: string[]): Promise<number> {
 
     const inputPath = resolve(options.inputPath);
     const outputDir = resolve(options.outputDir);
+    const sourceAnalysisPlanPath = options.analysisPlanPath ? resolve(options.analysisPlanPath) : undefined;
+    const sourceAnalysisPlan = sourceAnalysisPlanPath ? readAnalysisPlan(sourceAnalysisPlanPath) : undefined;
     const intakeDir = join(outputDir, "intake");
     const intakeAssetDir = join(intakeDir, "assets");
     const verificationDir = join(outputDir, "verification");
@@ -212,8 +229,9 @@ export async function runHomepagePipelineCli(args: string[]): Promise<number> {
     const diffPath = join(verificationDir, "diff.png");
 
     const intake = createHomepageLayerDocFromPng({
-      name: options.name ?? defaultNameFor(inputPath),
+      name: options.name ?? sourceAnalysisPlan?.name ?? defaultNameFor(inputPath),
       sourcePngPath: inputPath,
+      analysisPlan: sourceAnalysisPlan,
       assetOutputDir: intakeAssetDir,
       publicAssetBaseUri: "assets"
     });
@@ -259,6 +277,8 @@ export async function runHomepagePipelineCli(args: string[]): Promise<number> {
         imageManifestPath,
         layerDocPath,
         assetDir: intakeAssetDir,
+        analysisPlanSource: sourceAnalysisPlanPath ? "provided" : "seeded",
+        ...(sourceAnalysisPlanPath ? { sourceAnalysisPlanPath } : {}),
         sectionCount: intake.layerDoc.sections.length,
         layerCount: intake.layerDoc.layers.length,
         assetCount: intake.layerDoc.assets.length

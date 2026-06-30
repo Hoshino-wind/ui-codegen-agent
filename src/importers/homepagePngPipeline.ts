@@ -11,6 +11,7 @@ import type { LayerDoc } from "../layerdoc/types.js";
 export interface HomepagePngPipelineInput {
   name: string;
   sourcePngPath: string;
+  analysisPlan?: HomepageAnalysisPlan;
   assetOutputDir?: string;
   publicAssetBaseUri?: string;
   canvasBackground?: string;
@@ -37,14 +38,15 @@ function readPngCanvas(path: string): { width: number; height: number } {
  */
 export function createHomepageLayerDocFromPng(input: HomepagePngPipelineInput): HomepagePngPipelineResult {
   const canvas = readPngCanvas(input.sourcePngPath);
-  const scaffold = createHomepageAnalysisPlan({
+  const scaffold = input.analysisPlan ?? createHomepageAnalysisPlan({
     name: input.name,
     canvas: {
       ...canvas,
       background: input.canvasBackground
     }
   });
-  const analysisPlan = input.seedAnnotations === false ? scaffold : seedHomepageAnalysisPlan(scaffold);
+  const shouldSeed = input.seedAnnotations ?? !input.analysisPlan;
+  const analysisPlan = shouldSeed ? seedHomepageAnalysisPlan(scaffold) : scaffold;
   const issues = validateHomepageAnalysisPlan(analysisPlan);
   if (issues.length > 0) {
     throw new Error(`Cannot create LayerDoc from invalid analysis plan: ${issues.join(" ")}`);
