@@ -251,6 +251,22 @@ test("exported LayerDoc verifier script validates the editable source graph", ()
   assert.match(failed.stdout, /missing-layer/);
 });
 
+test("exported LayerDoc verifier script rejects visible empty sections", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-empty-section-verifier-"));
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const layerDocPath = join(directory, "layerdoc.json");
+  const layerDoc = JSON.parse(readFileSync(layerDocPath, "utf8"));
+  layerDoc.sections[0].layerIds = [];
+  writeFileSync(layerDocPath, `${JSON.stringify(layerDoc, null, 2)}\n`);
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-layerdoc.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /section_empty/);
+  assert.match(failed.stdout, /sections\[0\]\.layerIds/);
+});
+
 test("exported preview verifier script updates the handoff report from candidate screenshots", () => {
   const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-preview-verifier-"));
   const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });

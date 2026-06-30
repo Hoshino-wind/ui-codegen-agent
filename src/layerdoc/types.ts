@@ -173,6 +173,7 @@ export type VerificationIssueCode =
   | "bounds_outside_canvas"
   | "duplicate_id"
   | "layer_missing"
+  | "section_empty"
   | "section_missing"
   | "track_mismatch";
 

@@ -82,6 +82,23 @@ test("validateLayerDoc rejects missing references and out-of-canvas geometry", (
   );
 });
 
+test("validateLayerDoc rejects visible sections without editable layers", () => {
+  const doc = createLayerDoc({
+    name: "Empty visible section",
+    canvas: { width: 320, height: 240 },
+    sections: [{ id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 320, height: 240 }, layerIds: [] }]
+  });
+
+  const result = validateLayerDoc(doc);
+
+  assert.equal(result.valid, false);
+  assert.deepEqual(result.issues[0], {
+    code: "section_empty",
+    path: "sections[0].layerIds",
+    message: 'Visible section "hero" must contain at least one layer.'
+  });
+});
+
 test("validateLayerDoc rejects regeneration requests for missing sections", () => {
   const doc = createLayerDoc({
     name: "Broken regeneration",

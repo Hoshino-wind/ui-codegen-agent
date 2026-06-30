@@ -56,7 +56,7 @@ The repository currently implements the core LayerDoc domain layer:
 - Convert an image-analysis manifest into LayerDoc.
 - Create a complete LayerDoc shell.
 - Classify layer kinds into production tracks.
-- Validate graph references and canvas geometry.
+- Validate graph references, canvas geometry, and empty visible sections.
 - Apply controlled editor operations without mutating the original document:
   copy, layer style, image assets, bounds, and section order.
 - Run a React/Vite controlled editor console for the sample homepage LayerDoc.

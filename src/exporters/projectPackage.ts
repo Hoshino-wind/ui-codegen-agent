@@ -569,6 +569,9 @@ function validateLayerDoc(doc) {
     } else if (!fitsCanvas(section.bounds, canvas)) {
       issues.push(issue("bounds_outside_canvas", \`\${path}.bounds\`, \`Section "\${section.id}" exceeds the canvas.\`));
     }
+    if (section.visible !== false && (section.layerIds ?? []).length === 0) {
+      issues.push(issue("section_empty", \`\${path}.layerIds\`, \`Visible section "\${section.id}" must contain at least one layer.\`));
+    }
     for (const layerId of section.layerIds ?? []) {
       if (!layerIds.has(layerId)) {
         issues.push(issue("layer_missing", \`\${path}.layerIds\`, \`Section "\${section.id}" references missing layer "\${layerId}".\`));
