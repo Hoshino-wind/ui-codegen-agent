@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { createEditorWorkspace } from "../dist/app/editorWorkspace.js";
 import { createSampleHomepageLayerDoc } from "../dist/app/sampleDocument.js";
-import { runWorkspaceVisualVerification } from "../dist/app/workspaceVerifier.js";
+import { runWorkspacePreviewVerification, runWorkspaceVisualVerification } from "../dist/app/workspaceVerifier.js";
 
 function solidSnapshot(width, height, rgba) {
   const data = new Uint8Array(width * height * 4);
@@ -33,4 +33,30 @@ test("runWorkspaceVisualVerification compares image snapshots and refreshes work
   assert.equal(next.report.visualDiff.diffPath, null);
   assert.deepEqual(next.report.visualDiff.problemAreas, [{ x: 1, y: 1, width: 1, height: 1 }]);
   assert.equal(next.projectExport.manifest.scores.visualSimilarity, 75);
+});
+
+test("runWorkspacePreviewVerification renders the candidate from the current HTML preview", async () => {
+  const workspace = createEditorWorkspace(createSampleHomepageLayerDoc());
+  const reference = solidSnapshot(2, 2, [255, 255, 255, 255]);
+  let rendererInput = null;
+
+  const next = await runWorkspacePreviewVerification(workspace, {
+    reference,
+    threshold: 0,
+    renderCandidate: (input) => {
+      rendererInput = input;
+      const candidate = solidSnapshot(2, 2, [255, 255, 255, 255]);
+      const changedPixel = (2 * 1 + 1) * 4;
+      candidate.data[changedPixel] = 0;
+      candidate.data[changedPixel + 1] = 0;
+      candidate.data[changedPixel + 2] = 0;
+      return candidate;
+    }
+  });
+
+  assert.equal(rendererInput.previewHtml, workspace.previewHtml);
+  assert.equal(rendererInput.doc, workspace.doc);
+  assert.deepEqual(rendererInput.canvas, workspace.doc.canvas);
+  assert.equal(next.report.visualSimilarity, 75);
+  assert.equal(next.report.visualDiff.mismatchedPixels, 1);
 });

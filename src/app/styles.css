@@ -1002,6 +1002,11 @@ button {
   cursor: pointer;
 }
 
+.verifier-upload.locked {
+  cursor: default;
+  background: #eef4fb;
+}
+
 .verifier-upload input {
   position: absolute;
   width: 1px;

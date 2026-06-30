@@ -51,9 +51,10 @@ import {
   createWorkspaceFromLayerDocJson,
   type LayerDocDownloadArtifact
 } from "./layerDocFile.js";
+import { renderLayerDocSnapshot } from "./layerDocSnapshot.js";
 import { createPreviewViewport, type PreviewMode } from "./previewViewport.js";
 import { createSampleHomepageLayerDoc } from "./sampleDocument.js";
-import { runWorkspaceVisualVerification } from "./workspaceVerifier.js";
+import { runWorkspacePreviewVerification } from "./workspaceVerifier.js";
 import { createWorkflowSummary, type WorkflowSummaryItem } from "./workflowSummary.js";
 import type { PngIntakeLayerPlan } from "../importers/pngIntake.js";
 import type { ImageDataSnapshot } from "../verifier/imageDataDiff.js";
@@ -634,18 +635,14 @@ function AnalysisPlanPanel({
 function VerifierStrip({
   workspace,
   referenceName,
-  candidateName,
   verifierError,
   onReferenceFile,
-  onCandidateFile,
   onDownloadReport
 }: {
   workspace: EditorWorkspace;
   referenceName: string | null;
-  candidateName: string | null;
   verifierError: string | null;
   onReferenceFile: (file: File) => void;
-  onCandidateFile: (file: File) => void;
   onDownloadReport: () => void;
 }) {
   const visualDiff = workspace.report.visualDiff;
@@ -684,22 +681,10 @@ function VerifierStrip({
           <span>Reference PNG</span>
           <strong>{referenceName ?? "not loaded"}</strong>
         </label>
-        <label className="verifier-upload">
-          <input
-            aria-label="Load verifier candidate PNG"
-            accept="image/png"
-            type="file"
-            onChange={(event) => {
-              const file = event.currentTarget.files?.[0];
-              if (file) {
-                onCandidateFile(file);
-                event.currentTarget.value = "";
-              }
-            }}
-          />
-          <span>Candidate PNG</span>
-          <strong>{candidateName ?? "not loaded"}</strong>
-        </label>
+        <div className="verifier-upload locked">
+          <span>Candidate</span>
+          <strong>Current preview snapshot</strong>
+        </div>
         {verifierError ? <div className="verifier-error">{verifierError}</div> : null}
       </div>
       <div className="score-grid">
@@ -727,7 +712,6 @@ export function App() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [verifierReference, setVerifierReference] = useState<VerifierSnapshot | null>(null);
-  const [verifierCandidate, setVerifierCandidate] = useState<VerifierSnapshot | null>(null);
   const [verifierError, setVerifierError] = useState<string | null>(null);
   const workflow = createWorkflowSummary({
     sourceUri: intake.sourceImage.uri,
@@ -806,16 +790,12 @@ export function App() {
     setLastAction(`Saved ${artifact.fileName}`);
   }
 
-  async function importVerifierSnapshot(file: File, kind: "reference" | "candidate") {
+  async function importVerifierSnapshot(file: File) {
     try {
       const snapshot = await createVerifierSnapshot(file);
-      if (kind === "reference") {
-        setVerifierReference(snapshot);
-      } else {
-        setVerifierCandidate(snapshot);
-      }
+      setVerifierReference(snapshot);
       setVerifierError(null);
-      setLastAction(`Loaded ${kind} snapshot: ${file.name}`);
+      setLastAction(`Loaded reference snapshot: ${file.name}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to load verifier PNG.";
       setVerifierError(message);
@@ -823,17 +803,18 @@ export function App() {
     }
   }
 
-  function runVerifierReport() {
-    if (!verifierReference || !verifierCandidate) {
-      setVerifierError("Load reference and candidate PNG before running screenshot diff.");
-      setLastAction("Verifier needs reference and candidate PNG");
+  async function runVerifierReport() {
+    if (!verifierReference) {
+      setVerifierError("Load a reference PNG before running screenshot diff.");
+      setLastAction("Verifier needs a reference PNG");
       return;
     }
 
     try {
-      const nextWorkspace = runWorkspaceVisualVerification(workspace, {
+      setLastAction("Rendering current HTML preview for verifier");
+      const nextWorkspace = await runWorkspacePreviewVerification(workspace, {
         reference: verifierReference.image,
-        candidate: verifierCandidate.image
+        renderCandidate: ({ doc }) => renderLayerDocSnapshot(doc)
       });
       setWorkspace(nextWorkspace);
       setVerifierError(null);
@@ -888,7 +869,7 @@ export function App() {
             <Upload size={16} />
             Load LayerDoc
           </label>
-          <button className="secondary-action" type="button" onClick={runVerifierReport}>
+          <button className="secondary-action" type="button" onClick={() => void runVerifierReport()}>
             <Play size={16} />
             Run Verifier
           </button>
@@ -940,10 +921,8 @@ export function App() {
       <VerifierStrip
         workspace={workspace}
         referenceName={verifierReference?.fileName ?? null}
-        candidateName={verifierCandidate?.fileName ?? null}
         verifierError={verifierError}
-        onReferenceFile={(file) => void importVerifierSnapshot(file, "reference")}
-        onCandidateFile={(file) => void importVerifierSnapshot(file, "candidate")}
+        onReferenceFile={(file) => void importVerifierSnapshot(file)}
         onDownloadReport={downloadVerifierReport}
       />
     </main>

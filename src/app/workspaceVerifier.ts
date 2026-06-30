@@ -12,6 +12,21 @@ export interface WorkspaceVisualVerificationInput {
   includeAA?: ImageDataSnapshotComparisonInput["includeAA"];
 }
 
+export interface WorkspaceCandidateSnapshotInput {
+  doc: EditorWorkspace["doc"];
+  previewHtml: string;
+  canvas: EditorWorkspace["doc"]["canvas"];
+}
+
+export type WorkspaceCandidateSnapshotRenderer = (input: WorkspaceCandidateSnapshotInput) => Promise<ImageDataSnapshot> | ImageDataSnapshot;
+
+export interface WorkspacePreviewVerificationInput {
+  reference: ImageDataSnapshot;
+  renderCandidate: WorkspaceCandidateSnapshotRenderer;
+  threshold?: ImageDataSnapshotComparisonInput["threshold"];
+  includeAA?: ImageDataSnapshotComparisonInput["includeAA"];
+}
+
 export function runWorkspaceVisualVerification(workspace: EditorWorkspace, input: WorkspaceVisualVerificationInput): EditorWorkspace {
   const comparison = compareImageDataSnapshots({
     reference: input.reference,
@@ -29,5 +44,20 @@ export function runWorkspaceVisualVerification(workspace: EditorWorkspace, input
     problemAreas: comparison.problemAreas,
     diffPath: null,
     threshold: comparison.threshold
+  });
+}
+
+export async function runWorkspacePreviewVerification(workspace: EditorWorkspace, input: WorkspacePreviewVerificationInput): Promise<EditorWorkspace> {
+  const candidate = await input.renderCandidate({
+    doc: workspace.doc,
+    previewHtml: workspace.previewHtml,
+    canvas: workspace.doc.canvas
+  });
+
+  return runWorkspaceVisualVerification(workspace, {
+    reference: input.reference,
+    candidate,
+    threshold: input.threshold,
+    includeAA: input.includeAA
   });
 }
