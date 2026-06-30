@@ -36,6 +36,14 @@ test("app shell exposes verifier problem areas in the editor surface", () => {
   assert.match(source, /Problem areas/);
 });
 
+test("app shell exposes quality gate status in the verifier surface", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /evaluateVerificationGates/);
+  assert.match(source, /quality-gate-summary/);
+  assert.match(source, /Quality gate/);
+});
+
 test("app shell exposes the generated HTML preview as a real iframe surface", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 

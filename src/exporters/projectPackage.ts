@@ -1,4 +1,5 @@
 import type { LayerDoc } from "../layerdoc/types.js";
+import { defaultVerificationGates, type VerificationGates } from "../verifier/gates.js";
 import { createVerificationReport, type VerificationReport } from "../verifier/report.js";
 import { renderHtmlPreview } from "./htmlPreview.js";
 import { exportReactTailwind } from "./reactTailwind.js";
@@ -22,24 +23,12 @@ export interface ProjectExportManifest {
   scores: VerificationReport;
 }
 
-export interface ProjectQualityGates {
-  visualSimilarity: number;
-  structureScore: number;
-  componentScore: number;
-  projectFitScore: number;
-}
+export type ProjectQualityGates = VerificationGates;
 
 export interface ProjectExportPackage {
   manifest: ProjectExportManifest;
   files: ProjectExportFile[];
 }
-
-const defaultQualityGates: ProjectQualityGates = {
-  visualSimilarity: 85,
-  structureScore: 90,
-  componentScore: 90,
-  projectFitScore: 85
-};
 
 function toKebabCase(value: string): string {
   return value
@@ -300,7 +289,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
       { path: "manifest.json", contents: stableJson(manifest) },
       { path: "package.json", contents: packageJsonFor(manifest) },
       { path: "preview.html", contents: renderHtmlPreview(doc) },
-      { path: "quality-gates.json", contents: stableJson(defaultQualityGates) },
+      { path: "quality-gates.json", contents: stableJson(defaultVerificationGates) },
       { path: "scripts/verify-gates.mjs", contents: qualityGateScriptFor() },
       { path: "src/App.tsx", contents: appShellFor(options.componentName) },
       { path: "src/index.css", contents: indexCssFor() },

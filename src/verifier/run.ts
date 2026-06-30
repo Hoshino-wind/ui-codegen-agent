@@ -1,13 +1,12 @@
 import type { LayerDoc } from "../layerdoc/types.js";
+import {
+  evaluateVerificationGates,
+  type VerificationGates
+} from "./gates.js";
 import { createVerificationReport, type VerificationReport } from "./report.js";
 import { comparePngSnapshots, type PngSnapshotComparisonResult } from "./visualDiff.js";
 
-export interface VerificationGates {
-  visualSimilarity: number;
-  structureScore: number;
-  componentScore: number;
-  projectFitScore: number;
-}
+export type { VerificationGates } from "./gates.js";
 
 export interface RunLayerDocVerificationInput {
   doc: LayerDoc;
@@ -32,29 +31,6 @@ export interface LayerDocVerificationRun {
   failures: string[];
 }
 
-const defaultGates: VerificationGates = {
-  visualSimilarity: 85,
-  structureScore: 90,
-  componentScore: 90,
-  projectFitScore: 85
-};
-
-function gateFailures(report: VerificationReport, gates: VerificationGates): string[] {
-  const checks = [
-    ["visual_similarity", report.visualSimilarity, gates.visualSimilarity],
-    ["structure_score", report.structureScore, gates.structureScore],
-    ["component_score", report.componentScore, gates.componentScore],
-    ["project_fit_score", report.projectFitScore, gates.projectFitScore]
-  ] as const;
-
-  return checks.flatMap(([label, value, gate]) => {
-    if (value === null || value < gate) {
-      return [`${label} ${value ?? "n/a"} is below ${gate}`];
-    }
-    return [];
-  });
-}
-
 /**
  * Produce one verifier run artifact from a LayerDoc and two PNG snapshots.
  * Rendering stays outside this function so Browser, Playwright, or a future
@@ -69,8 +45,7 @@ export function runLayerDocVerification(input: RunLayerDocVerificationInput): La
     includeAA: input.includeAA
   });
   const report = createVerificationReport(input.doc, { visualDiff });
-  const gates = { ...defaultGates, ...input.gates };
-  const failures = gateFailures(report, gates);
+  const gateResult = evaluateVerificationGates(report, input.gates);
 
   return {
     report,
@@ -80,8 +55,8 @@ export function runLayerDocVerification(input: RunLayerDocVerificationInput): La
       candidatePath: input.candidatePath,
       diffPath: visualDiff.diffPath
     },
-    gates,
-    passed: failures.length === 0,
-    failures
+    gates: gateResult.gates,
+    passed: gateResult.passed,
+    failures: gateResult.failures
   };
 }

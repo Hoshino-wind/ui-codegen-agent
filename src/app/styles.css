@@ -1266,6 +1266,62 @@ button {
   white-space: nowrap;
 }
 
+.quality-gate-summary {
+  display: grid;
+  grid-template-columns: 82px 70px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  background: #fff7ed;
+}
+
+.quality-gate-summary.passed {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.quality-gate-summary span,
+.quality-gate-summary strong,
+.quality-gate-summary small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quality-gate-summary span {
+  color: #9a3412;
+  font-size: 10px;
+  font-weight: 820;
+}
+
+.quality-gate-summary.passed span {
+  color: #166534;
+}
+
+.quality-gate-summary strong {
+  color: #7c2d12;
+  font-size: 12px;
+  font-weight: 820;
+}
+
+.quality-gate-summary.passed strong {
+  color: #14532d;
+}
+
+.quality-gate-summary small {
+  color: #9a3412;
+  font-size: 10px;
+  font-weight: 740;
+}
+
+.quality-gate-summary.passed small {
+  color: #166534;
+}
+
 .problem-area-list {
   display: grid;
   gap: 5px;

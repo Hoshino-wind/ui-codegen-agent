@@ -34,6 +34,7 @@ export { createLayerDoc } from "./layerdoc/factory.js";
 export { scoreProjectFit } from "./layerdoc/scoring.js";
 export { validateLayerDoc } from "./layerdoc/validation.js";
 export { createVerificationReport } from "./verifier/report.js";
+export { defaultVerificationGates, evaluateVerificationGates } from "./verifier/gates.js";
 export { compareImageDataSnapshots } from "./verifier/imageDataDiff.js";
 export { runLayerDocPreviewVerification } from "./verifier/previewRun.js";
 export { runLayerDocVerification } from "./verifier/run.js";
@@ -76,11 +77,8 @@ export type {
   PreviewViewport,
   RunLayerDocPreviewVerificationInput
 } from "./verifier/previewRun.js";
-export type {
-  LayerDocVerificationRun,
-  RunLayerDocVerificationInput,
-  VerificationGates
-} from "./verifier/run.js";
+export type { VerificationGateResult, VerificationGates } from "./verifier/gates.js";
+export type { LayerDocVerificationRun, RunLayerDocVerificationInput } from "./verifier/run.js";
 export type { PngSnapshotComparisonInput, PngSnapshotComparisonResult } from "./verifier/visualDiff.js";
 export type { HtmlImageSourceInliner, HtmlPreviewSnapshotInput } from "./app/htmlPreviewSnapshot.js";
 export type { ImageAssetUploadDependencies, ImageReplacementFileLike } from "./app/imageAssetUpload.js";

@@ -64,6 +64,7 @@ import { createSampleHomepageLayerDoc } from "./sampleDocument.js";
 import { runWorkspacePreviewVerification } from "./workspaceVerifier.js";
 import { createWorkflowSummary, type WorkflowSummaryItem } from "./workflowSummary.js";
 import type { PngIntakeLayerPlan } from "../importers/pngIntake.js";
+import { evaluateVerificationGates } from "../verifier/gates.js";
 import type { ImageDataSnapshot } from "../verifier/imageDataDiff.js";
 
 const workflowIcons = {
@@ -797,6 +798,7 @@ function VerifierStrip({
 }) {
   const visualDiff = workspace.report.visualDiff;
   const problemAreas = visualDiff?.problemAreas ?? [];
+  const gateResult = evaluateVerificationGates(workspace.report);
   const scores = [
     ["visual_similarity", workspace.report.visualSimilarity, 85],
     ["structure_score", workspace.report.structureScore, 90],
@@ -837,6 +839,11 @@ function VerifierStrip({
           <strong>Current preview snapshot</strong>
         </div>
         {verifierError ? <div className="verifier-error">{verifierError}</div> : null}
+        <div className={`quality-gate-summary ${gateResult.passed ? "passed" : "blocked"}`}>
+          <span>Quality gate</span>
+          <strong>{gateResult.passed ? "passed" : "blocked"}</strong>
+          {gateResult.failures.length > 0 ? <small>{gateResult.failures.slice(0, 2).join(" / ")}</small> : null}
+        </div>
         {visualDiff ? (
           <div className="problem-area-list">
             <div className="problem-area-list-head">
