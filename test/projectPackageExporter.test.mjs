@@ -240,6 +240,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_interaction_metadata_missing/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_responsive_css_missing/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_asset_uri_missing/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_layer_copy_missing/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-layerdoc.mjs").contents, /layerdoc\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /preview\.html/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /verification-report\.json/);
@@ -431,6 +432,38 @@ test("exported integration contract verifier checks preview asset URIs", () => {
   assert.match(failed.stdout, /preview_asset_uri_missing/);
   assert.match(failed.stdout, /preview\.html/);
   assert.match(failed.stdout, /\/assets\/hero-crop\.png/);
+});
+
+test("exported integration contract verifier checks project layer copy", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-copy-verifier-"));
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const componentPath = join(directory, "src", "ProductionHomepage.tsx");
+  const componentSource = readFileSync(componentPath, "utf8");
+  writeFileSync(componentPath, componentSource.replace("LayerDoc first", "LayerDoc stale"));
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /project_layer_copy_missing/);
+  assert.match(failed.stdout, /src\/ProductionHomepage\.tsx/);
+  assert.match(failed.stdout, /LayerDoc first/);
+});
+
+test("exported integration contract verifier checks preview layer copy", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-preview-copy-verifier-"));
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const previewPath = join(directory, "preview.html");
+  const previewSource = readFileSync(previewPath, "utf8");
+  writeFileSync(previewPath, previewSource.replace("LayerDoc first", "LayerDoc stale"));
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /preview_layer_copy_missing/);
+  assert.match(failed.stdout, /preview\.html/);
+  assert.match(failed.stdout, /LayerDoc first/);
 });
 
 test("exported LayerDoc verifier script validates the editable source graph", () => {

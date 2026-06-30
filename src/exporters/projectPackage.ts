@@ -466,6 +466,14 @@ function sourceHasAttributeValue(source, attribute, expected) {
   return false;
 }
 
+function escapeHtmlText(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -551,6 +559,17 @@ function assetUriRequirements(contract) {
     uri: asset.uri,
     used: Array.isArray(asset.usedByLayerIds) && asset.usedByLayerIds.length > 0
   })).filter((entry) => entry.used && typeof entry.uri === "string" && entry.uri.length > 0);
+}
+
+function layerCopyRequirements(layerDoc, format) {
+  return (layerDoc.layers ?? []).map((layer, index) => ({
+    path: \`layers[\${index}].content.text\`,
+    text: layer.content?.text
+  })).filter((entry) => typeof entry.text === "string" && entry.text.length > 0)
+    .map((entry) => ({
+      ...entry,
+      text: format === "html" ? escapeHtmlText(entry.text) : entry.text
+    }));
 }
 
 function responsiveCssRequirements(contract) {
@@ -690,6 +709,15 @@ try {
       ));
     }
   }
+  for (const entry of layerCopyRequirements(layerDoc, "react")) {
+    if (!componentSource.includes(entry.text)) {
+      issues.push(issue(
+        "project_layer_copy_missing",
+        entry.path,
+        \`Project file \${componentPath} does not contain layer copy \${entry.text}.\`
+      ));
+    }
+  }
   for (const entry of assetUriRequirements(contract)) {
     if (!sourceHasAttributeValue(componentSource, "src", entry.uri)) {
       issues.push(issue(
@@ -736,6 +764,15 @@ try {
         "preview_selector_missing",
         entry.path,
         \`Preview file \${previewPath} does not contain selector \${entry.selector}.\`
+      ));
+    }
+  }
+  for (const entry of layerCopyRequirements(layerDoc, "html")) {
+    if (!previewSource.includes(entry.text)) {
+      issues.push(issue(
+        "preview_layer_copy_missing",
+        entry.path,
+        \`Preview file \${previewPath} does not contain layer copy \${entry.text}.\`
       ));
     }
   }
