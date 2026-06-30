@@ -37,6 +37,34 @@ test("renderHtmlPreview emits editable DOM markers from LayerDoc layers", () => 
   assert.match(html, /width:640px/);
 });
 
+test("renderHtmlPreview emits section and component DOM markers", () => {
+  const doc = createLayerDoc({
+    name: "Structured preview",
+    canvas: { width: 960, height: 720, background: "#ffffff" },
+    sections: [{ id: "proof", name: "Proof", bounds: { x: 0, y: 360, width: 960, height: 240 }, layerIds: ["quote"] }],
+    components: [{ id: "ProofSection", layerIds: ["quote"], exportable: true }],
+    layers: [
+      {
+        id: "quote",
+        sectionId: "proof",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 80, y: 420, width: 500, height: 48 },
+        content: { text: "Structured preview" }
+      }
+    ]
+  });
+
+  const html = renderHtmlPreview(doc);
+
+  assert.match(html, /data-section-id="proof"/);
+  assert.match(html, /data-component-id="ProofSection"/);
+  assert.match(html, /data-section-id="proof"[\s\S]*top:360px/);
+  assert.match(html, /data-layer-id="quote"[\s\S]*top:60px/);
+  assert.doesNotMatch(html, /data-layer-id="quote"[\s\S]*top:420px/);
+});
+
 test("renderHtmlPreview renders controlled layer styles into CSS", () => {
   const doc = createLayerDoc({
     name: "Styled preview",

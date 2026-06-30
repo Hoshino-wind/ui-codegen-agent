@@ -62,7 +62,7 @@ The repository currently implements the core LayerDoc domain layer:
 - Run a React/Vite controlled editor console for the sample homepage LayerDoc.
 - Edit an Analysis Plan panel that scaffolds homepage sections before building LayerDoc.
 - Upload a PNG in the browser to initialize Analysis Plan dimensions.
-- Render a deterministic HTML preview with `data-layer-id` markers.
+- Render a deterministic HTML preview with section, component, and layer DOM markers.
 - Export a React + Tailwind component that preserves LayerDoc traceability.
 - Project responsive rules into preview and exported React media-query CSS.
 - Export an `integration-contract.json` mapping LayerDoc objects to project
