@@ -632,6 +632,72 @@ function layerBoundsRequirements(layerDoc, format) {
   });
 }
 
+function stringStyleFragment(property, value, format) {
+  if (typeof value !== "string" || value.length === 0) {
+    return null;
+  }
+
+  return format === "react"
+    ? \`\${property}: \${JSON.stringify(value)}\`
+    : \`\${property}:\${escapeHtmlText(value)}\`;
+}
+
+function numberStyleFragment(property, value, format, unit = "") {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+
+  return format === "react"
+    ? \`\${property}: \${value}\`
+    : \`\${property}:\${value}\${unit}\`;
+}
+
+function styleFragments(style, format) {
+  if (!isRecord(style)) {
+    return [];
+  }
+
+  const fragments = format === "react"
+    ? [
+        stringStyleFragment("backgroundColor", style.backgroundColor, format),
+        stringStyleFragment("color", style.textColor, format),
+        stringStyleFragment("borderColor", style.borderColor, format),
+        numberStyleFragment("borderRadius", style.borderRadius, format),
+        numberStyleFragment("opacity", style.opacity, format),
+        numberStyleFragment("gap", style.gap, format)
+      ]
+    : [
+        stringStyleFragment("background-color", style.backgroundColor, format),
+        stringStyleFragment("color", style.textColor, format),
+        stringStyleFragment("border-color", style.borderColor, format),
+        numberStyleFragment("border-radius", style.borderRadius, format, "px"),
+        numberStyleFragment("opacity", style.opacity, format),
+        numberStyleFragment("gap", style.gap, format, "px")
+      ];
+
+  if (isRecord(style.padding)) {
+    const padding = paddingValue(style.padding);
+    fragments.push(format === "react" ? \`padding: \${JSON.stringify(padding)}\` : \`padding:\${padding}\`);
+  }
+
+  return fragments.filter(Boolean);
+}
+
+function layerStyleRequirements(layerDoc, format) {
+  return (layerDoc.layers ?? []).flatMap((layer, index) => {
+    if (typeof layer.id !== "string" || layer.id.length === 0) {
+      return [];
+    }
+
+    const selector = selectorFor("data-layer-id", layer.id);
+    return styleFragments(layer.style, format).map((fragment) => ({
+      path: \`layers[\${index}].style\`,
+      selector,
+      fragment
+    }));
+  });
+}
+
 // Contract checks must bind fragments to real DOM/TSX nodes, not matching CSS selectors in media queries.
 function findDomAttribute(source, attributeFragment, fromIndex = 0) {
   const marker = \` \${attributeFragment}\`;
@@ -818,6 +884,15 @@ try {
       ));
     }
   }
+  for (const entry of layerStyleRequirements(layerDoc, "react")) {
+    if (!sourceHasScopedFragment(componentSource, entry.selector, entry.fragment)) {
+      issues.push(issue(
+        "project_layer_style_missing",
+        entry.path,
+        \`Project file \${componentPath} does not contain \${entry.selector} style fragment \${entry.fragment}.\`
+      ));
+    }
+  }
   for (const entry of layerCopyRequirements(layerDoc, "react")) {
     if (!componentSource.includes(entry.text)) {
       issues.push(issue(
@@ -882,6 +957,15 @@ try {
         "preview_layer_bounds_missing",
         entry.path,
         \`Preview file \${previewPath} does not contain \${entry.selector} bounds fragment \${entry.fragment}.\`
+      ));
+    }
+  }
+  for (const entry of layerStyleRequirements(layerDoc, "html")) {
+    if (!sourceHasScopedFragment(previewSource, entry.selector, entry.fragment)) {
+      issues.push(issue(
+        "preview_layer_style_missing",
+        entry.path,
+        \`Preview file \${previewPath} does not contain \${entry.selector} style fragment \${entry.fragment}.\`
       ));
     }
   }
@@ -1540,7 +1624,7 @@ Generated assets:
 
 Verification:
 - Run \`npm run verify:layerdoc\` after editing \`layerdoc.json\` to catch broken graph references before integration.
-- Run \`npm run verify:contract\` to confirm \`integration-contract.json\` still matches the LayerDoc source, project selectors, preview selectors, layer bounds, layer copy, assets, responsive CSS, and interaction metadata.
+- Run \`npm run verify:contract\` to confirm \`integration-contract.json\` still matches the LayerDoc source, project selectors, preview selectors, layer bounds, layer style, layer copy, assets, responsive CSS, and interaction metadata.
 - Put the original target visual at \`reference.png\`.
 - Run \`npm run verify:preview -- --reference ./reference.png\` to render \`preview.html\`, capture \`verification-artifacts/candidate.png\`, produce \`verification-artifacts/diff.png\`, and update \`verification-report.json\`.
 - Run \`npm run verify:gates\` after preview verification to enforce score thresholds and LayerDoc asset compliance.

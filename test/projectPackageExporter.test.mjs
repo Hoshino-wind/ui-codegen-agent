@@ -80,6 +80,32 @@ function createInteractiveExportDoc() {
   });
 }
 
+function createStyledExportDoc() {
+  return createLayerDoc({
+    name: "Styled Homepage",
+    canvas: { width: 1440, height: 900, background: "#ffffff" },
+    sections: [{ id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 1440, height: 900 }, layerIds: ["cta"] }],
+    components: [{ id: "HeroSection", layerIds: ["cta"], exportable: true }],
+    layers: [
+      {
+        id: "cta",
+        sectionId: "hero",
+        kind: "button",
+        track: "component",
+        editable: true,
+        bounds: { x: 120, y: 260, width: 180, height: 48 },
+        style: {
+          backgroundColor: "#111827",
+          textColor: "#ffffff",
+          borderRadius: 16,
+          padding: { x: 20, y: 10 }
+        },
+        content: { text: "Export React" }
+      }
+    ]
+  });
+}
+
 function createAssetExportDoc() {
   return createLayerDoc({
     name: "Asset Homepage",
@@ -242,6 +268,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_asset_uri_missing/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_layer_copy_missing/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_layer_bounds_missing/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_layer_style_missing/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-layerdoc.mjs").contents, /layerdoc\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /preview\.html/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /verification-report\.json/);
@@ -379,6 +406,40 @@ test("exported integration contract verifier checks preview layer bounds", () =>
   assert.match(failed.stdout, /preview\.html/);
   assert.match(failed.stdout, /data-layer-id=\\"headline\\"/);
   assert.match(failed.stdout, /left:120px/);
+});
+
+test("exported integration contract verifier checks project layer style", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-style-verifier-"));
+  const output = createProjectExportPackage(createStyledExportDoc(), { componentName: "StyledHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const componentPath = join(directory, "src", "StyledHomepage.tsx");
+  const componentSource = readFileSync(componentPath, "utf8");
+  writeFileSync(componentPath, componentSource.replace('backgroundColor: "#111827"', 'backgroundColor: "#0f172a"'));
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /project_layer_style_missing/);
+  assert.match(failed.stdout, /src\/StyledHomepage\.tsx/);
+  assert.match(failed.stdout, /data-layer-id=\\"cta\\"/);
+  assert.match(failed.stdout, /backgroundColor: \\"#111827\\"/);
+});
+
+test("exported integration contract verifier checks preview layer style", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-preview-style-verifier-"));
+  const output = createProjectExportPackage(createStyledExportDoc(), { componentName: "StyledHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const previewPath = join(directory, "preview.html");
+  const previewSource = readFileSync(previewPath, "utf8");
+  writeFileSync(previewPath, previewSource.replace("background-color:#111827", "background-color:#0f172a"));
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /preview_layer_style_missing/);
+  assert.match(failed.stdout, /preview\.html/);
+  assert.match(failed.stdout, /data-layer-id=\\"cta\\"/);
+  assert.match(failed.stdout, /background-color:#111827/);
 });
 
 test("exported integration contract verifier checks project interaction metadata", () => {
