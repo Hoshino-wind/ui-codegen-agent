@@ -150,7 +150,12 @@ test("createProjectExportPackage returns project-ready files derived from one La
     selector: '[data-component-id="HeroSection"]',
     layerIds: ["headline", "cta"]
   });
-  assert.equal(JSON.parse(output.files.find((file) => file.path === "layerdoc.schema.json").contents).properties.schema.const, "layerdoc");
+  const layerDocSchema = JSON.parse(output.files.find((file) => file.path === "layerdoc.schema.json").contents);
+  assert.equal(layerDocSchema.properties.schema.const, "layerdoc");
+  assert.equal(
+    layerDocSchema.properties.verification.properties.issues.items.properties.code.enum.includes("section_empty"),
+    true
+  );
   assert.match(output.files.find((file) => file.path === "layerdoc-audit.json").contents, /"assetCompliance"/);
   assert.match(output.files.find((file) => file.path === "verification-report.json").contents, /"structureScore": 100/);
   assert.match(output.files.find((file) => file.path === "verification-report.json").contents, /"evidence"/);
