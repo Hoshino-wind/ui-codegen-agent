@@ -126,6 +126,31 @@ test("exportReactTailwind preserves controlled layer styles in React style props
   assert.match(output.code, /padding: "12px 24px"/);
 });
 
+test("exportReactTailwind preserves interaction metadata for project integration", () => {
+  const doc = createLayerDoc({
+    name: "Interactive export",
+    canvas: { width: 640, height: 480 },
+    layers: [
+      {
+        id: "hero-cta",
+        kind: "button",
+        track: "component",
+        editable: true,
+        bounds: { x: 24, y: 32, width: 160, height: 48 },
+        content: { text: "Start" }
+      }
+    ],
+    interactions: [{ id: "hero-cta-click", layerId: "hero-cta", event: "click", action: "open-checkout" }]
+  });
+
+  const output = exportReactTailwind(doc, { componentName: "InteractiveExport" });
+
+  assert.match(output.code, /data-layer-id="hero-cta"/);
+  assert.match(output.code, /data-interaction-ids="hero-cta-click"/);
+  assert.match(output.code, /data-interaction-events="click"/);
+  assert.match(output.code, /data-interaction-actions="open-checkout"/);
+});
+
 test("exportReactTailwind omits hidden sections while preserving them in LayerDoc", () => {
   const doc = createLayerDoc({
     name: "Hidden section export",

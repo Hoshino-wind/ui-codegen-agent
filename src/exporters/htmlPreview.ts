@@ -1,4 +1,4 @@
-import type { AssetNode, LayerDoc, LayerNode } from "../layerdoc/types.js";
+import type { AssetNode, InteractionNode, LayerDoc, LayerNode } from "../layerdoc/types.js";
 
 function escapeHtml(value: string): string {
   return value
@@ -56,8 +56,21 @@ function visibleLayers(doc: LayerDoc): LayerNode[] {
   return doc.layers.filter((layer) => !layer.sectionId || !hiddenSectionIds.has(layer.sectionId));
 }
 
+function interactionsForLayer(doc: LayerDoc, layerId: string): InteractionNode[] {
+  return doc.interactions.filter((interaction) => interaction.layerId === layerId);
+}
+
+function interactionAttributes(doc: LayerDoc, layer: LayerNode): string {
+  const interactions = interactionsForLayer(doc, layer.id);
+  if (interactions.length === 0) {
+    return "";
+  }
+
+  return ` data-interaction-ids="${escapeHtml(interactions.map((interaction) => interaction.id).join(" "))}" data-interaction-events="${escapeHtml(interactions.map((interaction) => interaction.event).join(" "))}" data-interaction-actions="${escapeHtml(interactions.map((interaction) => interaction.action).join(" "))}"`;
+}
+
 function renderLayer(doc: LayerDoc, layer: LayerNode): string {
-  const common = `data-layer-id="${escapeHtml(layer.id)}" data-kind="${layer.kind}" data-track="${layer.track}" style="${styleFor(layer)}"`;
+  const common = `data-layer-id="${escapeHtml(layer.id)}" data-kind="${layer.kind}" data-track="${layer.track}"${interactionAttributes(doc, layer)} style="${styleFor(layer)}"`;
 
   if (layer.track === "asset") {
     const asset = assetById(doc, layer.assetId);

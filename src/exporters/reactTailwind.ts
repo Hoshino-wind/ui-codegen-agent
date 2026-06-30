@@ -1,4 +1,4 @@
-import type { AssetNode, ComponentNode, LayerDoc, LayerNode, LayerStyle, Rect, SectionNode } from "../layerdoc/types.js";
+import type { AssetNode, ComponentNode, InteractionNode, LayerDoc, LayerNode, LayerStyle, Rect, SectionNode } from "../layerdoc/types.js";
 
 export interface ReactTailwindExportOptions {
   componentName: string;
@@ -79,6 +79,19 @@ function assetById(doc: LayerDoc, assetId: string | undefined): AssetNode | unde
   return doc.assets.find((asset) => asset.id === assetId);
 }
 
+function interactionsForLayer(doc: LayerDoc, layerId: string): InteractionNode[] {
+  return doc.interactions.filter((interaction) => interaction.layerId === layerId);
+}
+
+function interactionAttributes(doc: LayerDoc, layer: LayerNode): string {
+  const interactions = interactionsForLayer(doc, layer.id);
+  if (interactions.length === 0) {
+    return "";
+  }
+
+  return ` data-interaction-ids="${escapeAttribute(interactions.map((interaction) => interaction.id).join(" "))}" data-interaction-events="${escapeAttribute(interactions.map((interaction) => interaction.event).join(" "))}" data-interaction-actions="${escapeAttribute(interactions.map((interaction) => interaction.action).join(" "))}"`;
+}
+
 function relativeBounds(bounds: Rect, origin: Rect): Rect {
   return {
     x: bounds.x - origin.x,
@@ -89,7 +102,7 @@ function relativeBounds(bounds: Rect, origin: Rect): Rect {
 }
 
 function renderLayer(doc: LayerDoc, layer: LayerNode, bounds: Rect = layer.bounds): string {
-  const baseProps = `data-layer-id="${escapeAttribute(layer.id)}" data-kind="${layer.kind}" data-track="${layer.track}" className="absolute" style=${inlineStyle(bounds, layer.style)}`;
+  const baseProps = `data-layer-id="${escapeAttribute(layer.id)}" data-kind="${layer.kind}" data-track="${layer.track}"${interactionAttributes(doc, layer)} className="absolute" style=${inlineStyle(bounds, layer.style)}`;
 
   if (layer.track === "asset") {
     const asset = assetById(doc, layer.assetId);

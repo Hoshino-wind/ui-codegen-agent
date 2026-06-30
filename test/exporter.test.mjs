@@ -71,6 +71,31 @@ test("renderHtmlPreview renders controlled layer styles into CSS", () => {
   assert.match(html, /opacity:0.9/);
 });
 
+test("renderHtmlPreview preserves interaction metadata on rendered layers", () => {
+  const doc = createLayerDoc({
+    name: "Interactive preview",
+    canvas: { width: 640, height: 480, background: "#ffffff" },
+    layers: [
+      {
+        id: "hero-cta",
+        kind: "button",
+        track: "component",
+        editable: true,
+        bounds: { x: 24, y: 32, width: 160, height: 48 },
+        content: { text: "Start" }
+      }
+    ],
+    interactions: [{ id: "hero-cta-click", layerId: "hero-cta", event: "click", action: "open-checkout" }]
+  });
+
+  const html = renderHtmlPreview(doc);
+
+  assert.match(html, /data-layer-id="hero-cta"/);
+  assert.match(html, /data-interaction-ids="hero-cta-click"/);
+  assert.match(html, /data-interaction-events="click"/);
+  assert.match(html, /data-interaction-actions="open-checkout"/);
+});
+
 test("renderHtmlPreview omits layers that belong to hidden sections", () => {
   const doc = createLayerDoc({
     name: "Hidden section preview",
