@@ -1,4 +1,4 @@
-import type { AssetNode, LayerDoc, LayerNode, LayerStyle, Rect, SectionNode } from "../layerdoc/types.js";
+import type { AssetNode, InteractionNode, LayerDoc, LayerNode, LayerStyle, Rect, SectionNode } from "../layerdoc/types.js";
 
 export type LayerBoundsPatch = Partial<Rect>;
 export type ImageAssetPatch = Pick<Partial<AssetNode>, "uri" | "source">;
@@ -66,6 +66,19 @@ function findEditableLayer(doc: LayerDoc, layerId: string): LayerNode {
   return layer;
 }
 
+function buttonClickInteractionId(layerId: string, interactions: InteractionNode[]): string {
+  const baseId = `${layerId}-click`;
+  if (!interactions.some((interaction) => interaction.id === baseId)) {
+    return baseId;
+  }
+
+  let suffix = 2;
+  while (interactions.some((interaction) => interaction.id === `${baseId}-${suffix}`)) {
+    suffix += 1;
+  }
+  return `${baseId}-${suffix}`;
+}
+
 function belongsToSection(layer: LayerNode, section: SectionNode): boolean {
   return layer.sectionId === section.id || section.layerIds.includes(layer.id);
 }
@@ -103,6 +116,45 @@ export function updateTextLayer(doc: LayerDoc, layerId: string, text: string): L
   }
 
   layer.content = { ...(layer.content ?? {}), text };
+  return next;
+}
+
+/**
+ * Create, update, or clear the controlled click action for an editable button.
+ * Button behavior is stored as LayerDoc interaction metadata so preview,
+ * React export, and project contracts can verify the same object graph.
+ */
+export function updateButtonAction(doc: LayerDoc, layerId: string, action: string): LayerDoc {
+  const next = cloneDoc(doc);
+  const layer = findEditableLayer(next, layerId);
+
+  if (layer.kind !== "button") {
+    throw new Error(`Layer "${layerId}" is "${layer.kind}", not a button.`);
+  }
+
+  const trimmedAction = action.trim();
+  const clickInteractions = next.interactions.filter((interaction) => interaction.layerId === layerId && interaction.event === "click");
+
+  if (!trimmedAction) {
+    next.interactions = next.interactions.filter((interaction) => !(interaction.layerId === layerId && interaction.event === "click"));
+    return next;
+  }
+
+  if (clickInteractions.length === 0) {
+    next.interactions.push({
+      id: buttonClickInteractionId(layerId, next.interactions),
+      layerId,
+      event: "click",
+      action: trimmedAction
+    });
+    return next;
+  }
+
+  const [primaryInteraction, ...duplicateInteractions] = clickInteractions;
+  const duplicateInteractionIds = new Set(duplicateInteractions.map((interaction) => interaction.id));
+  next.interactions = next.interactions
+    .filter((interaction) => !duplicateInteractionIds.has(interaction.id))
+    .map((interaction) => (interaction.id === primaryInteraction.id ? { ...interaction, action: trimmedAction } : interaction));
   return next;
 }
 

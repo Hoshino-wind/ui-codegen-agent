@@ -6,6 +6,7 @@ import {
   moveSection,
   requestSectionRegeneration,
   setSectionVisibility,
+  updateButtonAction,
   updateImageLayerAsset,
   updateLayerBounds,
   updateLayerStyle,
@@ -224,4 +225,44 @@ test("updateLayerBounds patches geometry for spacing controls while preserving e
 
   assert.deepEqual(doc.layers[0].bounds, { x: 40, y: 40, width: 240, height: 160 });
   assert.deepEqual(next.layers[0].bounds, { x: 72, y: 96, width: 240, height: 160 });
+});
+
+test("updateButtonAction edits a button click interaction without mutating the original LayerDoc", () => {
+  const doc = createLayerDoc({
+    name: "Button action controls",
+    canvas: { width: 800, height: 600 },
+    layers: [
+      {
+        id: "hero-cta",
+        kind: "button",
+        track: "component",
+        editable: true,
+        bounds: { x: 40, y: 40, width: 180, height: 48 },
+        content: { text: "Start" }
+      }
+    ]
+  });
+
+  const created = updateButtonAction(doc, "hero-cta", "open-checkout");
+  const updated = updateButtonAction(created, "hero-cta", "open-enterprise-demo");
+  const cleared = updateButtonAction(updated, "hero-cta", " ");
+
+  assert.equal(doc.interactions.length, 0);
+  assert.deepEqual(created.interactions, [
+    {
+      id: "hero-cta-click",
+      layerId: "hero-cta",
+      event: "click",
+      action: "open-checkout"
+    }
+  ]);
+  assert.deepEqual(updated.interactions, [
+    {
+      id: "hero-cta-click",
+      layerId: "hero-cta",
+      event: "click",
+      action: "open-enterprise-demo"
+    }
+  ]);
+  assert.equal(cleared.interactions.length, 0);
 });

@@ -1,4 +1,12 @@
-import { requestSectionRegeneration, setSectionVisibility, updateImageLayerAsset, updateLayerBounds, updateLayerStyle, updateTextLayer } from "../editor/operations.js";
+import {
+  requestSectionRegeneration,
+  setSectionVisibility,
+  updateButtonAction,
+  updateImageLayerAsset,
+  updateLayerBounds,
+  updateLayerStyle,
+  updateTextLayer
+} from "../editor/operations.js";
 import { moveSection } from "../editor/operations.js";
 import { renderHtmlPreview } from "../exporters/htmlPreview.js";
 import { createProjectExportPackage, type ProjectExportPackage } from "../exporters/projectPackage.js";
@@ -81,6 +89,11 @@ export function applyWorkspaceVisualDiff(
 
 export function updateSelectedText(workspace: EditorWorkspace, text: string): EditorWorkspace {
   const nextDoc = updateTextLayer(workspace.doc, workspace.selectedLayerId, text);
+  return materialize(nextDoc, workspace.selectedLayerId);
+}
+
+export function updateSelectedButtonAction(workspace: EditorWorkspace, action: string): EditorWorkspace {
+  const nextDoc = updateButtonAction(workspace.doc, workspace.selectedLayerId, action);
   return materialize(nextDoc, workspace.selectedLayerId);
 }
 

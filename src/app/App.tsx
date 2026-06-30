@@ -27,6 +27,7 @@ import {
   requestWorkspaceSectionRegeneration,
   selectWorkspaceLayer,
   selectedLayer,
+  updateSelectedButtonAction,
   updateSelectedBounds,
   updateSelectedImageAsset,
   updateSelectedLayerStyle,
@@ -97,6 +98,14 @@ function styleValue(style: LayerStyle | undefined, key: keyof LayerStyle, fallba
 
 function selectedSection(doc: EditorWorkspace["doc"], layer: LayerNode): SectionNode | undefined {
   return doc.sections.find((section) => section.id === layer.sectionId);
+}
+
+function buttonActionForLayer(doc: EditorWorkspace["doc"], layer: LayerNode): string {
+  if (layer.kind !== "button") {
+    return "";
+  }
+
+  return doc.interactions.find((interaction) => interaction.layerId === layer.id && interaction.event === "click")?.action ?? "";
 }
 
 function numberFromInput(value: string): number {
@@ -396,6 +405,7 @@ function Inspector({
   const layer = selectedLayer(workspace);
   const section = selectedSection(workspace.doc, layer);
   const asset = workspace.doc.assets.find((candidate) => candidate.id === layer.assetId);
+  const buttonAction = buttonActionForLayer(workspace.doc, layer);
 
   function patchStyle(style: LayerStyle) {
     onChange(updateSelectedLayerStyle(workspace, style));
@@ -440,6 +450,16 @@ function Inspector({
           <label className="field">
             <span>Text</span>
             <input value={layer.content?.text ?? ""} onChange={(event) => onChange(updateSelectedText(workspace, event.target.value))} />
+          </label>
+        )}
+        {layer.kind === "button" && (
+          <label className="field">
+            <span>Button action</span>
+            <input
+              data-contract-field="data-interaction-actions"
+              value={buttonAction}
+              onChange={(event) => onChange(updateSelectedButtonAction(workspace, event.target.value))}
+            />
           </label>
         )}
         <label className="field">

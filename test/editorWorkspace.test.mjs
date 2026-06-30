@@ -7,6 +7,7 @@ import {
   moveWorkspaceSection,
   requestWorkspaceSectionRegeneration,
   selectWorkspaceLayer,
+  updateSelectedButtonAction,
   updateWorkspaceSectionVisibility,
   updateSelectedBounds,
   updateSelectedImageAsset,
@@ -79,6 +80,25 @@ test("updateSelectedText can edit selected button copy", () => {
 
   assert.equal(next.doc.layers.find((layer) => layer.id === "hero-cta").content.text, "Export now");
   assert.match(next.previewHtml, /Export now/);
+});
+
+test("updateSelectedButtonAction refreshes preview, React export, and project contract metadata", () => {
+  const workspace = selectWorkspaceLayer(createEditorWorkspace(createSampleHomepageLayerDoc()), "hero-cta");
+  const next = updateSelectedButtonAction(workspace, "open-enterprise-demo");
+  const contract = JSON.parse(next.projectExport.files.find((file) => file.path === "integration-contract.json").contents);
+
+  assert.equal(next.doc.interactions.find((interaction) => interaction.layerId === "hero-cta").action, "open-enterprise-demo");
+  assert.match(next.previewHtml, /data-interaction-actions="open-enterprise-demo"/);
+  assert.match(next.reactExport.code, /data-interaction-actions="open-enterprise-demo"/);
+  assert.deepEqual(contract.interactions, [
+    {
+      id: "hero-cta-click",
+      layerId: "hero-cta",
+      event: "click",
+      action: "open-enterprise-demo",
+      selector: '[data-layer-id="hero-cta"]'
+    }
+  ]);
 });
 
 test("updateSelectedLayerStyle patches selected layer style for inspector controls", () => {

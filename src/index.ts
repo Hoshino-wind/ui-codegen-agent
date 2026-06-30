@@ -2,6 +2,7 @@ export {
   moveSection,
   requestSectionRegeneration,
   setSectionVisibility,
+  updateButtonAction,
   updateImageLayerAsset,
   updateLayerBounds,
   updateLayerStyle,

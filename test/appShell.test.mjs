@@ -82,6 +82,14 @@ test("app shell exposes the generated HTML preview as a real iframe surface", ()
   assert.match(source, /html-preview-frame/);
 });
 
+test("app shell exposes controlled button action editing", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /updateSelectedButtonAction/);
+  assert.match(source, /Button action/);
+  assert.match(source, /data-interaction-actions/);
+});
+
 test("app shell materializes uploaded PNG reference crops before building LayerDoc", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 
