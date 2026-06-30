@@ -192,6 +192,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "verification-report.json").contents, /"evidence"/);
   assert.match(output.files.find((file) => file.path === "quality-gates.json").contents, /"visualSimilarity": 85/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-gates.mjs").contents, /verification-report\.json/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-gates.mjs").contents, /layerdoc-audit\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /integration-contract\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-layerdoc.mjs").contents, /layerdoc\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /preview\.html/);
@@ -425,4 +426,42 @@ test("exported quality gate script passes and fails from project files", () => {
   const failed = spawnSync(process.execPath, ["scripts/verify-gates.mjs"], { cwd: directory, encoding: "utf8" });
   assert.notEqual(failed.status, 0);
   assert.match(failed.stdout, /visual_similarity 74 is below 85/);
+});
+
+test("exported quality gate script rejects full-page bitmap audit failures", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-asset-gates-"));
+  const doc = createLayerDoc({
+    name: "Bitmap Shortcut",
+    canvas: { width: 1000, height: 1000 },
+    sections: [{ id: "page", name: "Page", bounds: { x: 0, y: 0, width: 1000, height: 1000 }, layerIds: ["page-shot"] }],
+    assets: [{ id: "page-shot-asset", type: "image", source: "uploaded", bounds: { x: 0, y: 0, width: 1000, height: 1000 } }],
+    layers: [
+      {
+        id: "page-shot",
+        sectionId: "page",
+        kind: "image",
+        track: "asset",
+        editable: false,
+        bounds: { x: 0, y: 0, width: 1000, height: 1000 },
+        assetId: "page-shot-asset"
+      }
+    ]
+  });
+  const perfectReport = {
+    ...createVerificationReport(doc, { visualSimilarity: 100 }),
+    structureScore: 100,
+    componentScore: 100,
+    projectFitScore: 100,
+    issues: []
+  };
+  const output = createProjectExportPackage(doc, {
+    componentName: "BitmapShortcut",
+    report: perfectReport
+  });
+  writeProjectExportPackage(output, directory);
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-gates.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /asset_compliance failed/);
+  assert.match(failed.stdout, /full-page bitmap/i);
 });

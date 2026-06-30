@@ -349,6 +349,7 @@ function readJson(path) {
 
 const report = readJson("../verification-report.json");
 const gates = readJson("../quality-gates.json");
+const audit = readJson("../layerdoc-audit.json");
 const checks = [
   ["visual_similarity", report.visualSimilarity, gates.visualSimilarity],
   ["structure_score", report.structureScore, gates.structureScore],
@@ -364,6 +365,12 @@ const failures = checks.flatMap(([label, value, gate]) => {
 
 if (Array.isArray(report.issues) && report.issues.length > 0) {
   failures.push(\`\${report.issues.length} structural issue(s) reported\`);
+}
+
+if (audit.assetCompliance?.passed === false) {
+  const findings = Array.isArray(audit.assetCompliance.findings) ? audit.assetCompliance.findings : [];
+  const detail = findings.length > 0 ? findings.join(" ") : "asset compliance audit did not pass";
+  failures.push(\`asset_compliance failed: \${detail}\`);
 }
 
 const result = {
@@ -1196,7 +1203,7 @@ Verification:
 - Run \`npm run verify:contract\` to confirm \`integration-contract.json\` still matches the LayerDoc source, project selectors, and preview selectors.
 - Put the original target visual at \`reference.png\`.
 - Run \`npm run verify:preview -- --reference ./reference.png\` to render \`preview.html\`, capture \`verification-artifacts/candidate.png\`, produce \`verification-artifacts/diff.png\`, and update \`verification-report.json\`.
-- Run \`npm run verify:gates\` after preview verification to enforce the current quality gates.
+- Run \`npm run verify:gates\` after preview verification to enforce score thresholds and LayerDoc asset compliance.
 
 Verifier scores:
 - visual_similarity: ${manifest.scores.visualSimilarity ?? "n/a"}

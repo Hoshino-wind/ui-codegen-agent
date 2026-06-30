@@ -68,6 +68,7 @@ The repository currently implements the core LayerDoc domain layer:
 - Export an `integration-contract.json` mapping LayerDoc objects to project
   files, responsive rules, and DOM selectors for downstream integration.
 - Verify that exported integration contracts still match the LayerDoc source, generated project selectors, and preview selectors.
+- Enforce exported quality gates against verifier scores and LayerDoc asset-compliance audit results.
 - Compare reference and candidate PNG screenshots and write a pixel diff image.
 - Produce a verifier report with separate score dimensions.
 
