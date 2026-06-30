@@ -22,10 +22,24 @@ export interface ProjectExportManifest {
   scores: VerificationReport;
 }
 
+export interface ProjectQualityGates {
+  visualSimilarity: number;
+  structureScore: number;
+  componentScore: number;
+  projectFitScore: number;
+}
+
 export interface ProjectExportPackage {
   manifest: ProjectExportManifest;
   files: ProjectExportFile[];
 }
+
+const defaultQualityGates: ProjectQualityGates = {
+  visualSimilarity: 85,
+  structureScore: 90,
+  componentScore: 90,
+  projectFitScore: 85
+};
 
 function toKebabCase(value: string): string {
   return value
@@ -48,7 +62,8 @@ function packageJsonFor(manifest: ProjectExportManifest): string {
     scripts: {
       dev: "vite",
       build: "tsc --noEmit && vite build",
-      preview: "vite preview"
+      preview: "vite preview",
+      "verify:gates": "node scripts/verify-gates.mjs"
     },
     dependencies: {
       react: "^19.2.7",
@@ -63,6 +78,51 @@ function packageJsonFor(manifest: ProjectExportManifest): string {
       vite: "^8.1.0"
     }
   });
+}
+
+function qualityGateScriptFor(): string {
+  return `import { readFileSync } from "node:fs";
+
+function readJson(path) {
+  return JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
+}
+
+const report = readJson("../verification-report.json");
+const gates = readJson("../quality-gates.json");
+const checks = [
+  ["visual_similarity", report.visualSimilarity, gates.visualSimilarity],
+  ["structure_score", report.structureScore, gates.structureScore],
+  ["component_score", report.componentScore, gates.componentScore],
+  ["project_fit_score", report.projectFitScore, gates.projectFitScore]
+];
+const failures = checks.flatMap(([label, value, gate]) => {
+  if (value === null || value === undefined || value < gate) {
+    return [\`\${label} \${value ?? "n/a"} is below \${gate}\`];
+  }
+  return [];
+});
+
+if (Array.isArray(report.issues) && report.issues.length > 0) {
+  failures.push(\`\${report.issues.length} structural issue(s) reported\`);
+}
+
+const result = {
+  passed: failures.length === 0,
+  failures,
+  gates,
+  scores: {
+    visualSimilarity: report.visualSimilarity,
+    structureScore: report.structureScore,
+    componentScore: report.componentScore,
+    projectFitScore: report.projectFitScore
+  }
+};
+
+process.stdout.write(\`\${JSON.stringify(result, null, 2)}\\n\`);
+if (!result.passed) {
+  process.exitCode = 1;
+}
+`;
 }
 
 function appShellFor(componentName: string): string {
@@ -176,6 +236,7 @@ Run locally:
 - \`npm install\`
 - \`npm run dev\`
 - \`npm run build\`
+- \`npm run verify:gates\`
 
 Generated assets:
 - \`package.json\`, \`index.html\`, \`vite.config.ts\`, \`tsconfig.json\`: runnable Vite React project shell
@@ -183,6 +244,7 @@ Generated assets:
 - \`src/${manifest.componentName}.tsx\`: React + Tailwind component export
 - \`preview.html\`: deterministic HTML verification preview
 - \`manifest.json\`: project package manifest and quality scores
+- \`verification-report.json\`, \`quality-gates.json\`, \`scripts/verify-gates.mjs\`: executable quality gate handoff
 
 Verification:
 - Use \`runLayerDocPreviewVerification\` with the original reference PNG to render \`preview.html\`, capture a candidate PNG, and produce \`diff.png\`.
@@ -211,11 +273,14 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     "manifest.json",
     "package.json",
     "preview.html",
+    "quality-gates.json",
+    "scripts/verify-gates.mjs",
     "src/App.tsx",
     "src/index.css",
     "src/main.tsx",
     `src/${reactExport.fileName}`,
     "tsconfig.json",
+    "verification-report.json",
     "vite.config.ts"
   ];
   const manifest: ProjectExportManifest = {
@@ -235,10 +300,13 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
       { path: "manifest.json", contents: stableJson(manifest) },
       { path: "package.json", contents: packageJsonFor(manifest) },
       { path: "preview.html", contents: renderHtmlPreview(doc) },
+      { path: "quality-gates.json", contents: stableJson(defaultQualityGates) },
+      { path: "scripts/verify-gates.mjs", contents: qualityGateScriptFor() },
       { path: "src/App.tsx", contents: appShellFor(options.componentName) },
       { path: "src/index.css", contents: indexCssFor() },
       { path: "src/main.tsx", contents: mainEntryFor() },
       { path: "tsconfig.json", contents: tsConfigFor() },
+      { path: "verification-report.json", contents: stableJson(report) },
       { path: "vite.config.ts", contents: viteConfigFor() },
       { path: `src/${reactExport.fileName}`, contents: reactExport.code }
     ]

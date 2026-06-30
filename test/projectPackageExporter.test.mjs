@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 
 import {
   createLayerDoc,
   createProjectExportPackage,
+  createVerificationReport,
   writeProjectExportPackage
 } from "../dist/index.js";
 
@@ -53,16 +55,20 @@ test("createProjectExportPackage returns project-ready files derived from one La
     "manifest.json",
     "package.json",
     "preview.html",
+    "quality-gates.json",
+    "scripts/verify-gates.mjs",
     "src/App.tsx",
     "src/index.css",
     "src/main.tsx",
     "src/ProductionHomepage.tsx",
     "tsconfig.json",
+    "verification-report.json",
     "vite.config.ts"
   ].sort());
   assert.deepEqual(output.manifest.files.sort(), paths);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"scripts"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"dev": "vite"/);
+  assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:gates": "node scripts\/verify-gates\.mjs"/);
   assert.match(output.files.find((file) => file.path === "src\/main.tsx").contents, /createRoot/);
   assert.match(output.files.find((file) => file.path === "src\/App.tsx").contents, /<ProductionHomepage \/>/);
   assert.match(output.files.find((file) => file.path === "src\/index.css").contents, /@import "tailwindcss"/);
@@ -70,9 +76,13 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "tsconfig.json").contents, /"jsx": "react-jsx"/);
   assert.match(output.files.find((file) => file.path === "src/ProductionHomepage.tsx").contents, /export function ProductionHomepage/);
   assert.match(output.files.find((file) => file.path === "layerdoc.json").contents, /"schema": "layerdoc"/);
+  assert.match(output.files.find((file) => file.path === "verification-report.json").contents, /"structureScore": 100/);
+  assert.match(output.files.find((file) => file.path === "quality-gates.json").contents, /"visualSimilarity": 85/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-gates.mjs").contents, /verification-report\.json/);
   assert.match(output.files.find((file) => file.path === "preview.html").contents, /data-layerdoc="0.1.0"/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm install/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run dev/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:gates/);
 });
 
 test("writeProjectExportPackage writes every package file under the target directory", () => {
@@ -81,11 +91,14 @@ test("writeProjectExportPackage writes every package file under the target direc
 
   const written = writeProjectExportPackage(output, directory);
 
-  assert.equal(written.files.length, 12);
+  assert.equal(written.files.length, 15);
   assert.equal(existsSync(join(directory, "src", "ProductionHomepage.tsx")), true);
   assert.equal(existsSync(join(directory, "src", "main.tsx")), true);
   assert.equal(existsSync(join(directory, "package.json")), true);
   assert.equal(existsSync(join(directory, "vite.config.ts")), true);
+  assert.equal(existsSync(join(directory, "scripts", "verify-gates.mjs")), true);
+  assert.equal(existsSync(join(directory, "verification-report.json")), true);
+  assert.equal(existsSync(join(directory, "quality-gates.json")), true);
   assert.equal(existsSync(join(directory, "manifest.json")), true);
   assert.match(readFileSync(join(directory, "src", "ProductionHomepage.tsx"), "utf8"), /LayerDoc first/);
   assert.match(readFileSync(join(directory, "src", "App.tsx"), "utf8"), /ProductionHomepage/);
@@ -93,4 +106,31 @@ test("writeProjectExportPackage writes every package file under the target direc
     written.files.map((file) => file.relativePath).sort(),
     output.files.map((file) => file.path).sort()
   );
+});
+
+test("exported quality gate script passes and fails from project files", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-gates-"));
+  const doc = createExportDoc();
+  const passingReport = {
+    ...createVerificationReport(doc, { visualSimilarity: 96 }),
+    projectFitScore: 90
+  };
+  const output = createProjectExportPackage(doc, {
+    componentName: "ProductionHomepage",
+    report: passingReport
+  });
+  writeProjectExportPackage(output, directory);
+
+  const passed = spawnSync(process.execPath, ["scripts/verify-gates.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.equal(passed.status, 0, passed.stderr);
+  assert.match(passed.stdout, /"passed": true/);
+
+  const reportPath = join(directory, "verification-report.json");
+  const failingReport = JSON.parse(readFileSync(reportPath, "utf8"));
+  failingReport.visualSimilarity = 74;
+  writeFileSync(reportPath, `${JSON.stringify(failingReport, null, 2)}\n`);
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-gates.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /visual_similarity 74 is below 85/);
 });
