@@ -19,6 +19,19 @@ test("createIntakeWorkspaceFromImageFile creates intake state from a PNG file an
   assert.equal(intake.selectedSectionId, "hero");
 });
 
+test("createIntakeWorkspaceFromImageFile stores source PNG data when a reader is provided", async () => {
+  const intake = await createIntakeWorkspaceFromImageFile(
+    { name: "visual.png", type: "image/png", size: 2048 },
+    {
+      readImageDimensions: async () => ({ width: 1440, height: 1760 }),
+      readAsDataUrl: async () => "data:image/png;base64,c291cmNl"
+    }
+  );
+
+  assert.equal(intake.sourceImage.uri, "visual.png");
+  assert.equal(intake.sourceImage.dataUri, "data:image/png;base64,c291cmNl");
+});
+
 test("createIntakeWorkspaceFromImageFile rejects non-PNG image files before reading dimensions", async () => {
   let readCalled = false;
 

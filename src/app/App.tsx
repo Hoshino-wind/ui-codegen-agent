@@ -34,12 +34,13 @@ import {
   updateWorkspaceSectionVisibility,
   type EditorWorkspace
 } from "./editorWorkspace.js";
-import { createIntakeWorkspaceFromBrowserFile } from "./imageFileIntake.js";
+import { createIntakeWorkspaceFromBrowserFile, cropBrowserReferenceAsset } from "./imageFileIntake.js";
 import {
   addHeroAnnotationSet,
   addManualAnalysisLayer,
   buildWorkspaceFromIntake,
   createIntakeWorkspace,
+  materializeReferenceCropAssets,
   selectIntakeLayer,
   selectIntakeSection,
   seedHomepageAnnotations,
@@ -603,7 +604,7 @@ function AnalysisPlanPanel({
 }: {
   intake: IntakeWorkspace;
   onChange: (workspace: IntakeWorkspace) => void;
-  onBuild: () => void;
+  onBuild: () => void | Promise<void>;
   onUploadFile: (file: File) => void;
   uploadError: string | null;
 }) {
@@ -766,7 +767,7 @@ function AnalysisPlanPanel({
         <button type="button" onClick={() => onChange(addHeroAnnotationSet(intake))}>
           Add hero layers
         </button>
-        <button type="button" onClick={onBuild}>
+        <button type="button" onClick={() => void onBuild()}>
           Build LayerDoc
         </button>
       </div>
@@ -1001,10 +1002,20 @@ export function App() {
     }
   }
 
-  function buildFromAnalysisPlan() {
-    const nextWorkspace = buildWorkspaceFromIntake(intake);
-    setWorkspace(nextWorkspace);
-    setLastAction(`LayerDoc built from ${intake.layerCount} planned layers`);
+  async function buildFromAnalysisPlan() {
+    try {
+      setLastAction("Materializing reference crops");
+      const materializedIntake = await materializeReferenceCropAssets(intake, cropBrowserReferenceAsset);
+      const nextWorkspace = buildWorkspaceFromIntake(materializedIntake);
+      setIntake(materializedIntake);
+      setWorkspace(nextWorkspace);
+      setUploadError(null);
+      setLastAction(`LayerDoc built from ${materializedIntake.layerCount} planned layers`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to build LayerDoc.";
+      setUploadError(message);
+      setLastAction("LayerDoc build failed");
+    }
   }
 
   return (

@@ -44,3 +44,10 @@ test("app shell exposes the generated HTML preview as a real iframe surface", ()
   assert.match(source, /srcDoc=\{workspace\.previewHtml\}/);
   assert.match(source, /html-preview-frame/);
 });
+
+test("app shell materializes uploaded PNG reference crops before building LayerDoc", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /materializeReferenceCropAssets/);
+  assert.match(source, /cropBrowserReferenceAsset/);
+});

@@ -6,6 +6,7 @@ import {
   addHeroAnnotationSet,
   buildWorkspaceFromIntake,
   createIntakeWorkspace,
+  materializeReferenceCropAssets,
   selectIntakeLayer,
   selectIntakeSection,
   seedHomepageAnnotations,
@@ -70,6 +71,41 @@ test("buildWorkspaceFromIntake converts annotations into the editable LayerDoc w
   assert.equal(workspace.doc.layers.some((layer) => layer.id === "hero-image" && layer.track === "asset"), true);
   assert.match(workspace.previewHtml, /Imported hero headline/);
   assert.equal(workspace.report.structureScore, 100);
+});
+
+test("materializeReferenceCropAssets turns uploaded PNG crop plans into data URI LayerDoc assets", async () => {
+  const intake = addHeroAnnotationSet(
+    createIntakeWorkspace({
+      uri: "uploaded-homepage.png",
+      dataUri: "data:image/png;base64,c291cmNl",
+      width: 1440,
+      height: 1760
+    })
+  );
+  const originalAsset = intake.analysisPlan.sections[0].layers.find((layer) => layer.id === "hero-image").asset;
+  const cropCalls = [];
+
+  const cropped = await materializeReferenceCropAssets(intake, async (input) => {
+    cropCalls.push({
+      sourceDataUri: input.sourceImage.dataUri,
+      layerId: input.layer.id,
+      assetId: input.layer.asset.id,
+      cropBounds: input.cropBounds
+    });
+    return "data:image/png;base64,Y3JvcA==";
+  });
+  const workspace = buildWorkspaceFromIntake(cropped);
+  const asset = workspace.doc.assets.find((candidate) => candidate.id === "hero-crop");
+
+  assert.equal(originalAsset.uri, "/assets/hero-reference.svg");
+  assert.equal(cropCalls.length, 1);
+  assert.equal(cropCalls[0].sourceDataUri, "data:image/png;base64,c291cmNl");
+  assert.equal(cropCalls[0].layerId, "hero-image");
+  assert.equal(cropCalls[0].assetId, "hero-crop");
+  assert.deepEqual(cropCalls[0].cropBounds, originalAsset.cropBounds);
+  assert.equal(asset.uri, "data:image/png;base64,Y3JvcA==");
+  assert.equal(asset.source, "reference-crop");
+  assert.match(workspace.previewHtml, /data:image\/png;base64,Y3JvcA==/);
 });
 
 test("addHeroAnnotationSet keeps generated bounds inside narrower uploaded PNG canvases", () => {

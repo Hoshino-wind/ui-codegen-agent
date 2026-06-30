@@ -1,4 +1,5 @@
-import { createIntakeWorkspace, type IntakeWorkspace } from "./intakeWorkspace.js";
+import { readBrowserFileAsDataUrl } from "./imageAssetUpload.js";
+import { createIntakeWorkspace, type IntakeWorkspace, type ReferenceCropAssetInput } from "./intakeWorkspace.js";
 
 export interface ImageFileLike {
   name: string;
@@ -13,6 +14,7 @@ export interface ImageDimensions {
 
 export interface ImageFileIntakeDependencies<TFile extends ImageFileLike = ImageFileLike> {
   readImageDimensions: (file: TFile) => Promise<ImageDimensions>;
+  readAsDataUrl?: (file: TFile) => Promise<string>;
 }
 
 function isPng(file: ImageFileLike): boolean {
@@ -28,10 +30,16 @@ export async function createIntakeWorkspaceFromImageFile<TFile extends ImageFile
   }
 
   const dimensions = await dependencies.readImageDimensions(file);
+  const dataUri = dependencies.readAsDataUrl ? await dependencies.readAsDataUrl(file) : undefined;
+  if (dataUri !== undefined && !dataUri.startsWith("data:image/png")) {
+    throw new Error("PNG intake reader must return a PNG image data URI.");
+  }
+
   return createIntakeWorkspace({
     uri: file.name,
     width: dimensions.width,
-    height: dimensions.height
+    height: dimensions.height,
+    dataUri
   });
 }
 
@@ -59,5 +67,47 @@ export function readBrowserImageDimensions(file: File): Promise<ImageDimensions>
 }
 
 export function createIntakeWorkspaceFromBrowserFile(file: File): Promise<IntakeWorkspace> {
-  return createIntakeWorkspaceFromImageFile(file, { readImageDimensions: readBrowserImageDimensions });
+  return createIntakeWorkspaceFromImageFile(file, {
+    readImageDimensions: readBrowserImageDimensions,
+    readAsDataUrl: readBrowserFileAsDataUrl
+  });
+}
+
+function loadBrowserImage(dataUri: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Unable to decode uploaded PNG for reference crop."));
+    image.src = dataUri;
+  });
+}
+
+export async function cropBrowserReferenceAsset(input: ReferenceCropAssetInput): Promise<string> {
+  const sourceDataUri = input.sourceImage.dataUri;
+  if (!sourceDataUri) {
+    throw new Error("Uploaded PNG data is required before reference crops can be materialized.");
+  }
+
+  const image = await loadBrowserImage(sourceDataUri);
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Browser canvas is unavailable for reference crop materialization.");
+  }
+
+  canvas.width = input.cropBounds.width;
+  canvas.height = input.cropBounds.height;
+  context.drawImage(
+    image,
+    input.cropBounds.x,
+    input.cropBounds.y,
+    input.cropBounds.width,
+    input.cropBounds.height,
+    0,
+    0,
+    input.cropBounds.width,
+    input.cropBounds.height
+  );
+
+  return canvas.toDataURL("image/png");
 }

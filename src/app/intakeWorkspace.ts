@@ -17,6 +17,7 @@ export interface SourceImageMetadata {
   uri: string;
   width: number;
   height: number;
+  dataUri?: string;
 }
 
 export interface IntakeWorkspace {
@@ -36,6 +37,14 @@ export interface AddManualAnalysisLayerInput {
   kind: ManualAnalysisLayerKind;
 }
 
+export interface ReferenceCropAssetInput {
+  sourceImage: SourceImageMetadata;
+  layer: PngIntakeLayerPlan;
+  cropBounds: Rect;
+}
+
+export type ReferenceCropAssetResolver = (input: ReferenceCropAssetInput) => Promise<string> | string;
+
 function materialize(
   sourceImage: SourceImageMetadata,
   analysisPlan: HomepageAnalysisPlan,
@@ -54,6 +63,16 @@ function materialize(
     layerCount: analysisPlan.sections.reduce((total, section) => total + section.layers.length, 0),
     ready: issues.length === 0
   };
+}
+
+function shouldMaterializeReferenceCrop(layer: PngIntakeLayerPlan, sourceImage: SourceImageMetadata): boolean {
+  return layer.kind === "image" && layer.asset?.source === "reference-crop" && Boolean(layer.asset.cropBounds) && Boolean(sourceImage.dataUri);
+}
+
+function assertImageDataUri(uri: string, layerId: string): void {
+  if (!uri.startsWith("data:image/")) {
+    throw new Error(`Reference crop resolver for layer "${layerId}" must return an image data URI.`);
+  }
 }
 
 function hasLayer(plan: HomepageAnalysisPlan, layerId: string): boolean {
@@ -239,6 +258,43 @@ export function addHeroAnnotationSet(workspace: IntakeWorkspace): IntakeWorkspac
 
 export function seedHomepageAnnotations(workspace: IntakeWorkspace): IntakeWorkspace {
   return materialize(workspace.sourceImage, seedHomepageAnalysisPlan(workspace.analysisPlan), "hero", "hero-title");
+}
+
+export async function materializeReferenceCropAssets(workspace: IntakeWorkspace, resolveCrop: ReferenceCropAssetResolver): Promise<IntakeWorkspace> {
+  let plan = workspace.analysisPlan;
+
+  for (const section of workspace.analysisPlan.sections) {
+    for (const layer of section.layers) {
+      if (!shouldMaterializeReferenceCrop(layer, workspace.sourceImage)) {
+        continue;
+      }
+
+      const cropBounds = layer.asset?.cropBounds;
+      if (!layer.asset || !cropBounds) {
+        continue;
+      }
+
+      const uri = await resolveCrop({
+        sourceImage: { ...workspace.sourceImage },
+        layer: {
+          ...layer,
+          bounds: { ...layer.bounds },
+          asset: { ...layer.asset, cropBounds: { ...cropBounds } }
+        },
+        cropBounds: { ...cropBounds }
+      });
+      assertImageDataUri(uri, layer.id);
+      plan = updateAnalysisLayer(plan, layer.id, {
+        asset: {
+          ...layer.asset,
+          cropBounds: { ...cropBounds },
+          uri
+        }
+      });
+    }
+  }
+
+  return materialize(workspace.sourceImage, plan, workspace.selectedSectionId, workspace.selectedLayerId);
 }
 
 export function buildWorkspaceFromIntake(workspace: IntakeWorkspace): EditorWorkspace {
