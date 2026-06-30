@@ -10,6 +10,7 @@ import {
   addAnalysisLayer,
   createHomepageAnalysisPlan,
   createImageManifestFromPng,
+  seedHomepageAnalysisPlan,
   toPngIntakeSections,
   updateAnalysisLayer,
   validateHomepageAnalysisPlan
@@ -103,17 +104,19 @@ test("homepage analysis plan can feed PNG intake after layer annotation", () => 
     }
   });
 
+  const completePlan = seedHomepageAnalysisPlan(withImage);
   const manifest = createImageManifestFromPng({
-    name: withImage.name,
+    name: completePlan.name,
     sourcePngPath,
     assetOutputDir: join(directory, "assets"),
     publicAssetBaseUri: "/assets/imported",
-    sections: toPngIntakeSections(withImage)
+    sections: toPngIntakeSections(completePlan)
   });
 
   assert.equal(manifest.sections.length, 8);
   assert.equal(manifest.sections[0].layers[0].text, "Imported hero");
   assert.equal(manifest.sections[0].layers[1].asset.uri, "/assets/imported/hero-crop.png");
+  assert.equal(manifest.sections.every((section) => section.layers.length > 0), true);
 });
 
 test("validateHomepageAnalysisPlan reports duplicate ids and out-of-canvas bounds", () => {

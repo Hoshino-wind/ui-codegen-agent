@@ -143,3 +143,24 @@ test("createImageManifestFromPng enforces the homepage MVP section range", () =>
     /Homepage PNG intake expects 8-15 sections/
   );
 });
+
+test("createImageManifestFromPng rejects homepage sections without layers", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-png-intake-"));
+  const sourcePngPath = join(directory, "homepage.png");
+  writeSourcePng(sourcePngPath);
+
+  assert.throws(
+    () =>
+      createImageManifestFromPng({
+        name: "Incomplete sections",
+        sourcePngPath,
+        sections: [
+          section(0),
+          section(1),
+          { ...section(2), layers: [] },
+          ...Array.from({ length: 5 }, (_, index) => section(index + 3))
+        ]
+      }),
+    /Homepage PNG intake section "Section 2" must contain at least one layer/
+  );
+});

@@ -80,3 +80,22 @@ test("createLayerDocFromImageManifest enforces the homepage MVP section range", 
     /Homepage MVP expects 8-15 sections/
   );
 });
+
+test("createLayerDocFromImageManifest rejects homepage sections without layers", () => {
+  const manifest = {
+    name: "Incomplete homepage",
+    sourceImage: { uri: "/references/incomplete.png", width: 1440, height: 960 },
+    canvas: { width: 1440, height: 960 },
+    sections: [
+      makeSection(0),
+      makeSection(1),
+      { ...makeSection(2), layers: [] },
+      ...Array.from({ length: 5 }, (_, index) => makeSection(index + 3))
+    ]
+  };
+
+  assert.throws(
+    () => createLayerDocFromImageManifest(manifest),
+    /Homepage MVP section "Section 2" must contain at least one layer/
+  );
+});

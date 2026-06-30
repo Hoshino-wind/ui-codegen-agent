@@ -4,7 +4,7 @@ import { basename, join } from "node:path";
 import { PNG } from "pngjs";
 
 import type { AssetNode, LayerKind, Rect } from "../layerdoc/types.js";
-import type { ImageAnalysisManifest, ImageManifestSectionInput } from "./imageManifest.js";
+import { assertHomepageSectionCoverage, type ImageAnalysisManifest, type ImageManifestSectionInput } from "./imageManifest.js";
 
 export interface PngIntakeAssetPlan {
   id: string;
@@ -146,6 +146,7 @@ function createManifestSection(source: PNG, section: PngIntakeSectionPlan, input
  */
 export function createImageManifestFromPng(input: PngIntakeInput): ImageAnalysisManifest {
   assertHomepageSectionRange(input.sections);
+  assertHomepageSectionCoverage(input.sections, "Homepage PNG intake");
   const source = readPng(input.sourcePngPath);
 
   return {

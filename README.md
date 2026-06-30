@@ -132,7 +132,8 @@ For the homepage MVP, ingestion enforces 8-15 sections so the product stays
 focused on real page structure rather than single-canvas bitmap conversion.
 The editor can keep an empty section scaffold while analysis is in progress,
 but LayerDoc build is blocked until every homepage section contains at least
-one confirmed layer.
+one confirmed layer. PNG intake and ImageAnalysisManifest import enforce the
+same section-coverage rule at the production boundary.
 
 When the source is a real PNG, `createImageManifestFromPng` owns the file
 boundary: it reads dimensions, writes deterministic reference crops for asset

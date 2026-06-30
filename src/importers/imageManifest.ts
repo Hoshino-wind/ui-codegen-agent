@@ -113,6 +113,17 @@ function assertHomepageRange(sections: ImageManifestSectionInput[]): void {
   }
 }
 
+export function assertHomepageSectionCoverage(
+  sections: readonly { name: string; layers: readonly unknown[] }[],
+  label = "Homepage MVP"
+): void {
+  for (const section of sections) {
+    if (section.layers.length === 0) {
+      throw new Error(`${label} section "${section.name}" must contain at least one layer.`);
+    }
+  }
+}
+
 /**
  * Convert an image-analysis manifest into LayerDoc.
  * The manifest is the boundary between visual analysis and production assets:
@@ -125,6 +136,7 @@ export function createLayerDocFromImageManifest(
 ): LayerDoc {
   if (options.enforceHomepageRange ?? true) {
     assertHomepageRange(manifest.sections);
+    assertHomepageSectionCoverage(manifest.sections);
   }
 
   const layers = manifest.sections.flatMap((section) => section.layers.map((layer) => createLayer(section, layer)));
