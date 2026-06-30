@@ -10,6 +10,7 @@ import {
   updateSelectedButtonAction,
   updateWorkspaceSectionVisibility,
   updateSelectedBounds,
+  updateSelectedImageAlt,
   updateSelectedImageAsset,
   updateSelectedLayerStyle,
   updateSelectedText
@@ -137,6 +138,18 @@ test("updateSelectedImageAsset replaces the selected image source", () => {
   assert.equal(asset.uri, "/assets/hero-upload.png");
   assert.equal(asset.source, "uploaded");
   assert.match(next.previewHtml, /src="\/assets\/hero-upload\.png"/);
+});
+
+test("updateSelectedImageAlt refreshes preview, React export, and project package image metadata", () => {
+  const workspace = selectWorkspaceLayer(createEditorWorkspace(createSampleHomepageLayerDoc()), "hero-image");
+  const next = updateSelectedImageAlt(workspace, "Generated homepage reference crop");
+  const projectComponent = next.projectExport.files.find((file) => file.path === "src/ProductionHomepage.tsx").contents;
+
+  assert.equal(workspace.doc.layers.find((layer) => layer.id === "hero-image").content.alt, "Reference homepage crop");
+  assert.equal(next.doc.layers.find((layer) => layer.id === "hero-image").content.alt, "Generated homepage reference crop");
+  assert.match(next.previewHtml, /alt="Generated homepage reference crop"/);
+  assert.match(next.reactExport.code, /alt="Generated homepage reference crop"/);
+  assert.match(projectComponent, /alt="Generated homepage reference crop"/);
 });
 
 test("moveWorkspaceSection reorders sections without losing the current layer selection", () => {

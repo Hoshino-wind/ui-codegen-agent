@@ -4,6 +4,7 @@ export {
   setSectionVisibility,
   updateButtonAction,
   updateImageLayerAsset,
+  updateImageLayerAlt,
   updateLayerBounds,
   updateLayerStyle,
   updateTextLayer

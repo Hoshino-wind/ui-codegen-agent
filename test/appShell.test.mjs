@@ -90,6 +90,13 @@ test("app shell exposes controlled button action editing", () => {
   assert.match(source, /data-interaction-actions/);
 });
 
+test("app shell exposes controlled image alt editing", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /updateSelectedImageAlt/);
+  assert.match(source, /readOnly=\{layer\.kind !== "image"\}/);
+});
+
 test("app shell materializes uploaded PNG reference crops before building LayerDoc", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 

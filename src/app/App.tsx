@@ -29,6 +29,7 @@ import {
   selectedLayer,
   updateSelectedButtonAction,
   updateSelectedBounds,
+  updateSelectedImageAlt,
   updateSelectedImageAsset,
   updateSelectedLayerStyle,
   updateSelectedText,
@@ -464,7 +465,11 @@ function Inspector({
         )}
         <label className="field">
           <span>Alt</span>
-          <input value={layer.content?.alt ?? ""} readOnly />
+          <input
+            value={layer.content?.alt ?? ""}
+            onChange={(event) => (layer.kind === "image" ? onChange(updateSelectedImageAlt(workspace, event.target.value)) : undefined)}
+            readOnly={layer.kind !== "image"}
+          />
         </label>
       </div>
 

@@ -232,6 +232,23 @@ export function updateImageLayerAsset(doc: LayerDoc, layerId: string, asset: Ima
 }
 
 /**
+ * Update editable image metadata that survives HTML preview and React export.
+ * Alt text belongs to the layer content rather than the asset file so one crop
+ * can be reused with different project-facing semantics.
+ */
+export function updateImageLayerAlt(doc: LayerDoc, layerId: string, alt: string): LayerDoc {
+  const next = cloneDoc(doc);
+  const layer = findEditableLayer(next, layerId);
+
+  if (layer.kind !== "image") {
+    throw new Error(`Layer "${layerId}" is "${layer.kind}", not image.`);
+  }
+
+  layer.content = { ...(layer.content ?? {}), alt };
+  return next;
+}
+
+/**
  * Move a section to a new position in the document order.
  * The homepage MVP treats sections as a vertical stack, so reordering must
  * also translate section and layer bounds in the same LayerDoc edit.

@@ -8,6 +8,7 @@ import {
   setSectionVisibility,
   updateButtonAction,
   updateImageLayerAsset,
+  updateImageLayerAlt,
   updateLayerBounds,
   updateLayerStyle,
   updateTextLayer
@@ -204,6 +205,30 @@ test("updateImageLayerAsset replaces an image layer asset without mutating the o
   assert.equal(doc.assets[0].source, "reference-crop");
   assert.equal(next.assets[0].uri, "/new.png");
   assert.equal(next.assets[0].source, "uploaded");
+});
+
+test("updateImageLayerAlt changes image alt text without mutating the original LayerDoc", () => {
+  const doc = createLayerDoc({
+    name: "Image alt controls",
+    canvas: { width: 800, height: 600 },
+    assets: [{ id: "hero-crop", type: "image", source: "reference-crop", uri: "/hero.png" }],
+    layers: [
+      {
+        id: "hero-image",
+        kind: "image",
+        track: "asset",
+        editable: true,
+        bounds: { x: 420, y: 40, width: 280, height: 180 },
+        assetId: "hero-crop",
+        content: { alt: "Old hero image" }
+      }
+    ]
+  });
+
+  const next = updateImageLayerAlt(doc, "hero-image", "Generated dashboard preview");
+
+  assert.equal(doc.layers[0].content.alt, "Old hero image");
+  assert.equal(next.layers[0].content.alt, "Generated dashboard preview");
 });
 
 test("updateLayerBounds patches geometry for spacing controls while preserving existing dimensions", () => {

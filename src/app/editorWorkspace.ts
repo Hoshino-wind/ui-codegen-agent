@@ -3,6 +3,7 @@ import {
   setSectionVisibility,
   updateButtonAction,
   updateImageLayerAsset,
+  updateImageLayerAlt,
   updateLayerBounds,
   updateLayerStyle,
   updateTextLayer
@@ -112,6 +113,11 @@ export function updateSelectedBounds(workspace: EditorWorkspace, bounds: LayerBo
 
 export function updateSelectedImageAsset(workspace: EditorWorkspace, asset: ImageAssetPatch): EditorWorkspace {
   const nextDoc = updateImageLayerAsset(workspace.doc, workspace.selectedLayerId, asset);
+  return materialize(nextDoc, workspace.selectedLayerId);
+}
+
+export function updateSelectedImageAlt(workspace: EditorWorkspace, alt: string): EditorWorkspace {
+  const nextDoc = updateImageLayerAlt(workspace.doc, workspace.selectedLayerId, alt);
   return materialize(nextDoc, workspace.selectedLayerId);
 }
 
