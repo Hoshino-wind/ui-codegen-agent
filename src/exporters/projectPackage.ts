@@ -22,9 +22,65 @@ export interface ProjectExportManifest {
   componentName: string;
   source: "layerdoc";
   layerDocHash: string;
+  integrationContract: string;
   files: string[];
   scores: VerificationReport;
   audit: LayerDocAudit;
+}
+
+export interface ProjectIntegrationContract {
+  version: "0.1.0";
+  layerDoc: {
+    file: string;
+    hash: string;
+    schema: LayerDoc["schema"];
+    version: LayerDoc["version"];
+  };
+  component: {
+    name: string;
+    file: string;
+    rootSelector: string;
+  };
+  preview: {
+    file: string;
+  };
+  sections: Array<{
+    id: string;
+    name: string;
+    selector: string;
+    layerIds: string[];
+  }>;
+  layers: Array<{
+    id: string;
+    kind: string;
+    track: string;
+    editable: boolean;
+    sectionId: string | null;
+    componentIds: string[];
+    assetId: string | null;
+    selector: string;
+    interactionIds: string[];
+  }>;
+  components: Array<{
+    id: string;
+    exportable: boolean;
+    selector: string | null;
+    layerIds: string[];
+  }>;
+  assets: Array<{
+    id: string;
+    type: string;
+    source: string;
+    uri: string | null;
+    usedByLayerIds: string[];
+  }>;
+  interactions: Array<{
+    id: string;
+    layerId: string;
+    event: string;
+    action: string;
+    selector: string;
+  }>;
 }
 
 export type ProjectQualityGates = VerificationGates;
@@ -155,6 +211,74 @@ function sha256(value: string): string {
 
 function layerDocHash(doc: LayerDoc): string {
   return sha256(stableJson(doc));
+}
+
+function selectorFor(attribute: string, value: string): string {
+  return `[${attribute}="${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"]`;
+}
+
+function createIntegrationContract(doc: LayerDoc, componentName: string, componentFile: string, sourceHash: string): ProjectIntegrationContract {
+  const componentIdsByLayerId = new Map<string, string[]>();
+  for (const component of doc.components) {
+    for (const layerId of component.layerIds) {
+      componentIdsByLayerId.set(layerId, [...(componentIdsByLayerId.get(layerId) ?? []), component.id]);
+    }
+  }
+
+  return {
+    version: "0.1.0",
+    layerDoc: {
+      file: "layerdoc.json",
+      hash: sourceHash,
+      schema: doc.schema,
+      version: doc.version
+    },
+    component: {
+      name: componentName,
+      file: `src/${componentFile}`,
+      rootSelector: selectorFor("data-layerdoc-version", doc.version)
+    },
+    preview: {
+      file: "preview.html"
+    },
+    sections: doc.sections.map((section) => ({
+      id: section.id,
+      name: section.name,
+      selector: selectorFor("data-section-id", section.id),
+      layerIds: [...section.layerIds]
+    })),
+    layers: doc.layers.map((layer) => ({
+      id: layer.id,
+      kind: layer.kind,
+      track: layer.track,
+      editable: layer.editable,
+      sectionId: layer.sectionId ?? null,
+      componentIds: componentIdsByLayerId.get(layer.id) ?? [],
+      assetId: layer.assetId ?? null,
+      selector: selectorFor("data-layer-id", layer.id),
+      interactionIds: doc.interactions.filter((interaction) => interaction.layerId === layer.id).map((interaction) => interaction.id)
+    })),
+    components: doc.components.map((component) => ({
+      id: component.id,
+      exportable: component.exportable,
+      selector: component.exportable ? selectorFor("data-component-id", component.id) : null,
+      layerIds: [...component.layerIds]
+    })),
+    assets: doc.assets.map((asset) => ({
+      id: asset.id,
+      type: asset.type,
+      source: asset.source,
+      uri: asset.uri ?? null,
+      usedByLayerIds: doc.layers.filter((layer) => layer.assetId === asset.id).map((layer) => layer.id)
+    })),
+    interactions: doc.interactions.map((interaction) => ({
+      id: interaction.id,
+      layerId: interaction.layerId,
+      event: interaction.event,
+      action: interaction.action,
+      selector: selectorFor("data-layer-id", interaction.layerId)
+    }))
+  };
 }
 
 function packageJsonFor(manifest: ProjectExportManifest): string {
@@ -782,6 +906,7 @@ Generated assets:
 - \`src/main.tsx\`, \`src/App.tsx\`, \`src/index.css\`: project entry points
 - \`src/${manifest.componentName}.tsx\`: React + Tailwind component export
 - \`preview.html\`: deterministic HTML verification preview
+- \`integration-contract.json\`: stable mapping from LayerDoc objects to project files and DOM selectors
 - \`manifest.json\`, \`layerdoc.schema.json\`: project package manifest and LayerDoc source contract
 - \`layerdoc-audit.json\`: structure, track, and asset-compliance audit
 - \`verification-report.json\`, \`quality-gates.json\`, \`scripts/verify-layerdoc.mjs\`, \`scripts/verify-preview.mjs\`, \`scripts/verify-gates.mjs\`: executable source, visual, and quality gate handoff
@@ -811,9 +936,11 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
   const report = options.report ?? createVerificationReport(doc);
   const audit = createLayerDocAudit(doc);
   const packageName = options.packageName ?? toKebabCase(options.componentName);
+  const sourceHash = layerDocHash(doc);
   const files = [
     "README.md",
     "index.html",
+    "integration-contract.json",
     "layerdoc-audit.json",
     "layerdoc.schema.json",
     "layerdoc.json",
@@ -836,17 +963,20 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     packageName,
     componentName: options.componentName,
     source: "layerdoc",
-    layerDocHash: layerDocHash(doc),
+    layerDocHash: sourceHash,
+    integrationContract: "integration-contract.json",
     files,
     scores: report,
     audit
   };
+  const integrationContract = createIntegrationContract(doc, options.componentName, reactExport.fileName, sourceHash);
 
   return {
     manifest,
     files: [
       { path: "README.md", contents: readmeFor(manifest) },
       { path: "index.html", contents: indexHtmlFor(options.componentName) },
+      { path: "integration-contract.json", contents: stableJson(integrationContract) },
       { path: "layerdoc-audit.json", contents: stableJson(audit) },
       { path: "layerdoc.schema.json", contents: stableJson(createLayerDocJsonSchema()) },
       { path: "layerdoc.json", contents: stableJson(doc) },

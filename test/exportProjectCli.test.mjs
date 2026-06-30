@@ -66,6 +66,7 @@ test("export project CLI writes a project package from a LayerDoc file", () => {
   assert.deepEqual(summary.files.sort(), [
     "README.md",
     "index.html",
+    "integration-contract.json",
     "layerdoc-audit.json",
     "layerdoc.schema.json",
     "layerdoc.json",
@@ -91,6 +92,7 @@ test("export project CLI writes a project package from a LayerDoc file", () => {
   assert.equal(existsSync(join(outputDir, "scripts", "verify-gates.mjs")), true);
   assert.equal(existsSync(join(outputDir, "scripts", "verify-layerdoc.mjs")), true);
   assert.equal(existsSync(join(outputDir, "scripts", "verify-preview.mjs")), true);
+  assert.equal(existsSync(join(outputDir, "integration-contract.json")), true);
   assert.equal(existsSync(join(outputDir, "layerdoc-audit.json")), true);
   assert.equal(existsSync(join(outputDir, "layerdoc.schema.json")), true);
   assert.equal(existsSync(join(outputDir, "verification-report.json")), true);
@@ -104,6 +106,8 @@ test("export project CLI writes a project package from a LayerDoc file", () => {
   assert.match(readFileSync(join(outputDir, "layerdoc-audit.json"), "utf8"), /"assetCompliance"/);
   assert.match(readFileSync(join(outputDir, "layerdoc.schema.json"), "utf8"), /"const": "layerdoc"/);
   assert.match(readFileSync(join(outputDir, "manifest.json"), "utf8"), /"packageName": "production-homepage"/);
+  assert.match(readFileSync(join(outputDir, "manifest.json"), "utf8"), /"integrationContract": "integration-contract\.json"/);
+  assert.match(readFileSync(join(outputDir, "integration-contract.json"), "utf8"), /"file": "src\/ProductionHomepage\.tsx"/);
 });
 
 test("export project CLI rejects missing required arguments with usage guidance", () => {

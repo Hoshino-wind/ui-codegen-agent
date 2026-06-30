@@ -113,6 +113,7 @@ export type {
 } from "./app/workspaceVerifier.js";
 export type {
   ProjectExportFile,
+  ProjectIntegrationContract,
   ProjectExportManifest,
   ProjectExportPackage,
   ProjectExportPackageOptions

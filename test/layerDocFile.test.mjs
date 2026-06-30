@@ -116,6 +116,7 @@ test("createProjectPackageDownload serializes every project package file in one 
     [
       "README.md",
       "index.html",
+      "integration-contract.json",
       "layerdoc-audit.json",
       "layerdoc.schema.json",
       "layerdoc.json",
@@ -135,6 +136,8 @@ test("createProjectPackageDownload serializes every project package file in one 
       "vite.config.ts"
     ].sort()
   );
+  assert.equal(payload.manifest.integrationContract, "integration-contract.json");
+  assert.match(payload.files.find((file) => file.path === "integration-contract.json").contents, /"rootSelector": "\[data-layerdoc-version=/);
   assert.match(payload.files.find((file) => file.path === "package.json").contents, /"dev": "vite"/);
   assert.match(payload.files.find((file) => file.path === "package.json").contents, /"verify:preview"/);
   assert.match(payload.files.find((file) => file.path === "package.json").contents, /"verify:gates"/);
@@ -163,6 +166,7 @@ test("createProjectPackageZipDownload serializes the project package as a real Z
   assert.equal(artifact.contents[3], 0x04);
   assert.deepEqual(zipCentralDirectoryNames(artifact.contents).sort(), workspace.projectExport.files.map((file) => file.path).sort());
   assert.equal(zipCentralDirectoryNames(artifact.contents).includes("layerdoc-audit.json"), true);
+  assert.equal(zipCentralDirectoryNames(artifact.contents).includes("integration-contract.json"), true);
   assert.equal(zipCentralDirectoryNames(artifact.contents).includes("src/ProductionHomepage.tsx"), true);
 });
 

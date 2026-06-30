@@ -81,9 +81,11 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.equal(output.manifest.packageName, "production-homepage");
   assert.equal(output.manifest.componentName, "ProductionHomepage");
   assert.match(output.manifest.layerDocHash, /^sha256:[a-f0-9]{64}$/);
+  assert.equal(output.manifest.integrationContract, "integration-contract.json");
   assert.deepEqual(paths, [
     "README.md",
     "index.html",
+    "integration-contract.json",
     "layerdoc-audit.json",
     "layerdoc.schema.json",
     "layerdoc.json",
@@ -118,6 +120,34 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "tsconfig.json").contents, /"jsx": "react-jsx"/);
   assert.match(output.files.find((file) => file.path === "src/ProductionHomepage.tsx").contents, /export function ProductionHomepage/);
   assert.match(output.files.find((file) => file.path === "layerdoc.json").contents, /"schema": "layerdoc"/);
+  const contract = JSON.parse(output.files.find((file) => file.path === "integration-contract.json").contents);
+  assert.equal(contract.component.name, "ProductionHomepage");
+  assert.equal(contract.component.file, "src/ProductionHomepage.tsx");
+  assert.equal(contract.layerDoc.file, "layerdoc.json");
+  assert.equal(contract.layerDoc.hash, output.manifest.layerDocHash);
+  assert.deepEqual(contract.sections[0], {
+    id: "hero",
+    name: "Hero",
+    selector: '[data-section-id="hero"]',
+    layerIds: ["headline", "cta"]
+  });
+  assert.deepEqual(contract.layers.find((layer) => layer.id === "headline"), {
+    id: "headline",
+    kind: "text",
+    track: "component",
+    editable: true,
+    sectionId: "hero",
+    componentIds: ["HeroSection"],
+    assetId: null,
+    selector: '[data-layer-id="headline"]',
+    interactionIds: []
+  });
+  assert.deepEqual(contract.components[0], {
+    id: "HeroSection",
+    exportable: true,
+    selector: '[data-component-id="HeroSection"]',
+    layerIds: ["headline", "cta"]
+  });
   assert.equal(JSON.parse(output.files.find((file) => file.path === "layerdoc.schema.json").contents).properties.schema.const, "layerdoc");
   assert.match(output.files.find((file) => file.path === "layerdoc-audit.json").contents, /"assetCompliance"/);
   assert.match(output.files.find((file) => file.path === "verification-report.json").contents, /"structureScore": 100/);
@@ -133,6 +163,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:gates/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:layerdoc/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:preview -- --reference/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /integration-contract\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /layerdoc\.schema\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /visual_evidence:/);
 });
@@ -143,8 +174,9 @@ test("writeProjectExportPackage writes every package file under the target direc
 
   const written = writeProjectExportPackage(output, directory);
 
-  assert.equal(written.files.length, 19);
+  assert.equal(written.files.length, 20);
   assert.equal(existsSync(join(directory, "src", "ProductionHomepage.tsx")), true);
+  assert.equal(existsSync(join(directory, "integration-contract.json")), true);
   assert.equal(existsSync(join(directory, "layerdoc-audit.json")), true);
   assert.equal(existsSync(join(directory, "layerdoc.schema.json")), true);
   assert.equal(existsSync(join(directory, "src", "main.tsx")), true);

@@ -64,6 +64,8 @@ The repository currently implements the core LayerDoc domain layer:
 - Upload a PNG in the browser to initialize Analysis Plan dimensions.
 - Render a deterministic HTML preview with `data-layer-id` markers.
 - Export a React + Tailwind component that preserves LayerDoc traceability.
+- Export an `integration-contract.json` mapping LayerDoc objects to project
+  files and DOM selectors for downstream integration.
 - Compare reference and candidate PNG screenshots and write a pixel diff image.
 - Produce a verifier report with separate score dimensions.
 
