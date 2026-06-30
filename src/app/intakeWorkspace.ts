@@ -217,6 +217,13 @@ function assertBuildHasLayers(workspace: IntakeWorkspace): void {
   }
 }
 
+function assertBuildCoversEverySection(workspace: IntakeWorkspace): void {
+  const emptySections = workspace.analysisPlan.sections.filter((section) => section.layers.length === 0);
+  if (emptySections.length > 0) {
+    throw new Error(`Cannot build LayerDoc from incomplete analysis plan: add at least one layer to ${emptySections.map((section) => section.name).join(", ")}.`);
+  }
+}
+
 export function createIntakeWorkspace(sourceImage: SourceImageMetadata): IntakeWorkspace {
   const analysisPlan = createHomepageAnalysisPlan({
     name: "Imported Homepage",
@@ -309,6 +316,7 @@ export function buildWorkspaceFromIntake(workspace: IntakeWorkspace): EditorWork
     throw new Error(`Cannot build LayerDoc from invalid analysis plan: ${issues.join(" ")}`);
   }
   assertBuildHasLayers(workspace);
+  assertBuildCoversEverySection(workspace);
 
   const nextWorkspace = createEditorWorkspace(createLayerDocFromImageManifest(toManifest(workspace)));
   if (workspace.selectedLayerId) {

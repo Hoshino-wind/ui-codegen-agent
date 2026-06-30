@@ -56,7 +56,7 @@ test("selectIntakeSection changes the selected analysis section", () => {
 });
 
 test("buildWorkspaceFromIntake converts annotations into the editable LayerDoc workspace", () => {
-  const intake = addHeroAnnotationSet(
+  const intake = seedHomepageAnnotations(
     createIntakeWorkspace({
       uri: "/uploads/homepage.png",
       width: 1440,
@@ -86,8 +86,23 @@ test("buildWorkspaceFromIntake rejects an empty analysis scaffold before creatin
   );
 });
 
-test("materializeReferenceCropAssets turns uploaded PNG crop plans into data URI LayerDoc assets", async () => {
+test("buildWorkspaceFromIntake rejects homepage analysis plans with empty sections", () => {
   const intake = addHeroAnnotationSet(
+    createIntakeWorkspace({
+      uri: "/uploads/homepage.png",
+      width: 1440,
+      height: 1760
+    })
+  );
+
+  assert.throws(
+    () => buildWorkspaceFromIntake(intake),
+    /Cannot build LayerDoc from incomplete analysis plan: add at least one layer to Proof, Workflow, Features, Editor, Export, Verifier, Final CTA/
+  );
+});
+
+test("materializeReferenceCropAssets turns uploaded PNG crop plans into data URI LayerDoc assets", async () => {
+  const intake = seedHomepageAnnotations(
     createIntakeWorkspace({
       uri: "uploaded-homepage.png",
       dataUri: "data:image/png;base64,c291cmNl",
@@ -130,12 +145,10 @@ test("addHeroAnnotationSet keeps generated bounds inside narrower uploaded PNG c
     })
   );
   const heroImage = intake.analysisPlan.sections[0].layers.find((layer) => layer.id === "hero-image");
-  const workspace = buildWorkspaceFromIntake(intake);
 
   assert.equal(intake.ready, true);
   assert.equal(heroImage.bounds.x + heroImage.bounds.width <= intake.sourceImage.width, true);
   assert.equal(heroImage.asset.cropBounds.x + heroImage.asset.cropBounds.width <= intake.sourceImage.width, true);
-  assert.match(workspace.previewHtml, /Imported hero headline/);
 });
 
 test("addManualAnalysisLayer adds a selected text layer to the active section without mutating the prior workspace", () => {
@@ -240,11 +253,13 @@ test("manual analysis layers build into the editable LayerDoc workspace", () => 
   const intake = updateManualAnalysisLayer(
     addManualAnalysisLayer(
       selectIntakeSection(
-        createIntakeWorkspace({
-          uri: "/uploads/homepage.png",
-          width: 1440,
-          height: 1760
-        }),
+        seedHomepageAnnotations(
+          createIntakeWorkspace({
+            uri: "/uploads/homepage.png",
+            width: 1440,
+            height: 1760
+          })
+        ),
         "export"
       ),
       { kind: "button" }

@@ -95,3 +95,11 @@ test("app shell blocks LayerDoc build until analysis layers exist", () => {
   assert.match(source, /disabled=\{!canBuildLayerDoc\}/);
   assert.match(source, /Add layers before building/);
 });
+
+test("app shell blocks LayerDoc build until every homepage section has a layer", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /emptyAnalysisSectionNames/);
+  assert.match(source, /emptyAnalysisSectionNames\.length === 0/);
+  assert.match(source, /Add layers to:/);
+});

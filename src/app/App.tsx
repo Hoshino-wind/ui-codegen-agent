@@ -649,7 +649,8 @@ function AnalysisPlanPanel({
   const section = selectedAnalysisSection(intake);
   const layer = selectedAnalysisLayer(intake);
   const cropBounds = layer?.asset?.cropBounds ?? layer?.bounds ?? { x: 0, y: 0, width: 1, height: 1 };
-  const canBuildLayerDoc = intake.ready && intake.layerCount > 0;
+  const emptyAnalysisSectionNames = intake.analysisPlan.sections.filter((candidate) => candidate.layers.length === 0).map((candidate) => candidate.name);
+  const canBuildLayerDoc = intake.ready && intake.layerCount > 0 && emptyAnalysisSectionNames.length === 0;
 
   function addLayer(kind: ManualAnalysisLayerKind) {
     onChange(addManualAnalysisLayer(intake, { kind }));
@@ -816,6 +817,8 @@ function AnalysisPlanPanel({
         <div className="analysis-issues">{intake.issues.join(" ")}</div>
       ) : intake.layerCount === 0 ? (
         <div className="analysis-issues">Add layers before building</div>
+      ) : emptyAnalysisSectionNames.length > 0 ? (
+        <div className="analysis-issues">Add layers to: {emptyAnalysisSectionNames.join(", ")}</div>
       ) : (
         <div className="analysis-ready">Plan valid for intake</div>
       )}
