@@ -418,13 +418,19 @@ function selectorAttributeNeedle(selector) {
   return \`\${match[1]}="\${value}"\`;
 }
 
-function contractSelectors(contract) {
+function domSelectors(contract) {
   return [
-    { path: "component.rootSelector", selector: contract.component?.rootSelector },
     ...(contract.sections ?? []).map((section, index) => ({ path: \`sections[\${index}].selector\`, selector: section.selector })),
     ...(contract.layers ?? []).map((layer, index) => ({ path: \`layers[\${index}].selector\`, selector: layer.selector })),
     ...(contract.components ?? []).map((component, index) => ({ path: \`components[\${index}].selector\`, selector: component.selector })),
     ...(contract.responsiveRules ?? []).map((rule, index) => ({ path: \`responsiveRules[\${index}].selector\`, selector: rule.selector }))
+  ].filter((entry) => typeof entry.selector === "string" && entry.selector.length > 0);
+}
+
+function projectSelectors(contract) {
+  return [
+    { path: "component.rootSelector", selector: contract.component?.rootSelector },
+    ...domSelectors(contract)
   ].filter((entry) => typeof entry.selector === "string" && entry.selector.length > 0);
 }
 
@@ -536,7 +542,7 @@ if (stableJson(contract) !== stableJson(expected)) {
 try {
   const componentPath = contract.component?.file ?? \`src/\${manifest.componentName}.tsx\`;
   const componentSource = readText(\`../\${componentPath}\`);
-  for (const entry of contractSelectors(contract)) {
+  for (const entry of projectSelectors(contract)) {
     const needle = selectorAttributeNeedle(entry.selector);
     if (!needle || !componentSource.includes(needle)) {
       issues.push(issue(
@@ -552,6 +558,28 @@ try {
     "project_file_missing",
     "component.file",
     \`Could not read project component file \${contract.component?.file ?? "n/a"}: \${message}\`
+  ));
+}
+
+try {
+  const previewPath = contract.preview?.file ?? "preview.html";
+  const previewSource = readText(\`../\${previewPath}\`);
+  for (const entry of domSelectors(contract)) {
+    const needle = selectorAttributeNeedle(entry.selector);
+    if (!needle || !previewSource.includes(needle)) {
+      issues.push(issue(
+        "preview_selector_missing",
+        entry.path,
+        \`Preview file \${previewPath} does not contain selector \${entry.selector}.\`
+      ));
+    }
+  }
+} catch (error) {
+  const message = error instanceof Error ? error.message : "unknown read failure";
+  issues.push(issue(
+    "preview_file_missing",
+    "preview.file",
+    \`Could not read preview file \${contract.preview?.file ?? "n/a"}: \${message}\`
   ));
 }
 
@@ -1165,7 +1193,7 @@ Generated assets:
 
 Verification:
 - Run \`npm run verify:layerdoc\` after editing \`layerdoc.json\` to catch broken graph references before integration.
-- Run \`npm run verify:contract\` to confirm \`integration-contract.json\` still matches the LayerDoc source and project selectors.
+- Run \`npm run verify:contract\` to confirm \`integration-contract.json\` still matches the LayerDoc source, project selectors, and preview selectors.
 - Put the original target visual at \`reference.png\`.
 - Run \`npm run verify:preview -- --reference ./reference.png\` to render \`preview.html\`, capture \`verification-artifacts/candidate.png\`, produce \`verification-artifacts/diff.png\`, and update \`verification-report.json\`.
 - Run \`npm run verify:gates\` after preview verification to enforce the current quality gates.

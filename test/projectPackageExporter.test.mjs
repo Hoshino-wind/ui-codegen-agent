@@ -274,6 +274,22 @@ test("exported integration contract verifier checks project selectors", () => {
   assert.match(failed.stdout, /data-layer-id=\\"headline\\"/);
 });
 
+test("exported integration contract verifier checks preview selectors", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-preview-selector-verifier-"));
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const previewPath = join(directory, "preview.html");
+  const previewSource = readFileSync(previewPath, "utf8");
+  writeFileSync(previewPath, previewSource.replace('data-layer-id="headline"', 'data-layer-id="stale-headline"'));
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /preview_selector_missing/);
+  assert.match(failed.stdout, /preview\.html/);
+  assert.match(failed.stdout, /data-layer-id=\\"headline\\"/);
+});
+
 test("exported LayerDoc verifier script validates the editable source graph", () => {
   const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-source-verifier-"));
   const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
