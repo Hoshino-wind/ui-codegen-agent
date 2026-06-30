@@ -14,6 +14,12 @@ import {
   writeProjectExportPackage
 } from "../dist/index.js";
 
+test("project package exporter stays browser-compatible for Studio exports", () => {
+  const source = readFileSync(join(process.cwd(), "src", "exporters", "projectPackage.ts"), "utf8");
+
+  assert.doesNotMatch(source, /^import .*node:crypto/m);
+});
+
 function createExportDoc() {
   return createLayerDoc({
     name: "Production Homepage",
@@ -74,6 +80,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
 
   assert.equal(output.manifest.packageName, "production-homepage");
   assert.equal(output.manifest.componentName, "ProductionHomepage");
+  assert.match(output.manifest.layerDocHash, /^sha256:[a-f0-9]{64}$/);
   assert.deepEqual(paths, [
     "README.md",
     "index.html",
@@ -167,6 +174,15 @@ test("exported LayerDoc verifier script validates the editable source graph", ()
   assert.match(passed.stdout, /"passed": true/);
 
   const layerDocPath = join(directory, "layerdoc.json");
+  const editedLayerDoc = JSON.parse(readFileSync(layerDocPath, "utf8"));
+  editedLayerDoc.layers[0].content.text = "Edited after export";
+  writeFileSync(layerDocPath, `${JSON.stringify(editedLayerDoc, null, 2)}\n`);
+
+  const stale = spawnSync(process.execPath, ["scripts/verify-layerdoc.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(stale.status, 0);
+  assert.match(stale.stdout, /layerdoc_hash_mismatch/);
+  assert.match(stale.stdout, /does not match manifest\.json/);
+
   const brokenLayerDoc = JSON.parse(readFileSync(layerDocPath, "utf8"));
   brokenLayerDoc.components[0].layerIds.push("missing-layer");
   writeFileSync(layerDocPath, `${JSON.stringify(brokenLayerDoc, null, 2)}\n`);
