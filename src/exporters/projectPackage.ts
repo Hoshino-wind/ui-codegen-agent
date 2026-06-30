@@ -1462,10 +1462,10 @@ const { PNG } = require("pngjs");
 const pixelmatchModule = require("pixelmatch");
 const pixelmatch = pixelmatchModule.default ?? pixelmatchModule;
 
-const usage = \`Usage: node scripts/verify-preview.mjs --reference <reference.png> [--out <directory>] [--candidate <candidate.png>]
+const usage = \`Usage: node scripts/verify-preview.mjs [--reference <reference.png>] [--out <directory>] [--candidate <candidate.png>]
 
 Options:
-  --reference <reference.png>    Original AI visual or target PNG.
+  --reference <reference.png>    Original AI visual or target PNG. Defaults to manifest.json referenceVisual.file.
   --out <directory>              Directory for candidate.png and diff.png. Defaults to verification-artifacts.
   --candidate <candidate.png>    Optional pre-rendered candidate PNG. If omitted, Playwright renders preview.html.
   --browser <executable>         Optional browser executable path for Playwright.
@@ -1538,9 +1538,6 @@ function parseArgs(args) {
     }
     throw new Error(\`Unknown argument: \${arg}.\\n\\n\${usage}\`);
   }
-  if (!options.reference) {
-    throw new Error(\`Missing required argument: --reference <reference.png>.\\n\\n\${usage}\`);
-  }
   return options;
 }
 
@@ -1550,6 +1547,15 @@ function readJson(path) {
 
 function writeJson(path, value) {
   writeFileSync(new URL(path, import.meta.url), \`\${JSON.stringify(value, null, 2)}\\n\`);
+}
+
+function referencePathFrom(options, manifest) {
+  const manifestReference = manifest?.referenceVisual?.file;
+  const reference = options.reference ?? (typeof manifestReference === "string" && manifestReference.length > 0 ? manifestReference : null);
+  if (!reference) {
+    throw new Error(\`Missing reference visual. Pass --reference <reference.png> or set manifest.json referenceVisual.file.\\n\\n\${usage}\`);
+  }
+  return resolve(reference);
 }
 
 function normalizedRelative(path) {
@@ -1673,10 +1679,11 @@ async function renderPreviewScreenshot(outputPath, browserExecutablePath) {
 }
 
 const options = parseArgs(process.argv.slice(2));
+const manifest = readJson("../manifest.json");
 const outputDir = resolve(options.out);
 mkdirSync(outputDir, { recursive: true });
 
-const referencePath = resolve(options.reference);
+const referencePath = referencePathFrom(options, manifest);
 const candidatePath = options.candidate ? resolve(options.candidate) : join(outputDir, "candidate.png");
 const diffPath = join(outputDir, "diff.png");
 
@@ -1825,7 +1832,7 @@ Run locally:
 - \`npm run build\`
 - \`npm run verify:layerdoc\`
 - \`npm run verify:contract\`
-- \`npm run verify:preview -- --reference ./reference.png\`
+- \`npm run verify:preview\`
 - \`npm run verify:gates\`
 
 Generated assets:
@@ -1845,7 +1852,7 @@ Verification:
 - Run \`npm run verify:contract\` to confirm \`integration-contract.json\` still matches the LayerDoc source, project selectors, preview selectors, section order, layer bounds, layer style, layer copy, assets, responsive CSS, and interaction metadata.
 - Hidden sections remain editable in \`layerdoc.json\` but are intentionally omitted from rendered project, preview, and responsive CSS contract requirements.
 - Put the original target visual at \`${manifest.referenceVisual.file}\`.
-- Run \`npm run verify:preview -- --reference ./${manifest.referenceVisual.file}\` to render \`preview.html\`, capture \`verification-artifacts/candidate.png\`, produce \`verification-artifacts/diff.png\`, and update \`verification-report.json\`.
+- Run \`npm run verify:preview\` to use the manifest reference visual, render \`preview.html\`, capture \`verification-artifacts/candidate.png\`, produce \`verification-artifacts/diff.png\`, and update \`verification-report.json\`.
 - Run \`npm run verify:gates\` after preview verification to enforce score thresholds and LayerDoc asset compliance.
 
 Verifier scores:
@@ -1864,7 +1871,7 @@ function handoffCommands(): ProjectHandoffCommand[] {
     { label: "Build the project", command: "npm run build" },
     { label: "Verify LayerDoc source", command: "npm run verify:layerdoc" },
     { label: "Verify integration contract", command: "npm run verify:contract" },
-    { label: "Verify visual preview", command: "npm run verify:preview -- --reference ./reference.png" },
+    { label: "Verify visual preview", command: "npm run verify:preview" },
     { label: "Enforce quality gates", command: "npm run verify:gates" }
   ];
 }

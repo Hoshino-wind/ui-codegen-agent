@@ -405,7 +405,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
       "npm run build",
       "npm run verify:layerdoc",
       "npm run verify:contract",
-      "npm run verify:preview -- --reference ./reference.png",
+      "npm run verify:preview",
       "npm run verify:gates"
     ]
   );
@@ -428,7 +428,8 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:gates/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:contract/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:layerdoc/);
-  assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:preview -- --reference/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:preview/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /manifest reference visual/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /handoff-summary\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /integration-contract\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /layerdoc\.schema\.json/);
@@ -929,6 +930,30 @@ test("exported preview verifier script updates the handoff report from candidate
   assert.equal(report.evidence.visual.kind, "html-screenshot");
   assert.equal(report.visualDiff.diffPath, "verification-artifacts/diff.png");
   assert.deepEqual(report.visualDiff.problemAreas, [{ x: 1, y: 0, width: 1, height: 1 }]);
+});
+
+test("exported preview verifier script defaults to manifest reference visual", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-preview-default-reference-"));
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const referencePath = join(directory, "reference.png");
+  const candidatePath = join(directory, "candidate.png");
+  writeSolidPng(referencePath, 2, 1, [255, 255, 255, 255]);
+  writeSolidPng(candidatePath, 2, 1, [255, 255, 255, 255]);
+
+  const result = spawnSync(
+    process.execPath,
+    ["scripts/verify-preview.mjs", "--candidate", candidatePath, "--out", "verification-artifacts"],
+    { cwd: directory, encoding: "utf8", env: { ...process.env, NODE_PATH: join(process.cwd(), "node_modules") } }
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /"visualSimilarity": 100/);
+  assert.match(result.stdout, /"referencePath":/);
+  assert.match(result.stdout, /reference\.png/);
+  const report = JSON.parse(readFileSync(join(directory, "verification-report.json"), "utf8"));
+  assert.equal(report.visualSimilarity, 100);
 });
 
 test("exported quality gate script passes and fails from project files", () => {
