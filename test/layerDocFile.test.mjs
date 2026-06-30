@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createLayerDocDownload, createReactExportDownload, createVerificationReportDownload, createWorkspaceFromLayerDocJson } from "../dist/app/layerDocFile.js";
+import {
+  createLayerDocDownload,
+  createProjectPackageDownload,
+  createReactExportDownload,
+  createVerificationReportDownload,
+  createWorkspaceFromLayerDocJson
+} from "../dist/app/layerDocFile.js";
 import { createSampleHomepageLayerDoc } from "../dist/app/sampleDocument.js";
 
 test("createWorkspaceFromLayerDocJson imports a valid LayerDoc into the editor workspace", () => {
@@ -57,6 +63,24 @@ test("createReactExportDownload serializes the current React Tailwind export as 
   assert.equal(artifact.mimeType, "text/plain;charset=utf-8");
   assert.match(artifact.contents, /export function ProductionHomepage/);
   assert.match(artifact.contents, /data-layerdoc-version/);
+  assert.equal(artifact.contents.endsWith("\n"), true);
+});
+
+test("createProjectPackageDownload serializes every project package file in one handoff artifact", () => {
+  const workspace = createWorkspaceFromLayerDocJson(JSON.stringify(createSampleHomepageLayerDoc()));
+  const artifact = createProjectPackageDownload(workspace);
+  const payload = JSON.parse(artifact.contents);
+
+  assert.equal(artifact.fileName, "project-package.json");
+  assert.equal(artifact.mimeType, "application/json");
+  assert.equal(payload.manifest.source, "layerdoc");
+  assert.deepEqual(
+    payload.files.map((file) => file.path).sort(),
+    ["README.md", "layerdoc.json", "manifest.json", "preview.html", "src/ProductionHomepage.tsx"].sort()
+  );
+  assert.match(payload.files.find((file) => file.path === "src/ProductionHomepage.tsx").contents, /export function ProductionHomepage/);
+  assert.match(payload.files.find((file) => file.path === "preview.html").contents, /data-layerdoc/);
+  assert.match(payload.files.find((file) => file.path === "layerdoc.json").contents, /"schema": "layerdoc"/);
   assert.equal(artifact.contents.endsWith("\n"), true);
 });
 

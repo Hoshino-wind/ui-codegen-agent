@@ -49,6 +49,7 @@ import {
 } from "./intakeWorkspace.js";
 import {
   createLayerDocDownload,
+  createProjectPackageDownload,
   createReactExportDownload,
   createVerificationReportDownload,
   createWorkspaceFromLayerDocJson,
@@ -504,7 +505,7 @@ function SectionOrder({ workspace, onChange }: { workspace: EditorWorkspace; onC
   );
 }
 
-function ProjectExportPanel({ workspace }: { workspace: EditorWorkspace }) {
+function ProjectExportPanel({ workspace, onDownload }: { workspace: EditorWorkspace; onDownload: () => void }) {
   return (
     <div className="project-export-panel">
       <div className="sidebar-title">Project Package</div>
@@ -512,6 +513,10 @@ function ProjectExportPanel({ workspace }: { workspace: EditorWorkspace }) {
         <strong>{workspace.projectExport.manifest.packageName}</strong>
         <span>{workspace.projectExport.files.length} files</span>
       </div>
+      <button className="export-package-download" type="button" onClick={onDownload}>
+        <Download size={13} />
+        Export Project
+      </button>
       <div className="export-file-list">
         {workspace.projectExport.files.map((file) => (
           <div className="export-file-row" key={file.path}>
@@ -862,6 +867,12 @@ export function App() {
     setLastAction(`Exported ${artifact.fileName}`);
   }
 
+  function exportProjectPackage() {
+    const artifact = createProjectPackageDownload(workspace);
+    downloadArtifact(artifact);
+    setLastAction(`Exported ${artifact.fileName}`);
+  }
+
   function downloadVerifierReport(sourceWorkspace = workspace) {
     const artifact = createVerificationReportDownload(sourceWorkspace);
     downloadArtifact(artifact);
@@ -968,7 +979,7 @@ export function App() {
           <WorkspaceStep item={item} index={index} key={item.label} />
         ))}
         <AnalysisPlanPanel intake={intake} onChange={updateIntake} onBuild={buildFromAnalysisPlan} onUploadFile={(file) => void importPngFile(file)} uploadError={uploadError} />
-        <ProjectExportPanel workspace={workspace} />
+        <ProjectExportPanel workspace={workspace} onDownload={exportProjectPackage} />
         <SectionOrder workspace={workspace} onChange={updateWorkspace} />
       </aside>
 

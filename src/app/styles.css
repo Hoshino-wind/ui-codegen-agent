@@ -596,6 +596,22 @@ button {
   font-weight: 820;
 }
 
+.export-package-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 31px;
+  margin-bottom: 8px;
+  border: 1px solid var(--accent-line);
+  border-radius: 7px;
+  color: var(--accent);
+  background: #f0fdfa;
+  font-size: 12px;
+  font-weight: 820;
+}
+
 .export-file-list {
   display: grid;
   gap: 5px;

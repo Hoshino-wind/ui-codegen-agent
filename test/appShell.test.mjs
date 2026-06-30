@@ -20,3 +20,10 @@ test("app shell exposes LayerDoc load and save actions", () => {
   assert.match(source, /Save LayerDoc/);
   assert.match(source, /accept="application\/json,\.json"/);
 });
+
+test("app shell exposes a project package export action", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /Export Project/);
+  assert.match(source, /createProjectPackageDownload/);
+});

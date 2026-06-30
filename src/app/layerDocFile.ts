@@ -79,6 +79,14 @@ export function createReactExportDownload(workspace: EditorWorkspace): LayerDocD
   };
 }
 
+export function createProjectPackageDownload(workspace: EditorWorkspace): LayerDocDownloadArtifact {
+  return {
+    fileName: "project-package.json",
+    mimeType: "application/json",
+    contents: `${JSON.stringify(workspace.projectExport, null, 2)}\n`
+  };
+}
+
 export function createVerificationReportDownload(workspace: EditorWorkspace): LayerDocDownloadArtifact {
   return {
     fileName: "verification-report.json",
