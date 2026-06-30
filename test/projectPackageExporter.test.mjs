@@ -98,7 +98,10 @@ function createStyledExportDoc() {
           backgroundColor: "#111827",
           textColor: "#ffffff",
           borderRadius: 16,
-          padding: { x: 20, y: 10 }
+          padding: { x: 20, y: 10 },
+          fontFamily: "Inter, sans-serif",
+          lineHeight: 26,
+          letterSpacing: 0.2
         },
         content: { text: "Export React" }
       }
@@ -542,6 +545,18 @@ test("exported integration contract verifier checks project layer style", () => 
 
   const componentPath = join(directory, "src", "StyledHomepage.tsx");
   const componentSource = readFileSync(componentPath, "utf8");
+  const previewSource = readFileSync(join(directory, "preview.html"), "utf8");
+  const verifierSource = readFileSync(join(directory, "scripts", "verify-contract.mjs"), "utf8");
+
+  assert.match(componentSource, /fontFamily: "Inter, sans-serif"/);
+  assert.match(componentSource, /lineHeight: "26px"/);
+  assert.match(componentSource, /letterSpacing: "0.2px"/);
+  assert.match(previewSource, /font-family:Inter, sans-serif/);
+  assert.match(previewSource, /line-height:26px/);
+  assert.match(previewSource, /letter-spacing:0.2px/);
+  assert.match(verifierSource, /lineHeight/);
+  assert.match(verifierSource, /letterSpacing/);
+
   writeFileSync(componentPath, componentSource.replace('backgroundColor: "#111827"', 'backgroundColor: "#0f172a"'));
 
   const failed = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });

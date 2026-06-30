@@ -110,10 +110,16 @@ test("app shell exposes controlled spacing style editing", () => {
 test("app shell exposes controlled typography style editing", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 
+  assert.match(source, /Font family/);
   assert.match(source, /Font size/);
   assert.match(source, /Font weight/);
+  assert.match(source, /Line height/);
+  assert.match(source, /Letter spacing/);
+  assert.match(source, /fontFamily: event\.target\.value/);
   assert.match(source, /fontSize: numberFromInput/);
   assert.match(source, /fontWeight: numberFromInput/);
+  assert.match(source, /lineHeight: numberFromDecimalInput/);
+  assert.match(source, /letterSpacing: numberFromDecimalInput/);
 });
 
 test("app shell exposes controlled border and opacity style editing", () => {

@@ -42,6 +42,10 @@ function paddingValue(style: LayerStyle): string | undefined {
   return `${vertical}px ${horizontal}px`;
 }
 
+function pixelValue(value: number | undefined): string | undefined {
+  return value !== undefined ? `${value}px` : undefined;
+}
+
 function inlineStyle(bounds: Rect, style?: LayerStyle): string {
   const entries = [`left: ${bounds.x}`, `top: ${bounds.y}`, `width: ${bounds.width}`, `height: ${bounds.height}`];
 
@@ -57,11 +61,24 @@ function inlineStyle(bounds: Rect, style?: LayerStyle): string {
   if (style?.borderRadius !== undefined) {
     entries.push(`borderRadius: ${style.borderRadius}`);
   }
+  if (style?.fontFamily) {
+    entries.push(`fontFamily: ${JSON.stringify(style.fontFamily)}`);
+  }
   if (style?.fontSize !== undefined) {
     entries.push(`fontSize: ${style.fontSize}`);
   }
   if (style?.fontWeight !== undefined) {
     entries.push(`fontWeight: ${style.fontWeight}`);
+  }
+  if (style) {
+    const lineHeight = pixelValue(style.lineHeight);
+    if (lineHeight) {
+      entries.push(`lineHeight: ${JSON.stringify(lineHeight)}`);
+    }
+    const letterSpacing = pixelValue(style.letterSpacing);
+    if (letterSpacing) {
+      entries.push(`letterSpacing: ${JSON.stringify(letterSpacing)}`);
+    }
   }
   if (style) {
     const padding = paddingValue(style);

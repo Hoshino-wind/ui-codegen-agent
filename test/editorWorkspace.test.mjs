@@ -151,19 +151,32 @@ test("updateSelectedLayerStyle patches spacing controls through preview and expo
 test("updateSelectedLayerStyle patches typography controls through preview and export outputs", () => {
   const workspace = selectWorkspaceLayer(createEditorWorkspace(createSampleHomepageLayerDoc()), "hero-title");
   const next = updateSelectedLayerStyle(workspace, {
+    fontFamily: "Inter, sans-serif",
     fontSize: 54,
-    fontWeight: 860
+    fontWeight: 860,
+    lineHeight: 62,
+    letterSpacing: 0.4
   });
   const layer = next.doc.layers.find((candidate) => candidate.id === "hero-title");
   const projectComponent = next.projectExport.files.find((file) => file.path === "src/ProductionHomepage.tsx").contents;
 
+  assert.equal(layer.style.fontFamily, "Inter, sans-serif");
   assert.equal(layer.style.fontSize, 54);
   assert.equal(layer.style.fontWeight, 860);
+  assert.equal(layer.style.lineHeight, 62);
+  assert.equal(layer.style.letterSpacing, 0.4);
+  assert.match(next.previewHtml, /data-layer-id="hero-title"[\s\S]+font-family:Inter, sans-serif/);
   assert.match(next.previewHtml, /data-layer-id="hero-title"[\s\S]+font-size:54px/);
   assert.match(next.previewHtml, /data-layer-id="hero-title"[\s\S]+font-weight:860/);
+  assert.match(next.previewHtml, /data-layer-id="hero-title"[\s\S]+line-height:62px/);
+  assert.match(next.previewHtml, /data-layer-id="hero-title"[\s\S]+letter-spacing:0.4px/);
+  assert.match(next.reactExport.code, /data-layer-id="hero-title"[\s\S]+fontFamily: "Inter, sans-serif"/);
   assert.match(next.reactExport.code, /data-layer-id="hero-title"[\s\S]+fontSize: 54/);
   assert.match(next.reactExport.code, /data-layer-id="hero-title"[\s\S]+fontWeight: 860/);
+  assert.match(next.reactExport.code, /data-layer-id="hero-title"[\s\S]+lineHeight: "62px"/);
+  assert.match(next.reactExport.code, /data-layer-id="hero-title"[\s\S]+letterSpacing: "0.4px"/);
   assert.match(projectComponent, /data-layer-id="hero-title"[\s\S]+fontSize: 54/);
+  assert.match(projectComponent, /data-layer-id="hero-title"[\s\S]+lineHeight: "62px"/);
 });
 
 test("updateSelectedLayerStyle patches border and opacity controls through preview and export outputs", () => {

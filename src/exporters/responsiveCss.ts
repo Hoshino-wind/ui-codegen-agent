@@ -83,8 +83,11 @@ function declarationsForChanges(changes: Record<string, unknown>): string[] {
       rawDeclaration("color", style.textColor),
       rawDeclaration("border-color", style.borderColor),
       pxDeclaration("border-radius", style.borderRadius),
+      rawDeclaration("font-family", style.fontFamily),
       pxDeclaration("font-size", style.fontSize),
       numericDeclaration("font-weight", style.fontWeight),
+      pxDeclaration("line-height", style.lineHeight),
+      pxDeclaration("letter-spacing", style.letterSpacing),
       numericDeclaration("opacity", style.opacity),
       pxDeclaration("gap", style.gap)
     );

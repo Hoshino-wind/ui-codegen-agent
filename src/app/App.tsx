@@ -229,8 +229,11 @@ function CanvasLayer({
     borderColor: layer.style?.borderColor,
     borderStyle: layer.style?.borderColor ? "solid" : undefined,
     borderWidth: layer.style?.borderColor ? 1 : undefined,
+    fontFamily: layer.style?.fontFamily,
     fontSize: layer.style?.fontSize ? layer.style.fontSize * scale : undefined,
     fontWeight: layer.style?.fontWeight,
+    lineHeight: layer.style?.lineHeight !== undefined ? `${layer.style.lineHeight * scale}px` : undefined,
+    letterSpacing: layer.style?.letterSpacing !== undefined ? `${layer.style.letterSpacing * scale}px` : undefined,
     borderRadius: layer.style?.borderRadius ? layer.style.borderRadius * scale : undefined,
     opacity: layer.style?.opacity
   };
@@ -520,6 +523,13 @@ function Inspector({
           />
         </label>
         <label className="field">
+          <span>Font family</span>
+          <input
+            value={styleValue(layer.style, "fontFamily", "")}
+            onChange={(event) => patchStyle({ fontFamily: event.target.value })}
+          />
+        </label>
+        <label className="field">
           <span>Radius</span>
           <input
             type="number"
@@ -545,6 +555,25 @@ function Inspector({
             step="10"
             value={styleValue(layer.style, "fontWeight", "0")}
             onChange={(event) => patchStyle({ fontWeight: numberFromInput(event.target.value) })}
+          />
+        </label>
+        <label className="field">
+          <span>Line height</span>
+          <input
+            type="number"
+            min="1"
+            step="0.5"
+            value={styleValue(layer.style, "lineHeight", "0")}
+            onChange={(event) => patchStyle({ lineHeight: numberFromDecimalInput(event.target.value) })}
+          />
+        </label>
+        <label className="field">
+          <span>Letter spacing</span>
+          <input
+            type="number"
+            step="0.1"
+            value={styleValue(layer.style, "letterSpacing", "0")}
+            onChange={(event) => patchStyle({ letterSpacing: numberFromDecimalInput(event.target.value) })}
           />
         </label>
         <label className="field">

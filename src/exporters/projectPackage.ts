@@ -561,8 +561,11 @@ function declarationsForResponsiveChanges(changes) {
       rawDeclaration("color", style.textColor),
       rawDeclaration("border-color", style.borderColor),
       pxDeclaration("border-radius", style.borderRadius),
+      rawDeclaration("font-family", style.fontFamily),
       pxDeclaration("font-size", style.fontSize),
       numericDeclaration("font-weight", style.fontWeight),
+      pxDeclaration("line-height", style.lineHeight),
+      pxDeclaration("letter-spacing", style.letterSpacing),
       numericDeclaration("opacity", style.opacity),
       pxDeclaration("gap", style.gap)
     );
@@ -721,6 +724,14 @@ function numberStyleFragment(property, value, format, unit = "") {
     : \`\${property}:\${value}\${unit}\`;
 }
 
+function pixelStringStyleFragment(property, value, format) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+
+  return format === "react" ? \`\${property}: \${JSON.stringify(\`\${value}px\`)}\` : \`\${property}:\${value}px\`;
+}
+
 function styleFragments(style, format) {
   if (!isRecord(style)) {
     return [];
@@ -732,8 +743,11 @@ function styleFragments(style, format) {
         stringStyleFragment("color", style.textColor, format),
         stringStyleFragment("borderColor", style.borderColor, format),
         numberStyleFragment("borderRadius", style.borderRadius, format),
+        stringStyleFragment("fontFamily", style.fontFamily, format),
         numberStyleFragment("fontSize", style.fontSize, format),
         numberStyleFragment("fontWeight", style.fontWeight, format),
+        pixelStringStyleFragment("lineHeight", style.lineHeight, format),
+        pixelStringStyleFragment("letterSpacing", style.letterSpacing, format),
         numberStyleFragment("opacity", style.opacity, format),
         numberStyleFragment("gap", style.gap, format)
       ]
@@ -742,8 +756,11 @@ function styleFragments(style, format) {
         stringStyleFragment("color", style.textColor, format),
         stringStyleFragment("border-color", style.borderColor, format),
         numberStyleFragment("border-radius", style.borderRadius, format, "px"),
+        stringStyleFragment("font-family", style.fontFamily, format),
         numberStyleFragment("font-size", style.fontSize, format, "px"),
         numberStyleFragment("font-weight", style.fontWeight, format),
+        pixelStringStyleFragment("line-height", style.lineHeight, format),
+        pixelStringStyleFragment("letter-spacing", style.letterSpacing, format),
         numberStyleFragment("opacity", style.opacity, format),
         numberStyleFragment("gap", style.gap, format, "px")
       ];

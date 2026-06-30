@@ -60,8 +60,11 @@ export interface LayerStyle {
   textColor?: string;
   borderColor?: string;
   borderRadius?: number;
+  fontFamily?: string;
   fontSize?: number;
   fontWeight?: number;
+  lineHeight?: number;
+  letterSpacing?: number;
   padding?: LayerSpacing;
   gap?: number;
   opacity?: number;

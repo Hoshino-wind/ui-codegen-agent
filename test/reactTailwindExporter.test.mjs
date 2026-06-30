@@ -113,7 +113,10 @@ test("exportReactTailwind preserves controlled layer styles in React style props
           borderRadius: 16,
           padding: { x: 24, y: 12 },
           fontSize: 18,
-          fontWeight: 760
+          fontWeight: 760,
+          fontFamily: "Inter, sans-serif",
+          lineHeight: 26,
+          letterSpacing: 0.2
         },
         content: { text: "Export" }
       }
@@ -128,6 +131,9 @@ test("exportReactTailwind preserves controlled layer styles in React style props
   assert.match(output.code, /padding: "12px 24px"/);
   assert.match(output.code, /fontSize: 18/);
   assert.match(output.code, /fontWeight: 760/);
+  assert.match(output.code, /fontFamily: "Inter, sans-serif"/);
+  assert.match(output.code, /lineHeight: "26px"/);
+  assert.match(output.code, /letterSpacing: "0.2px"/);
 });
 
 test("exportReactTailwind projects responsive rules into component CSS", () => {

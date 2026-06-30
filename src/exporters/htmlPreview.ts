@@ -40,11 +40,20 @@ function styleFor(bounds: Rect, style?: LayerStyle): string {
   if (style?.borderRadius !== undefined) {
     declarations.push(`border-radius:${style.borderRadius}px`);
   }
+  if (style?.fontFamily) {
+    declarations.push(`font-family:${escapeHtml(style.fontFamily)}`);
+  }
   if (style?.fontSize !== undefined) {
     declarations.push(`font-size:${style.fontSize}px`);
   }
   if (style?.fontWeight !== undefined) {
     declarations.push(`font-weight:${style.fontWeight}`);
+  }
+  if (style?.lineHeight !== undefined) {
+    declarations.push(`line-height:${style.lineHeight}px`);
+  }
+  if (style?.letterSpacing !== undefined) {
+    declarations.push(`letter-spacing:${style.letterSpacing}px`);
   }
   if (style?.padding) {
     const vertical = style.padding.y ?? style.padding.top ?? style.padding.bottom ?? 0;

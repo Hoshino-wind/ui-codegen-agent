@@ -84,7 +84,10 @@ test("renderHtmlPreview renders controlled layer styles into CSS", () => {
           padding: { x: 24, y: 12 },
           opacity: 0.9,
           fontSize: 18,
-          fontWeight: 760
+          fontWeight: 760,
+          fontFamily: "Inter, sans-serif",
+          lineHeight: 26,
+          letterSpacing: 0.2
         },
         content: { text: "Generate" }
       }
@@ -101,6 +104,9 @@ test("renderHtmlPreview renders controlled layer styles into CSS", () => {
   assert.match(html, /opacity:0.9/);
   assert.match(html, /font-size:18px/);
   assert.match(html, /font-weight:760/);
+  assert.match(html, /font-family:Inter, sans-serif/);
+  assert.match(html, /line-height:26px/);
+  assert.match(html, /letter-spacing:0.2px/);
 });
 
 test("renderHtmlPreview projects responsive rules into media query CSS", () => {
