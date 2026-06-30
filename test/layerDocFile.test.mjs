@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  createAnalysisPlanDownload,
   createLayerDocDownload,
   createProjectPackageDownload,
   createProjectPackageZipDownload,
@@ -11,6 +12,7 @@ import {
 } from "../dist/app/layerDocFile.js";
 import { applyWorkspaceVisualDiff } from "../dist/app/editorWorkspace.js";
 import { createSampleHomepageLayerDoc } from "../dist/app/sampleDocument.js";
+import { createHomepageAnalysisPlan } from "../dist/index.js";
 
 function readUInt16LE(bytes, offset) {
   return bytes[offset] | (bytes[offset + 1] << 8);
@@ -112,6 +114,23 @@ test("createLayerDocDownload serializes verifier scores stored on the current La
   assert.equal(parsed.verification.scores.visualSimilarity, 88.25);
   assert.equal(parsed.verification.scores.structureScore, verified.report.structureScore);
   assert.deepEqual(parsed.verification.issues, verified.report.issues);
+});
+
+test("createAnalysisPlanDownload serializes the current structured intake plan", () => {
+  const plan = createHomepageAnalysisPlan({
+    name: "Marked homepage",
+    canvas: { width: 640, height: 960 }
+  });
+
+  const artifact = createAnalysisPlanDownload(plan);
+  const parsed = JSON.parse(artifact.contents);
+
+  assert.equal(artifact.fileName, "analysis-plan.json");
+  assert.equal(artifact.mimeType, "application/json");
+  assert.equal(parsed.name, "Marked homepage");
+  assert.equal(parsed.canvas.width, 640);
+  assert.equal(parsed.sections.length, 8);
+  assert.equal(artifact.contents.endsWith("\n"), true);
 });
 
 test("createReactExportDownload serializes the current React Tailwind export as a TSX artifact", () => {

@@ -51,6 +51,7 @@ import {
   type ManualAnalysisLayerKind
 } from "./intakeWorkspace.js";
 import {
+  createAnalysisPlanDownload,
   createLayerDocDownload,
   createProjectPackageDownload,
   createProjectPackageZipDownload,
@@ -776,12 +777,14 @@ function AnalysisPlanPanel({
   intake,
   onChange,
   onBuild,
+  onDownloadPlan,
   onUploadFile,
   uploadError
 }: {
   intake: IntakeWorkspace;
   onChange: (workspace: IntakeWorkspace) => void;
   onBuild: () => void | Promise<void>;
+  onDownloadPlan: () => void;
   onUploadFile: (file: File) => void;
   uploadError: string | null;
 }) {
@@ -940,6 +943,10 @@ function AnalysisPlanPanel({
         ) : null}
       </div>
       <div className="analysis-actions">
+        <button type="button" onClick={onDownloadPlan}>
+          <Download size={13} />
+          Save Analysis Plan
+        </button>
         <button type="button" onClick={() => onChange(seedHomepageAnnotations(intake))}>
           Seed homepage
         </button>
@@ -1139,6 +1146,12 @@ export function App() {
     setLastAction(`Saved ${artifact.fileName}`);
   }
 
+  function saveAnalysisPlanFile() {
+    const artifact = createAnalysisPlanDownload(intake.analysisPlan);
+    downloadArtifact(artifact);
+    setLastAction(`Saved ${artifact.fileName}`);
+  }
+
   function exportReactFile() {
     const artifact = createReactExportDownload(workspace);
     downloadArtifact(artifact);
@@ -1286,7 +1299,14 @@ export function App() {
         {workflow.map((item, index) => (
           <WorkspaceStep item={item} index={index} key={item.label} />
         ))}
-        <AnalysisPlanPanel intake={intake} onChange={updateIntake} onBuild={buildFromAnalysisPlan} onUploadFile={(file) => void importPngFile(file)} uploadError={uploadError} />
+        <AnalysisPlanPanel
+          intake={intake}
+          onChange={updateIntake}
+          onBuild={buildFromAnalysisPlan}
+          onDownloadPlan={saveAnalysisPlanFile}
+          onUploadFile={(file) => void importPngFile(file)}
+          uploadError={uploadError}
+        />
         <ProjectExportPanel workspace={workspace} onDownload={exportProjectPackage} onDownloadZip={exportProjectZip} />
         <SectionOrder workspace={workspace} onChange={updateWorkspace} />
       </aside>

@@ -1,5 +1,6 @@
 import { validateLayerDoc } from "../layerdoc/validation.js";
 import type { LayerDoc } from "../layerdoc/types.js";
+import type { HomepageAnalysisPlan } from "../importers/homepageAnalysisPlan.js";
 import { createStoredZipArchive } from "../exporters/zipArchive.js";
 import { createEditorWorkspace, type EditorWorkspace } from "./editorWorkspace.js";
 
@@ -69,6 +70,14 @@ export function createLayerDocDownload(doc: LayerDoc, fileName = "layerdoc.json"
     fileName,
     mimeType: "application/json",
     contents: `${JSON.stringify(doc, null, 2)}\n`
+  };
+}
+
+export function createAnalysisPlanDownload(plan: HomepageAnalysisPlan, fileName = "analysis-plan.json"): LayerDocDownloadArtifact {
+  return {
+    fileName,
+    mimeType: "application/json",
+    contents: `${JSON.stringify(plan, null, 2)}\n`
   };
 }
 
