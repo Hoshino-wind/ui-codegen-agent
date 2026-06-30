@@ -93,6 +93,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     "package.json",
     "preview.html",
     "quality-gates.json",
+    "scripts/verify-contract.mjs",
     "scripts/verify-gates.mjs",
     "scripts/verify-layerdoc.mjs",
     "scripts/verify-preview.mjs",
@@ -110,6 +111,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:preview": "node scripts\/verify-preview\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:gates": "node scripts\/verify-gates\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:layerdoc": "node scripts\/verify-layerdoc\.mjs"/);
+  assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:contract": "node scripts\/verify-contract\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"playwright"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"pixelmatch"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"pngjs"/);
@@ -154,6 +156,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "verification-report.json").contents, /"evidence"/);
   assert.match(output.files.find((file) => file.path === "quality-gates.json").contents, /"visualSimilarity": 85/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-gates.mjs").contents, /verification-report\.json/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /integration-contract\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-layerdoc.mjs").contents, /layerdoc\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /preview\.html/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /verification-report\.json/);
@@ -161,6 +164,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm install/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run dev/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:gates/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:contract/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:layerdoc/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:preview -- --reference/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /integration-contract\.json/);
@@ -174,7 +178,7 @@ test("writeProjectExportPackage writes every package file under the target direc
 
   const written = writeProjectExportPackage(output, directory);
 
-  assert.equal(written.files.length, 20);
+  assert.equal(written.files.length, 21);
   assert.equal(existsSync(join(directory, "src", "ProductionHomepage.tsx")), true);
   assert.equal(existsSync(join(directory, "integration-contract.json")), true);
   assert.equal(existsSync(join(directory, "layerdoc-audit.json")), true);
@@ -183,6 +187,7 @@ test("writeProjectExportPackage writes every package file under the target direc
   assert.equal(existsSync(join(directory, "package.json")), true);
   assert.equal(existsSync(join(directory, "vite.config.ts")), true);
   assert.equal(existsSync(join(directory, "scripts", "verify-gates.mjs")), true);
+  assert.equal(existsSync(join(directory, "scripts", "verify-contract.mjs")), true);
   assert.equal(existsSync(join(directory, "scripts", "verify-layerdoc.mjs")), true);
   assert.equal(existsSync(join(directory, "scripts", "verify-preview.mjs")), true);
   assert.equal(existsSync(join(directory, "verification-report.json")), true);
@@ -194,6 +199,27 @@ test("writeProjectExportPackage writes every package file under the target direc
     written.files.map((file) => file.relativePath).sort(),
     output.files.map((file) => file.path).sort()
   );
+});
+
+test("exported integration contract verifier validates the handoff mapping", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-contract-verifier-"));
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const passed = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.equal(passed.status, 0, passed.stderr);
+  assert.match(passed.stdout, /"passed": true/);
+
+  const contractPath = join(directory, "integration-contract.json");
+  const staleContract = JSON.parse(readFileSync(contractPath, "utf8"));
+  staleContract.layers[0].selector = '[data-layer-id="stale-headline"]';
+  writeFileSync(contractPath, `${JSON.stringify(staleContract, null, 2)}\n`);
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /integration_contract_mismatch/);
+  assert.match(failed.stdout, /layers/);
+  assert.match(failed.stdout, /stale-headline/);
 });
 
 test("exported LayerDoc verifier script validates the editable source graph", () => {

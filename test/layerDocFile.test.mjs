@@ -124,6 +124,7 @@ test("createProjectPackageDownload serializes every project package file in one 
       "package.json",
       "preview.html",
       "quality-gates.json",
+      "scripts/verify-contract.mjs",
       "scripts/verify-gates.mjs",
       "scripts/verify-layerdoc.mjs",
       "scripts/verify-preview.mjs",
@@ -139,12 +140,14 @@ test("createProjectPackageDownload serializes every project package file in one 
   assert.equal(payload.manifest.integrationContract, "integration-contract.json");
   assert.match(payload.files.find((file) => file.path === "integration-contract.json").contents, /"rootSelector": "\[data-layerdoc-version=/);
   assert.match(payload.files.find((file) => file.path === "package.json").contents, /"dev": "vite"/);
+  assert.match(payload.files.find((file) => file.path === "package.json").contents, /"verify:contract"/);
   assert.match(payload.files.find((file) => file.path === "package.json").contents, /"verify:preview"/);
   assert.match(payload.files.find((file) => file.path === "package.json").contents, /"verify:gates"/);
   assert.match(payload.files.find((file) => file.path === "layerdoc-audit.json").contents, /"assetCompliance"/);
   assert.match(payload.files.find((file) => file.path === "src/main.tsx").contents, /createRoot/);
   assert.match(payload.files.find((file) => file.path === "src/App.tsx").contents, /ProductionHomepage/);
   assert.match(payload.files.find((file) => file.path === "verification-report.json").contents, /"structureScore": 100/);
+  assert.match(payload.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /integration-contract\.json/);
   assert.match(payload.files.find((file) => file.path === "scripts/verify-gates.mjs").contents, /quality-gates\.json/);
   assert.match(payload.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /preview\.html/);
   assert.match(payload.files.find((file) => file.path === "src/ProductionHomepage.tsx").contents, /export function ProductionHomepage/);
@@ -167,6 +170,7 @@ test("createProjectPackageZipDownload serializes the project package as a real Z
   assert.deepEqual(zipCentralDirectoryNames(artifact.contents).sort(), workspace.projectExport.files.map((file) => file.path).sort());
   assert.equal(zipCentralDirectoryNames(artifact.contents).includes("layerdoc-audit.json"), true);
   assert.equal(zipCentralDirectoryNames(artifact.contents).includes("integration-contract.json"), true);
+  assert.equal(zipCentralDirectoryNames(artifact.contents).includes("scripts/verify-contract.mjs"), true);
   assert.equal(zipCentralDirectoryNames(artifact.contents).includes("src/ProductionHomepage.tsx"), true);
 });
 

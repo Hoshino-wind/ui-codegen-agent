@@ -292,6 +292,7 @@ function packageJsonFor(manifest: ProjectExportManifest): string {
       build: "tsc --noEmit && vite build",
       preview: "vite preview",
       "verify:layerdoc": "node scripts/verify-layerdoc.mjs",
+      "verify:contract": "node scripts/verify-contract.mjs",
       "verify:preview": "node scripts/verify-preview.mjs",
       "verify:gates": "node scripts/verify-gates.mjs"
     },
@@ -349,6 +350,125 @@ const result = {
     componentScore: report.componentScore,
     projectFitScore: report.projectFitScore
   }
+};
+
+process.stdout.write(\`\${JSON.stringify(result, null, 2)}\\n\`);
+if (!result.passed) {
+  process.exitCode = 1;
+}
+`;
+}
+
+function contractVerifierScriptFor(): string {
+  return `import { readFileSync } from "node:fs";
+
+function readJson(path) {
+  return JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
+}
+
+function stableJson(value) {
+  return \`\${JSON.stringify(value, null, 2)}\\n\`;
+}
+
+function issue(code, path, message) {
+  return { code, path, message };
+}
+
+function selectorFor(attribute, value) {
+  return \`[\${attribute}="\${String(value).replace(/\\\\/g, "\\\\\\\\").replace(/"/g, '\\\\"')}"]\`;
+}
+
+function expectedContractFrom(layerDoc, manifest) {
+  const componentIdsByLayerId = new Map();
+  for (const component of layerDoc.components ?? []) {
+    for (const layerId of component.layerIds ?? []) {
+      componentIdsByLayerId.set(layerId, [...(componentIdsByLayerId.get(layerId) ?? []), component.id]);
+    }
+  }
+
+  return {
+    version: "0.1.0",
+    layerDoc: {
+      file: "layerdoc.json",
+      hash: manifest.layerDocHash,
+      schema: layerDoc.schema,
+      version: layerDoc.version
+    },
+    component: {
+      name: manifest.componentName,
+      file: \`src/\${manifest.componentName}.tsx\`,
+      rootSelector: selectorFor("data-layerdoc-version", layerDoc.version)
+    },
+    preview: {
+      file: "preview.html"
+    },
+    sections: (layerDoc.sections ?? []).map((section) => ({
+      id: section.id,
+      name: section.name,
+      selector: selectorFor("data-section-id", section.id),
+      layerIds: [...(section.layerIds ?? [])]
+    })),
+    layers: (layerDoc.layers ?? []).map((layer) => ({
+      id: layer.id,
+      kind: layer.kind,
+      track: layer.track,
+      editable: layer.editable,
+      sectionId: layer.sectionId ?? null,
+      componentIds: componentIdsByLayerId.get(layer.id) ?? [],
+      assetId: layer.assetId ?? null,
+      selector: selectorFor("data-layer-id", layer.id),
+      interactionIds: (layerDoc.interactions ?? []).filter((interaction) => interaction.layerId === layer.id).map((interaction) => interaction.id)
+    })),
+    components: (layerDoc.components ?? []).map((component) => ({
+      id: component.id,
+      exportable: component.exportable,
+      selector: component.exportable ? selectorFor("data-component-id", component.id) : null,
+      layerIds: [...(component.layerIds ?? [])]
+    })),
+    assets: (layerDoc.assets ?? []).map((asset) => ({
+      id: asset.id,
+      type: asset.type,
+      source: asset.source,
+      uri: asset.uri ?? null,
+      usedByLayerIds: (layerDoc.layers ?? []).filter((layer) => layer.assetId === asset.id).map((layer) => layer.id)
+    })),
+    interactions: (layerDoc.interactions ?? []).map((interaction) => ({
+      id: interaction.id,
+      layerId: interaction.layerId,
+      event: interaction.event,
+      action: interaction.action,
+      selector: selectorFor("data-layer-id", interaction.layerId)
+    }))
+  };
+}
+
+const layerDoc = readJson("../layerdoc.json");
+const manifest = readJson("../manifest.json");
+const contract = readJson("../integration-contract.json");
+const expected = expectedContractFrom(layerDoc, manifest);
+const issues = [];
+
+if (manifest.integrationContract !== "integration-contract.json") {
+  issues.push(issue(
+    "integration_contract_manifest_mismatch",
+    "manifest.json.integrationContract",
+    \`manifest.json points at \${manifest.integrationContract ?? "n/a"} instead of integration-contract.json.\`
+  ));
+}
+
+if (stableJson(contract) !== stableJson(expected)) {
+  issues.push(issue(
+    "integration_contract_mismatch",
+    "integration-contract.json",
+    \`integration-contract.json does not match LayerDoc-derived mapping. Expected \${stableJson(expected)} Received \${stableJson(contract)}\`
+  ));
+}
+
+const result = {
+  passed: issues.length === 0,
+  contractPath: "integration-contract.json",
+  layerDocHash: manifest.layerDocHash ?? null,
+  issues
 };
 
 process.stdout.write(\`\${JSON.stringify(result, null, 2)}\\n\`);
@@ -898,6 +1018,7 @@ Run locally:
 - \`npm run dev\`
 - \`npm run build\`
 - \`npm run verify:layerdoc\`
+- \`npm run verify:contract\`
 - \`npm run verify:preview -- --reference ./reference.png\`
 - \`npm run verify:gates\`
 
@@ -909,10 +1030,11 @@ Generated assets:
 - \`integration-contract.json\`: stable mapping from LayerDoc objects to project files and DOM selectors
 - \`manifest.json\`, \`layerdoc.schema.json\`: project package manifest and LayerDoc source contract
 - \`layerdoc-audit.json\`: structure, track, and asset-compliance audit
-- \`verification-report.json\`, \`quality-gates.json\`, \`scripts/verify-layerdoc.mjs\`, \`scripts/verify-preview.mjs\`, \`scripts/verify-gates.mjs\`: executable source, visual, and quality gate handoff
+- \`verification-report.json\`, \`quality-gates.json\`, \`scripts/verify-layerdoc.mjs\`, \`scripts/verify-contract.mjs\`, \`scripts/verify-preview.mjs\`, \`scripts/verify-gates.mjs\`: executable source, contract, visual, and quality gate handoff
 
 Verification:
 - Run \`npm run verify:layerdoc\` after editing \`layerdoc.json\` to catch broken graph references before integration.
+- Run \`npm run verify:contract\` to confirm \`integration-contract.json\` still matches the LayerDoc source and project selectors.
 - Put the original target visual at \`reference.png\`.
 - Run \`npm run verify:preview -- --reference ./reference.png\` to render \`preview.html\`, capture \`verification-artifacts/candidate.png\`, produce \`verification-artifacts/diff.png\`, and update \`verification-report.json\`.
 - Run \`npm run verify:gates\` after preview verification to enforce the current quality gates.
@@ -948,6 +1070,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     "package.json",
     "preview.html",
     "quality-gates.json",
+    "scripts/verify-contract.mjs",
     "scripts/verify-gates.mjs",
     "scripts/verify-layerdoc.mjs",
     "scripts/verify-preview.mjs",
@@ -984,6 +1107,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
       { path: "package.json", contents: packageJsonFor(manifest) },
       { path: "preview.html", contents: renderHtmlPreview(doc) },
       { path: "quality-gates.json", contents: stableJson(defaultVerificationGates) },
+      { path: "scripts/verify-contract.mjs", contents: contractVerifierScriptFor() },
       { path: "scripts/verify-gates.mjs", contents: qualityGateScriptFor() },
       { path: "scripts/verify-layerdoc.mjs", contents: layerDocVerifierScriptFor() },
       { path: "scripts/verify-preview.mjs", contents: previewVerifierScriptFor() },
