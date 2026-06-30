@@ -76,6 +76,10 @@ function visibleLayers(doc: LayerDoc): LayerNode[] {
   return doc.layers.filter((layer) => !layer.sectionId || !hiddenSectionIds.has(layer.sectionId));
 }
 
+function visibleLayerIds(doc: LayerDoc): Set<string> {
+  return new Set(visibleLayers(doc).map((layer) => layer.id));
+}
+
 function interactionsForLayer(doc: LayerDoc, layerId: string): InteractionNode[] {
   return doc.interactions.filter((interaction) => interaction.layerId === layerId);
 }
@@ -120,10 +124,10 @@ function sectionComponents(doc: LayerDoc, section: SectionNode): ComponentNode[]
   return doc.components.filter((component) => component.exportable && component.layerIds.some((layerId) => sectionLayerIds.has(layerId)));
 }
 
-function renderComponent(doc: LayerDoc, component: ComponentNode, origin: Rect): string {
+function renderComponent(doc: LayerDoc, component: ComponentNode, origin: Rect, visibleIds: Set<string>): string {
   const componentLayers = component.layerIds
     .map((layerId) => doc.layers.find((layer) => layer.id === layerId))
-    .filter((layer): layer is LayerNode => Boolean(layer))
+    .filter((layer): layer is LayerNode => layer !== undefined && visibleIds.has(layer.id))
     .map((layer) => `      ${renderLayer(doc, layer, relativeBounds(layer.bounds, origin))}`)
     .join("\n");
 
@@ -132,10 +136,10 @@ ${componentLayers}
     </div>`;
 }
 
-function renderSection(doc: LayerDoc, section: SectionNode): string {
+function renderSection(doc: LayerDoc, section: SectionNode, visibleIds: Set<string>): string {
   const components = sectionComponents(doc, section);
-  const componentLayerIds = new Set(components.flatMap((component) => component.layerIds));
-  const componentNodes = components.map((component) => `    ${renderComponent(doc, component, section.bounds)}`);
+  const componentLayerIds = new Set(components.flatMap((component) => component.layerIds.filter((layerId) => visibleIds.has(layerId))));
+  const componentNodes = components.map((component) => `    ${renderComponent(doc, component, section.bounds, visibleIds)}`);
   const layerNodes = sectionLayers(doc, section)
     .filter((layer) => !componentLayerIds.has(layer.id))
     .map((layer) => `    ${renderLayer(doc, layer, relativeBounds(layer.bounds, section.bounds))}`);
@@ -158,7 +162,8 @@ function visibleSections(doc: LayerDoc): SectionNode[] {
 export function renderHtmlPreview(doc: LayerDoc): string {
   const background = escapeHtml(doc.canvas.background ?? "#ffffff");
   const sectionLayerIds = new Set(visibleSections(doc).flatMap((section) => section.layerIds));
-  const sections = visibleSections(doc).map((section) => renderSection(doc, section)).join("\n    ");
+  const visibleIds = visibleLayerIds(doc);
+  const sections = visibleSections(doc).map((section) => renderSection(doc, section, visibleIds)).join("\n    ");
   const layers = visibleLayers(doc)
     .filter((layer) => !sectionLayerIds.has(layer.id))
     .map((layer) => renderLayer(doc, layer))

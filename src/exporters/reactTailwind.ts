@@ -138,14 +138,18 @@ function visibleSections(doc: LayerDoc): SectionNode[] {
   return doc.sections.filter((section) => section.visible !== false);
 }
 
-function visibleExportableComponents(doc: LayerDoc): ComponentNode[] {
-  const visibleLayerIds = new Set(visibleSections(doc).flatMap((section) => section.layerIds));
-  return doc.components.filter((component) => component.exportable && component.layerIds.some((layerId) => visibleLayerIds.has(layerId)));
+function visibleLayerIds(doc: LayerDoc): Set<string> {
+  return new Set(visibleSections(doc).flatMap((section) => section.layerIds));
 }
 
-function renderSection(doc: LayerDoc, section: SectionNode): string {
+function visibleExportableComponents(doc: LayerDoc): ComponentNode[] {
+  const layerIds = visibleLayerIds(doc);
+  return doc.components.filter((component) => component.exportable && component.layerIds.some((layerId) => layerIds.has(layerId)));
+}
+
+function renderSection(doc: LayerDoc, section: SectionNode, visibleIds: Set<string>): string {
   const components = sectionComponents(doc, section);
-  const componentLayerIds = new Set(components.flatMap((component) => component.layerIds));
+  const componentLayerIds = new Set(components.flatMap((component) => component.layerIds.filter((layerId) => visibleIds.has(layerId))));
   const componentCalls = components.map((component) => `        <${componentFunctionName(component)} />`);
   const layers = sectionLayers(doc, section)
     .filter((layer) => !componentLayerIds.has(layer.id))
@@ -157,8 +161,10 @@ ${body}
       </section>`;
 }
 
-function renderComponent(doc: LayerDoc, component: ComponentNode): string | null {
-  const layers = component.layerIds.map((layerId) => doc.layers.find((layer) => layer.id === layerId)).filter((layer): layer is LayerNode => Boolean(layer));
+function renderComponent(doc: LayerDoc, component: ComponentNode, visibleIds: Set<string>): string | null {
+  const layers = component.layerIds
+    .map((layerId) => doc.layers.find((layer) => layer.id === layerId))
+    .filter((layer): layer is LayerNode => layer !== undefined && visibleIds.has(layer.id));
   if (layers.length === 0) {
     return null;
   }
@@ -195,11 +201,12 @@ export function exportReactTailwind(doc: LayerDoc, options: ReactTailwindExportO
     throw new Error("componentName must be a PascalCase identifier.");
   }
 
+  const visibleIds = visibleLayerIds(doc);
   const componentFunctions = visibleExportableComponents(doc)
-    .map((component) => renderComponent(doc, component))
+    .map((component) => renderComponent(doc, component, visibleIds))
     .filter((component): component is string => Boolean(component))
     .join("\n");
-  const sections = visibleSections(doc).map((section) => renderSection(doc, section)).join("\n");
+  const sections = visibleSections(doc).map((section) => renderSection(doc, section, visibleIds)).join("\n");
   const orphanLayers = doc.layers
     .filter((layer) => !layer.sectionId)
     .map((layer) => `      ${renderLayer(doc, layer)}`)

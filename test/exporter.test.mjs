@@ -174,6 +174,7 @@ test("renderHtmlPreview omits layers that belong to hidden sections", () => {
       { id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 640, height: 400 }, layerIds: ["headline"] },
       { id: "pricing", name: "Pricing", visible: false, bounds: { x: 0, y: 400, width: 640, height: 400 }, layerIds: ["price-card"] }
     ],
+    components: [{ id: "HeroComposite", layerIds: ["headline", "price-card"], exportable: true }],
     layers: [
       {
         id: "headline",
@@ -199,6 +200,7 @@ test("renderHtmlPreview omits layers that belong to hidden sections", () => {
   const html = renderHtmlPreview(doc);
 
   assert.match(html, /Visible headline/);
+  assert.match(html, /data-component-id="HeroComposite"/);
   assert.doesNotMatch(html, /price-card/);
   assert.doesNotMatch(html, /Hidden pricing/);
 });

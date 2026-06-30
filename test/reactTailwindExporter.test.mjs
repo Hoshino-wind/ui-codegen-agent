@@ -202,7 +202,7 @@ test("exportReactTailwind omits hidden sections while preserving them in LayerDo
       { id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 960, height: 480 }, layerIds: ["headline"] },
       { id: "pricing", name: "Pricing", visible: false, bounds: { x: 0, y: 480, width: 960, height: 480 }, layerIds: ["price-card"] }
     ],
-    components: [{ id: "PricingSection", layerIds: ["price-card"], exportable: true }],
+    components: [{ id: "HeroComposite", layerIds: ["headline", "price-card"], exportable: true }],
     layers: [
       {
         id: "headline",
@@ -228,8 +228,9 @@ test("exportReactTailwind omits hidden sections while preserving them in LayerDo
   const output = exportReactTailwind(doc, { componentName: "HiddenSectionExport" });
 
   assert.match(output.code, /data-section-id="hero"/);
+  assert.match(output.code, /function HeroComposite/);
   assert.match(output.code, /Visible export/);
   assert.doesNotMatch(output.code, /data-section-id="pricing"/);
-  assert.doesNotMatch(output.code, /function PricingSection/);
+  assert.doesNotMatch(output.code, /data-layer-id="price-card"/);
   assert.doesNotMatch(output.code, /Hidden export/);
 });

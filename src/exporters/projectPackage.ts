@@ -249,6 +249,10 @@ function visibleContractComponents(doc: LayerDoc, visibleLayerIds: Set<string>):
   return doc.components.filter((component) => component.layerIds.some((layerId) => visibleLayerIds.has(layerId)));
 }
 
+function visibleComponentLayerIds(component: LayerDoc["components"][number], visibleLayerIds: Set<string>): string[] {
+  return component.layerIds.filter((layerId) => visibleLayerIds.has(layerId));
+}
+
 function visibleContractResponsiveRules(
   doc: LayerDoc,
   visibleSectionIds: Set<string>,
@@ -276,7 +280,7 @@ function createIntegrationContract(doc: LayerDoc, componentName: string, compone
   const responsiveRules = visibleContractResponsiveRules(doc, visibleSectionIds, visibleLayerIds, visibleComponentIds);
   const componentIdsByLayerId = new Map<string, string[]>();
   for (const component of components) {
-    for (const layerId of component.layerIds) {
+    for (const layerId of visibleComponentLayerIds(component, visibleLayerIds)) {
       componentIdsByLayerId.set(layerId, [...(componentIdsByLayerId.get(layerId) ?? []), component.id]);
     }
   }
@@ -318,7 +322,7 @@ function createIntegrationContract(doc: LayerDoc, componentName: string, compone
       id: component.id,
       exportable: component.exportable,
       selector: component.exportable ? selectorFor("data-component-id", component.id) : null,
-      layerIds: [...component.layerIds]
+      layerIds: visibleComponentLayerIds(component, visibleLayerIds)
     })),
     assets: doc.assets.map((asset) => ({
       id: asset.id,
@@ -867,6 +871,10 @@ function expectedContractFrom(layerDoc, manifest) {
   const componentIdsByLayerId = new Map();
   for (const component of components) {
     for (const layerId of component.layerIds ?? []) {
+      if (!visibleLayerIds.has(layerId)) {
+        continue;
+      }
+
       componentIdsByLayerId.set(layerId, [...(componentIdsByLayerId.get(layerId) ?? []), component.id]);
     }
   }
@@ -908,7 +916,7 @@ function expectedContractFrom(layerDoc, manifest) {
       id: component.id,
       exportable: component.exportable,
       selector: component.exportable ? selectorFor("data-component-id", component.id) : null,
-      layerIds: [...(component.layerIds ?? [])]
+      layerIds: [...(component.layerIds ?? []).filter((layerId) => visibleLayerIds.has(layerId))]
     })),
     assets: (layerDoc.assets ?? []).map((asset) => ({
       id: asset.id,
