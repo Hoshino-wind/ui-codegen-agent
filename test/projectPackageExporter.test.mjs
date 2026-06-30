@@ -216,6 +216,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "scripts/verify-gates.mjs").contents, /layerdoc-audit\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /integration-contract\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_interaction_metadata_missing/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_responsive_css_missing/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-layerdoc.mjs").contents, /layerdoc\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /preview\.html/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /verification-report\.json/);
@@ -343,6 +344,38 @@ test("exported integration contract verifier checks preview interaction metadata
   assert.match(failed.stdout, /preview_interaction_metadata_missing/);
   assert.match(failed.stdout, /preview\.html/);
   assert.match(failed.stdout, /open-checkout/);
+});
+
+test("exported integration contract verifier checks project responsive CSS", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-responsive-css-verifier-"));
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const componentPath = join(directory, "src", "ProductionHomepage.tsx");
+  const componentSource = readFileSync(componentPath, "utf8");
+  writeFileSync(componentPath, componentSource.replace("@media (max-width: 640px)", "@media (max-width: 320px)"));
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /project_responsive_css_missing/);
+  assert.match(failed.stdout, /src\/ProductionHomepage\.tsx/);
+  assert.match(failed.stdout, /max-width: 640px/);
+});
+
+test("exported integration contract verifier checks preview responsive CSS", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-preview-responsive-css-verifier-"));
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const previewPath = join(directory, "preview.html");
+  const previewSource = readFileSync(previewPath, "utf8");
+  writeFileSync(previewPath, previewSource.replace("left:24px !important;", "left:12px !important;"));
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /preview_responsive_css_missing/);
+  assert.match(failed.stdout, /preview\.html/);
+  assert.match(failed.stdout, /left:24px !important/);
 });
 
 test("exported LayerDoc verifier script validates the editable source graph", () => {

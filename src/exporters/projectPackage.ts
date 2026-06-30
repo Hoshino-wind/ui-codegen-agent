@@ -446,6 +446,68 @@ function sourceHasAttributeToken(source, attribute, expected) {
   return false;
 }
 
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function pxDeclaration(property, value) {
+  return typeof value === "number" && Number.isFinite(value) ? \`\${property}:\${value}px !important;\` : null;
+}
+
+function rawDeclaration(property, value) {
+  return typeof value === "string" && value.length > 0 ? \`\${property}:\${value} !important;\` : null;
+}
+
+function numericDeclaration(property, value) {
+  return typeof value === "number" && Number.isFinite(value) ? \`\${property}:\${value} !important;\` : null;
+}
+
+function numericSpacing(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function paddingValue(padding) {
+  const vertical = numericSpacing(padding.y) ?? numericSpacing(padding.top) ?? numericSpacing(padding.bottom) ?? 0;
+  const horizontal = numericSpacing(padding.x) ?? numericSpacing(padding.left) ?? numericSpacing(padding.right) ?? 0;
+  return \`\${vertical}px \${horizontal}px\`;
+}
+
+function declarationsForResponsiveChanges(changes) {
+  const declarations = [];
+  const bounds = changes?.bounds;
+  const style = changes?.style;
+
+  if (isRecord(bounds)) {
+    declarations.push(
+      pxDeclaration("left", bounds.x),
+      pxDeclaration("top", bounds.y),
+      pxDeclaration("width", bounds.width),
+      pxDeclaration("height", bounds.height)
+    );
+  }
+
+  if (isRecord(style)) {
+    declarations.push(
+      rawDeclaration("background-color", style.backgroundColor),
+      rawDeclaration("color", style.textColor),
+      rawDeclaration("border-color", style.borderColor),
+      pxDeclaration("border-radius", style.borderRadius),
+      numericDeclaration("opacity", style.opacity),
+      pxDeclaration("gap", style.gap)
+    );
+
+    if (isRecord(style.padding)) {
+      declarations.push(\`padding:\${paddingValue(style.padding)} !important;\`);
+    }
+  }
+
+  if (changes?.visible === false) {
+    declarations.push("display:none !important;");
+  }
+
+  return declarations.filter(Boolean);
+}
+
 function domSelectors(contract) {
   return [
     ...(contract.sections ?? []).map((section, index) => ({ path: \`sections[\${index}].selector\`, selector: section.selector })),
@@ -461,6 +523,18 @@ function interactionMetadata(contract) {
     { path: \`interactions[\${index}].event\`, attribute: "data-interaction-events", value: interaction.event },
     { path: \`interactions[\${index}].action\`, attribute: "data-interaction-actions", value: interaction.action }
   ]).filter((entry) => typeof entry.value === "string" && entry.value.length > 0);
+}
+
+function responsiveCssRequirements(contract) {
+  return (contract.responsiveRules ?? []).flatMap((rule, index) => {
+    const fragments = [
+      \`@media \${rule.query}\`,
+      rule.selector,
+      ...declarationsForResponsiveChanges(rule.changes ?? {})
+    ].filter((fragment) => typeof fragment === "string" && fragment.length > 0);
+
+    return fragments.map((fragment) => ({ path: \`responsiveRules[\${index}]\`, fragment }));
+  });
 }
 
 function projectSelectors(contract) {
@@ -588,6 +662,15 @@ try {
       ));
     }
   }
+  for (const entry of responsiveCssRequirements(contract)) {
+    if (!componentSource.includes(entry.fragment)) {
+      issues.push(issue(
+        "project_responsive_css_missing",
+        entry.path,
+        \`Project file \${componentPath} does not contain responsive CSS fragment \${entry.fragment}.\`
+      ));
+    }
+  }
   for (const entry of interactionMetadata(contract)) {
     if (!sourceHasAttributeToken(componentSource, entry.attribute, entry.value)) {
       issues.push(issue(
@@ -616,6 +699,15 @@ try {
         "preview_selector_missing",
         entry.path,
         \`Preview file \${previewPath} does not contain selector \${entry.selector}.\`
+      ));
+    }
+  }
+  for (const entry of responsiveCssRequirements(contract)) {
+    if (!previewSource.includes(entry.fragment)) {
+      issues.push(issue(
+        "preview_responsive_css_missing",
+        entry.path,
+        \`Preview file \${previewPath} does not contain responsive CSS fragment \${entry.fragment}.\`
       ));
     }
   }
