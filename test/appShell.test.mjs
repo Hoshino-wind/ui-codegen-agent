@@ -51,12 +51,17 @@ test("app shell exposes quality gate status in the verifier surface", () => {
   assert.match(source, /Quality gate/);
 });
 
-test("app shell exposes verifier evidence provenance instead of ambiguous screenshot claims", () => {
+test("app shell exposes verifier evidence provenance with HTML screenshot attempt and raster fallback", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 
   assert.match(source, /workspace\.report\.evidence\.visual/);
   assert.match(source, /verifier-evidence/);
-  assert.match(source, /LayerDoc raster candidate/);
+  assert.match(source, /HTML preview screenshot/);
+  assert.match(source, /renderHtmlPreviewSnapshot/);
+  assert.match(source, /verificationVisualEvidence\.htmlScreenshot/);
+  assert.match(source, /HTML screenshot unavailable/);
+  assert.match(source, /LayerDoc raster fallback/);
+  assert.match(source, /renderLayerDocSnapshot/);
 });
 
 test("app shell exposes LayerDoc audit status in the project surface", () => {

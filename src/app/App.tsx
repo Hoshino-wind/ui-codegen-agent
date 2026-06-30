@@ -59,6 +59,7 @@ import {
 } from "./layerDocFile.js";
 import { triggerBrowserDownload } from "./browserDownload.js";
 import { createImageAssetPatchFromFile, readBrowserFileAsDataUrl } from "./imageAssetUpload.js";
+import { renderHtmlPreviewSnapshot } from "./htmlPreviewSnapshot.js";
 import { renderLayerDocSnapshot } from "./layerDocSnapshot.js";
 import { createPreviewViewport, type PreviewMode } from "./previewViewport.js";
 import { createProblemAreaAnnotations } from "./problemAreaOverlay.js";
@@ -68,6 +69,7 @@ import { createWorkflowSummary, type WorkflowSummaryItem } from "./workflowSumma
 import type { PngIntakeLayerPlan } from "../importers/pngIntake.js";
 import { evaluateVerificationGates } from "../verifier/gates.js";
 import type { ImageDataSnapshot } from "../verifier/imageDataDiff.js";
+import { verificationVisualEvidence } from "../verifier/report.js";
 
 const workflowIcons = {
   Image: FileImage,
@@ -82,6 +84,10 @@ type PreviewSurface = "canvas" | "html";
 
 function formatScore(value: number | null): string {
   return value === null ? "n/a" : String(value);
+}
+
+function messageFromError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function styleValue(style: LayerStyle | undefined, key: keyof LayerStyle, fallback = ""): string {
@@ -829,6 +835,7 @@ function VerifierStrip({
 }) {
   const visualDiff = workspace.report.visualDiff;
   const visualEvidence = workspace.report.evidence.visual;
+  const candidateLabel = visualEvidence.kind === "layerdoc-raster" ? "LayerDoc raster fallback" : "HTML preview screenshot";
   const problemAreas = visualDiff?.problemAreas ?? [];
   const gateResult = evaluateVerificationGates(workspace.report);
   const scores = [
@@ -868,7 +875,7 @@ function VerifierStrip({
         </label>
         <div className="verifier-upload locked">
           <span>Candidate</span>
-          <strong>LayerDoc raster candidate</strong>
+          <strong>{candidateLabel}</strong>
         </div>
         <div className={`verifier-evidence ${visualEvidence.kind}`}>
           <span>Evidence</span>
@@ -1029,19 +1036,33 @@ export function App() {
     }
 
     try {
-      setLastAction("Rendering LayerDoc raster candidate for verifier");
+      setLastAction("Rendering HTML preview screenshot for verifier");
       const nextWorkspace = await runWorkspacePreviewVerification(workspace, {
         reference: verifierReference.image,
-        renderCandidate: ({ doc }) => renderLayerDocSnapshot(doc)
+        visualEvidence: verificationVisualEvidence.htmlScreenshot,
+        renderCandidate: ({ previewHtml, canvas }) => renderHtmlPreviewSnapshot({ html: previewHtml, canvas })
       });
       setWorkspace(nextWorkspace);
       setVerifierError(null);
       downloadVerifierReport(nextWorkspace);
       setLastAction(`Verifier ran: ${formatScore(nextWorkspace.report.visualSimilarity)} visual similarity`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to run verifier.";
-      setVerifierError(message);
-      setLastAction("Verifier run failed");
+      try {
+        setLastAction("HTML screenshot unavailable; rendering LayerDoc raster fallback");
+        const nextWorkspace = await runWorkspacePreviewVerification(workspace, {
+          reference: verifierReference.image,
+          visualEvidence: verificationVisualEvidence.layerDocRaster,
+          renderCandidate: ({ doc }) => renderLayerDocSnapshot(doc)
+        });
+        setWorkspace(nextWorkspace);
+        setVerifierError(`HTML screenshot unavailable; used LayerDoc raster fallback. ${messageFromError(error)}`);
+        downloadVerifierReport(nextWorkspace);
+        setLastAction(`Verifier ran with LayerDoc raster fallback: ${formatScore(nextWorkspace.report.visualSimilarity)} visual similarity`);
+      } catch (fallbackError) {
+        const message = fallbackError instanceof Error ? fallbackError.message : "Unable to run verifier.";
+        setVerifierError(message);
+        setLastAction("Verifier run failed");
+      }
     }
   }
 

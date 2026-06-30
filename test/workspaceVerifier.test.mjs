@@ -4,6 +4,7 @@ import test from "node:test";
 import { createEditorWorkspace } from "../dist/app/editorWorkspace.js";
 import { createSampleHomepageLayerDoc } from "../dist/app/sampleDocument.js";
 import { runWorkspacePreviewVerification, runWorkspaceVisualVerification } from "../dist/app/workspaceVerifier.js";
+import { verificationVisualEvidence } from "../dist/index.js";
 
 function solidSnapshot(width, height, rgba) {
   const data = new Uint8Array(width * height * 4);
@@ -62,4 +63,19 @@ test("runWorkspacePreviewVerification renders the candidate from the current HTM
   assert.equal(next.report.visualSimilarity, 75);
   assert.equal(next.report.evidence.visual.kind, "layerdoc-raster");
   assert.equal(next.report.visualDiff.mismatchedPixels, 1);
+});
+
+test("runWorkspacePreviewVerification preserves explicit HTML screenshot evidence", async () => {
+  const workspace = createEditorWorkspace(createSampleHomepageLayerDoc());
+  const reference = solidSnapshot(1, 1, [255, 255, 255, 255]);
+
+  const next = await runWorkspacePreviewVerification(workspace, {
+    reference,
+    visualEvidence: verificationVisualEvidence.htmlScreenshot,
+    renderCandidate: () => solidSnapshot(1, 1, [255, 255, 255, 255])
+  });
+
+  assert.equal(next.report.visualSimilarity, 100);
+  assert.equal(next.report.evidence.visual.kind, "html-screenshot");
+  assert.equal(next.projectExport.manifest.scores.evidence.visual.kind, "html-screenshot");
 });

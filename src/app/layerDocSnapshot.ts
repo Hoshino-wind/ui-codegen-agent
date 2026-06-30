@@ -126,8 +126,9 @@ function visibleLayers(doc: LayerDoc): LayerNode[] {
 
 /**
  * Create an origin-clean candidate snapshot from the current LayerDoc preview
- * model. The browser editor uses this when it cannot access privileged page
- * screenshot APIs; the CLI verifier remains the exact Playwright HTML path.
+ * model. This remains useful as a low-level fallback or fixture generator; the
+ * Studio verifier uses the HTML preview screenshot path when the browser can
+ * rasterize it.
  */
 export function renderLayerDocSnapshot(doc: LayerDoc): ImageDataSnapshot {
   const width = doc.canvas.width;

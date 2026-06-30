@@ -25,7 +25,7 @@ export { createHomepageLayerDocFromPng } from "./importers/homepagePngPipeline.j
 export { addHeroAnnotationSetToPlan, seedHomepageAnalysisPlan } from "./importers/homepageSeed.js";
 export { createLayerDocFromImageManifest } from "./importers/imageManifest.js";
 export { createImageManifestFromPng } from "./importers/pngIntake.js";
-export { createForeignObjectSnapshotSvg, inlineHtmlImageSources } from "./app/htmlPreviewSnapshot.js";
+export { createForeignObjectSnapshotSvg, inlineHtmlImageSources, renderHtmlPreviewSnapshot } from "./app/htmlPreviewSnapshot.js";
 export { createImageAssetPatchFromFile, readBrowserFileAsDataUrl } from "./app/imageAssetUpload.js";
 export { renderLayerDocSnapshot } from "./app/layerDocSnapshot.js";
 export { createProblemAreaAnnotations } from "./app/problemAreaOverlay.js";
@@ -97,7 +97,11 @@ export type {
 export type { VerificationGateResult, VerificationGates } from "./verifier/gates.js";
 export type { LayerDocVerificationRun, RunLayerDocVerificationInput } from "./verifier/run.js";
 export type { PngSnapshotComparisonInput, PngSnapshotComparisonResult } from "./verifier/visualDiff.js";
-export type { HtmlImageSourceInliner, HtmlPreviewSnapshotInput } from "./app/htmlPreviewSnapshot.js";
+export type {
+  HtmlImageSourceInliner,
+  HtmlPreviewSnapshotDependencies,
+  HtmlPreviewSnapshotInput
+} from "./app/htmlPreviewSnapshot.js";
 export type { ImageAssetUploadDependencies, ImageReplacementFileLike } from "./app/imageAssetUpload.js";
 export type { ProblemAreaAnnotation, ProblemAreaAnnotationOptions } from "./app/problemAreaOverlay.js";
 export type {
