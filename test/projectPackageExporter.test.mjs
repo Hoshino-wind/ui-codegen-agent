@@ -258,6 +258,22 @@ test("exported integration contract verifier validates the handoff mapping", () 
   assert.match(failed.stdout, /stale-headline/);
 });
 
+test("exported integration contract verifier checks project selectors", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-selector-verifier-"));
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const componentPath = join(directory, "src", "ProductionHomepage.tsx");
+  const componentSource = readFileSync(componentPath, "utf8");
+  writeFileSync(componentPath, componentSource.replace('data-layer-id="headline"', 'data-layer-id="stale-headline"'));
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /project_selector_missing/);
+  assert.match(failed.stdout, /src\/ProductionHomepage\.tsx/);
+  assert.match(failed.stdout, /data-layer-id=\\"headline\\"/);
+});
+
 test("exported LayerDoc verifier script validates the editable source graph", () => {
   const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-source-verifier-"));
   const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });

@@ -392,6 +392,10 @@ function readJson(path) {
   return JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
 }
 
+function readText(path) {
+  return readFileSync(new URL(path, import.meta.url), "utf8");
+}
+
 function stableJson(value) {
   return \`\${JSON.stringify(value, null, 2)}\\n\`;
 }
@@ -402,6 +406,26 @@ function issue(code, path, message) {
 
 function selectorFor(attribute, value) {
   return \`[\${attribute}="\${String(value).replace(/\\\\/g, "\\\\\\\\").replace(/"/g, '\\\\"')}"]\`;
+}
+
+function selectorAttributeNeedle(selector) {
+  const match = /^\\[([^=\\]]+)="(.*)"\\]$/.exec(selector ?? "");
+  if (!match) {
+    return null;
+  }
+
+  const value = match[2].replace(/\\\\"/g, '"').replace(/\\\\\\\\/g, "\\\\");
+  return \`\${match[1]}="\${value}"\`;
+}
+
+function contractSelectors(contract) {
+  return [
+    { path: "component.rootSelector", selector: contract.component?.rootSelector },
+    ...(contract.sections ?? []).map((section, index) => ({ path: \`sections[\${index}].selector\`, selector: section.selector })),
+    ...(contract.layers ?? []).map((layer, index) => ({ path: \`layers[\${index}].selector\`, selector: layer.selector })),
+    ...(contract.components ?? []).map((component, index) => ({ path: \`components[\${index}].selector\`, selector: component.selector })),
+    ...(contract.responsiveRules ?? []).map((rule, index) => ({ path: \`responsiveRules[\${index}].selector\`, selector: rule.selector }))
+  ].filter((entry) => typeof entry.selector === "string" && entry.selector.length > 0);
 }
 
 function selectorForResponsiveTarget(layerDoc, target) {
@@ -506,6 +530,28 @@ if (stableJson(contract) !== stableJson(expected)) {
     "integration_contract_mismatch",
     "integration-contract.json",
     \`integration-contract.json does not match LayerDoc-derived mapping. Expected \${stableJson(expected)} Received \${stableJson(contract)}\`
+  ));
+}
+
+try {
+  const componentPath = contract.component?.file ?? \`src/\${manifest.componentName}.tsx\`;
+  const componentSource = readText(\`../\${componentPath}\`);
+  for (const entry of contractSelectors(contract)) {
+    const needle = selectorAttributeNeedle(entry.selector);
+    if (!needle || !componentSource.includes(needle)) {
+      issues.push(issue(
+        "project_selector_missing",
+        entry.path,
+        \`Project file \${componentPath} does not contain selector \${entry.selector}.\`
+      ));
+    }
+  }
+} catch (error) {
+  const message = error instanceof Error ? error.message : "unknown read failure";
+  issues.push(issue(
+    "project_file_missing",
+    "component.file",
+    \`Could not read project component file \${contract.component?.file ?? "n/a"}: \${message}\`
   ));
 }
 
