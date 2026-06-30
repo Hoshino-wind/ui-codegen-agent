@@ -35,7 +35,7 @@ export { createLayerDocAudit } from "./layerdoc/audit.js";
 export { createLayerDoc } from "./layerdoc/factory.js";
 export { scoreProjectFit } from "./layerdoc/scoring.js";
 export { validateLayerDoc } from "./layerdoc/validation.js";
-export { createVerificationReport } from "./verifier/report.js";
+export { createVerificationReport, verificationVisualEvidence } from "./verifier/report.js";
 export { defaultVerificationGates, evaluateVerificationGates } from "./verifier/gates.js";
 export { compareImageDataSnapshots } from "./verifier/imageDataDiff.js";
 export { runLayerDocPreviewVerification } from "./verifier/previewRun.js";
@@ -75,7 +75,13 @@ export type {
   VerificationScores
 } from "./layerdoc/types.js";
 export type { ImageAssetPatch, LayerBoundsPatch, SectionRegenerationRequestInput } from "./editor/operations.js";
-export type { VerificationInput, VerificationReport } from "./verifier/report.js";
+export type {
+  VerificationEvidence,
+  VerificationInput,
+  VerificationReport,
+  VerificationVisualEvidence,
+  VerificationVisualEvidenceKind
+} from "./verifier/report.js";
 export type {
   ImageDataSnapshot,
   ImageDataSnapshotComparisonInput,

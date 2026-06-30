@@ -243,6 +243,7 @@ Verification:
 
 Verifier scores:
 - visual_similarity: ${manifest.scores.visualSimilarity ?? "n/a"}
+- visual_evidence: ${manifest.scores.evidence.visual.kind} (${manifest.scores.evidence.visual.label})
 - structure_score: ${manifest.scores.structureScore}
 - component_score: ${manifest.scores.componentScore}
 - project_fit_score: ${manifest.scores.projectFitScore}

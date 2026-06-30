@@ -79,12 +79,14 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "layerdoc.json").contents, /"schema": "layerdoc"/);
   assert.match(output.files.find((file) => file.path === "layerdoc-audit.json").contents, /"assetCompliance"/);
   assert.match(output.files.find((file) => file.path === "verification-report.json").contents, /"structureScore": 100/);
+  assert.match(output.files.find((file) => file.path === "verification-report.json").contents, /"evidence"/);
   assert.match(output.files.find((file) => file.path === "quality-gates.json").contents, /"visualSimilarity": 85/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-gates.mjs").contents, /verification-report\.json/);
   assert.match(output.files.find((file) => file.path === "preview.html").contents, /data-layerdoc="0.1.0"/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm install/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run dev/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:gates/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /visual_evidence:/);
 });
 
 test("writeProjectExportPackage writes every package file under the target directory", () => {

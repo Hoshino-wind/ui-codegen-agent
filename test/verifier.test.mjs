@@ -43,6 +43,7 @@ test("createVerificationReport separates visual, structure, component, and proje
   assert.equal(report.structureScore, 100);
   assert.equal(report.componentScore, 100);
   assert.equal(report.projectFitScore, 75);
+  assert.equal(report.evidence.visual.kind, "none");
   assert.deepEqual(report.issues, []);
 });
 
@@ -77,8 +78,43 @@ test("createVerificationReport can consume a PNG visual diff result", () => {
   });
 
   assert.equal(report.visualSimilarity, 96.5);
+  assert.equal(report.evidence.visual.kind, "image-data");
   assert.deepEqual(report.visualDiff?.mismatchBounds, { x: 4, y: 8, width: 6, height: 3 });
   assert.deepEqual(report.visualDiff?.problemAreas, [{ x: 4, y: 8, width: 6, height: 3 }]);
   assert.equal(report.structureScore, 100);
   assert.equal(report.componentScore, 100);
+});
+
+test("createVerificationReport preserves explicit visual evidence provenance", () => {
+  const doc = createLayerDoc({
+    name: "Evidence override",
+    canvas: { width: 300, height: 200 },
+    layers: [
+      {
+        id: "headline",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 24, y: 24, width: 180, height: 32 },
+        content: { text: "Production UI" }
+      }
+    ],
+    components: [{ id: "Headline", layerIds: ["headline"], exportable: true }]
+  });
+
+  const report = createVerificationReport(doc, {
+    visualSimilarity: 91,
+    visualEvidence: {
+      kind: "layerdoc-raster",
+      label: "LayerDoc raster",
+      description: "Studio rendered the LayerDoc graph into an ImageData candidate."
+    }
+  });
+
+  assert.equal(report.visualSimilarity, 91);
+  assert.deepEqual(report.evidence.visual, {
+    kind: "layerdoc-raster",
+    label: "LayerDoc raster",
+    description: "Studio rendered the LayerDoc graph into an ImageData candidate."
+  });
 });

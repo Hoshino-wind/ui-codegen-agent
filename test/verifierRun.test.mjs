@@ -79,6 +79,7 @@ test("runLayerDocVerification combines screenshot diff artifacts with LayerDoc q
   });
 
   assert.equal(run.report.visualSimilarity, 95.83);
+  assert.equal(run.report.evidence.visual.kind, "image-data");
   assert.deepEqual(run.report.visualDiff?.problemAreas, [{ x: 5, y: 3, width: 1, height: 1 }]);
   assert.equal(run.artifacts.referencePath, referencePath);
   assert.equal(run.artifacts.candidatePath, candidatePath);
@@ -103,6 +104,7 @@ test("runLayerDocVerification passes when all quality gates are met", () => {
   });
 
   assert.equal(run.report.visualSimilarity, 100);
+  assert.equal(run.report.evidence.visual.kind, "image-data");
   assert.equal(run.report.structureScore, 100);
   assert.equal(run.report.componentScore, 100);
   assert.equal(run.report.projectFitScore, 90);

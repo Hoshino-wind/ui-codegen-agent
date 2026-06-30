@@ -828,6 +828,7 @@ function VerifierStrip({
   onDownloadReport: () => void;
 }) {
   const visualDiff = workspace.report.visualDiff;
+  const visualEvidence = workspace.report.evidence.visual;
   const problemAreas = visualDiff?.problemAreas ?? [];
   const gateResult = evaluateVerificationGates(workspace.report);
   const scores = [
@@ -867,7 +868,12 @@ function VerifierStrip({
         </label>
         <div className="verifier-upload locked">
           <span>Candidate</span>
-          <strong>Current preview snapshot</strong>
+          <strong>LayerDoc raster candidate</strong>
+        </div>
+        <div className={`verifier-evidence ${visualEvidence.kind}`}>
+          <span>Evidence</span>
+          <strong>{visualEvidence.label}</strong>
+          <small>{visualEvidence.description}</small>
         </div>
         {verifierError ? <div className="verifier-error">{verifierError}</div> : null}
         <div className={`quality-gate-summary ${gateResult.passed ? "passed" : "blocked"}`}>
@@ -1023,7 +1029,7 @@ export function App() {
     }
 
     try {
-      setLastAction("Rendering current HTML preview for verifier");
+      setLastAction("Rendering LayerDoc raster candidate for verifier");
       const nextWorkspace = await runWorkspacePreviewVerification(workspace, {
         reference: verifierReference.image,
         renderCandidate: ({ doc }) => renderLayerDocSnapshot(doc)

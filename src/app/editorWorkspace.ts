@@ -6,7 +6,7 @@ import { exportReactTailwind, type ReactTailwindExportResult } from "../exporter
 import type { ImageAssetPatch, LayerBoundsPatch, SectionRegenerationRequestInput } from "../editor/operations.js";
 import { createLayerDocAudit, type LayerDocAudit } from "../layerdoc/audit.js";
 import type { LayerDoc, LayerNode, LayerStyle } from "../layerdoc/types.js";
-import { createVerificationReport, type VerificationReport } from "../verifier/report.js";
+import { createVerificationReport, type VerificationReport, type VerificationVisualEvidence } from "../verifier/report.js";
 import type { PngSnapshotComparisonResult } from "../verifier/visualDiff.js";
 
 export interface EditorWorkspace {
@@ -65,8 +65,12 @@ export function selectWorkspaceLayer(workspace: EditorWorkspace, layerId: string
   return materialize(workspace.doc, layerId);
 }
 
-export function applyWorkspaceVisualDiff(workspace: EditorWorkspace, visualDiff: PngSnapshotComparisonResult): EditorWorkspace {
-  const report = createVerificationReport(workspace.doc, { visualDiff });
+export function applyWorkspaceVisualDiff(
+  workspace: EditorWorkspace,
+  visualDiff: PngSnapshotComparisonResult,
+  visualEvidence?: VerificationVisualEvidence
+): EditorWorkspace {
+  const report = createVerificationReport(workspace.doc, { visualDiff, visualEvidence });
 
   return {
     ...workspace,

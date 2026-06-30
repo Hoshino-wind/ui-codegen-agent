@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 import { renderHtmlPreview } from "../exporters/htmlPreview.js";
 import type { LayerDoc } from "../layerdoc/types.js";
 import { runLayerDocVerification, type LayerDocVerificationRun, type VerificationGates } from "./run.js";
+import { verificationVisualEvidence } from "./report.js";
 
 export interface PreviewViewport {
   width: number;
@@ -86,7 +87,8 @@ export async function runLayerDocPreviewVerification(input: RunLayerDocPreviewVe
     diffPath,
     threshold: input.threshold,
     includeAA: input.includeAA,
-    gates: input.gates
+    gates: input.gates,
+    visualEvidence: verificationVisualEvidence.htmlScreenshot
   });
 
   return {

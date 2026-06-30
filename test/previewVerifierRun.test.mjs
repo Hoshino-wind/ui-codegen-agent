@@ -85,6 +85,7 @@ test("runLayerDocPreviewVerification renders preview HTML before comparing scree
   assert.equal(existsSync(run.artifacts.candidatePath), true);
   assert.equal(existsSync(run.artifacts.diffPath), true);
   assert.equal(run.report.visualSimilarity, 95.83);
+  assert.equal(run.report.evidence.visual.kind, "html-screenshot");
   assert.deepEqual(run.report.visualDiff?.problemAreas, [{ x: 5, y: 3, width: 1, height: 1 }]);
   assert.equal(run.passed, false);
   assert.deepEqual(run.failures, ["visual_similarity 95.83 is below 99"]);
@@ -105,6 +106,7 @@ test("runLayerDocPreviewVerification passes when the rendered preview screenshot
   });
 
   assert.equal(run.report.visualSimilarity, 100);
+  assert.equal(run.report.evidence.visual.kind, "html-screenshot");
   assert.equal(run.passed, true);
   assert.deepEqual(run.failures, []);
 });

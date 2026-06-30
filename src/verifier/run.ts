@@ -3,7 +3,12 @@ import {
   evaluateVerificationGates,
   type VerificationGates
 } from "./gates.js";
-import { createVerificationReport, type VerificationReport } from "./report.js";
+import {
+  createVerificationReport,
+  verificationVisualEvidence,
+  type VerificationReport,
+  type VerificationVisualEvidence
+} from "./report.js";
 import { comparePngSnapshots, type PngSnapshotComparisonResult } from "./visualDiff.js";
 
 export type { VerificationGates } from "./gates.js";
@@ -16,6 +21,7 @@ export interface RunLayerDocVerificationInput {
   threshold?: number;
   includeAA?: boolean;
   gates?: Partial<VerificationGates>;
+  visualEvidence?: VerificationVisualEvidence;
 }
 
 export interface LayerDocVerificationRun {
@@ -44,7 +50,10 @@ export function runLayerDocVerification(input: RunLayerDocVerificationInput): La
     threshold: input.threshold,
     includeAA: input.includeAA
   });
-  const report = createVerificationReport(input.doc, { visualDiff });
+  const report = createVerificationReport(input.doc, {
+    visualDiff,
+    visualEvidence: input.visualEvidence ?? verificationVisualEvidence.imageData
+  });
   const gateResult = evaluateVerificationGates(report, input.gates);
 
   return {

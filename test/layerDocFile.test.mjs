@@ -172,5 +172,6 @@ test("createVerificationReportDownload serializes verifier scores without invent
   assert.equal(report.structureScore, 100);
   assert.equal(report.componentScore, 100);
   assert.equal(report.visualDiff, null);
+  assert.equal(report.evidence.visual.kind, "none");
   assert.equal(artifact.contents.endsWith("\n"), true);
 });

@@ -1353,6 +1353,55 @@ button {
   white-space: nowrap;
 }
 
+.verifier-evidence {
+  display: grid;
+  grid-template-columns: 82px 82px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid #d7e4ef;
+  border-radius: 8px;
+  background: #f4f8fb;
+}
+
+.verifier-evidence.html-screenshot {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.verifier-evidence.layerdoc-raster {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.verifier-evidence span,
+.verifier-evidence strong,
+.verifier-evidence small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.verifier-evidence span {
+  color: #475569;
+  font-size: 10px;
+  font-weight: 820;
+}
+
+.verifier-evidence strong {
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 820;
+}
+
+.verifier-evidence small {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 720;
+}
+
 .quality-gate-summary {
   display: grid;
   grid-template-columns: 82px 70px minmax(0, 1fr);

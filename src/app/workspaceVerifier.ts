@@ -4,12 +4,14 @@ import {
   type ImageDataSnapshot,
   type ImageDataSnapshotComparisonInput
 } from "../verifier/imageDataDiff.js";
+import { verificationVisualEvidence, type VerificationVisualEvidence } from "../verifier/report.js";
 
 export interface WorkspaceVisualVerificationInput {
   reference: ImageDataSnapshot;
   candidate: ImageDataSnapshot;
   threshold?: ImageDataSnapshotComparisonInput["threshold"];
   includeAA?: ImageDataSnapshotComparisonInput["includeAA"];
+  visualEvidence?: VerificationVisualEvidence;
 }
 
 export interface WorkspaceCandidateSnapshotInput {
@@ -25,6 +27,7 @@ export interface WorkspacePreviewVerificationInput {
   renderCandidate: WorkspaceCandidateSnapshotRenderer;
   threshold?: ImageDataSnapshotComparisonInput["threshold"];
   includeAA?: ImageDataSnapshotComparisonInput["includeAA"];
+  visualEvidence?: VerificationVisualEvidence;
 }
 
 export function runWorkspaceVisualVerification(workspace: EditorWorkspace, input: WorkspaceVisualVerificationInput): EditorWorkspace {
@@ -44,7 +47,7 @@ export function runWorkspaceVisualVerification(workspace: EditorWorkspace, input
     problemAreas: comparison.problemAreas,
     diffPath: null,
     threshold: comparison.threshold
-  });
+  }, input.visualEvidence ?? verificationVisualEvidence.imageData);
 }
 
 export async function runWorkspacePreviewVerification(workspace: EditorWorkspace, input: WorkspacePreviewVerificationInput): Promise<EditorWorkspace> {
@@ -58,6 +61,7 @@ export async function runWorkspacePreviewVerification(workspace: EditorWorkspace
     reference: input.reference,
     candidate,
     threshold: input.threshold,
-    includeAA: input.includeAA
+    includeAA: input.includeAA,
+    visualEvidence: input.visualEvidence ?? verificationVisualEvidence.layerDocRaster
   });
 }

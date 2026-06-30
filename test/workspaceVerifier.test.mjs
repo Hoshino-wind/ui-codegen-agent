@@ -29,10 +29,12 @@ test("runWorkspaceVisualVerification compares image snapshots and refreshes work
 
   assert.equal(workspace.report.visualSimilarity, null);
   assert.equal(next.report.visualSimilarity, 75);
+  assert.equal(next.report.evidence.visual.kind, "image-data");
   assert.equal(next.report.visualDiff.mismatchedPixels, 1);
   assert.equal(next.report.visualDiff.diffPath, null);
   assert.deepEqual(next.report.visualDiff.problemAreas, [{ x: 1, y: 1, width: 1, height: 1 }]);
   assert.equal(next.projectExport.manifest.scores.visualSimilarity, 75);
+  assert.equal(next.projectExport.manifest.scores.evidence.visual.kind, "image-data");
 });
 
 test("runWorkspacePreviewVerification renders the candidate from the current HTML preview", async () => {
@@ -58,5 +60,6 @@ test("runWorkspacePreviewVerification renders the candidate from the current HTM
   assert.equal(rendererInput.doc, workspace.doc);
   assert.deepEqual(rendererInput.canvas, workspace.doc.canvas);
   assert.equal(next.report.visualSimilarity, 75);
+  assert.equal(next.report.evidence.visual.kind, "layerdoc-raster");
   assert.equal(next.report.visualDiff.mismatchedPixels, 1);
 });
