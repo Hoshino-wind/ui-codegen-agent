@@ -97,9 +97,18 @@ test("updateSelectedImageAsset replaces the selected image source", () => {
 test("moveWorkspaceSection reorders sections without losing the current layer selection", () => {
   const workspace = selectWorkspaceLayer(createEditorWorkspace(createSampleHomepageLayerDoc()), "hero-cta");
   const next = moveWorkspaceSection(workspace, "final-cta", 0);
+  const finalTitle = next.doc.layers.find((layer) => layer.id === "final-title");
+  const heroCta = next.doc.layers.find((layer) => layer.id === "hero-cta");
 
   assert.deepEqual(next.doc.sections.slice(0, 3).map((section) => section.id), ["final-cta", "hero", "proof"]);
   assert.equal(next.selectedLayerId, "hero-cta");
+  assert.equal(next.doc.sections[0].bounds.y, 0);
+  assert.equal(next.doc.sections[1].bounds.y, 220);
+  assert.equal(finalTitle.bounds.y, 40);
+  assert.equal(heroCta.bounds.y, 392);
+  assert.match(next.previewHtml, /data-layer-id="final-title"[^>]+top:40px/);
+  assert.match(next.reactExport.code, /data-layer-id="final-title"[\s\S]+top: 40/);
+  assert.match(next.projectExport.files.find((file) => file.path === "layerdoc.json").contents, /"id": "final-title"[\s\S]+"y": 40/);
 });
 
 test("updateWorkspaceSectionVisibility refreshes preview and export from the LayerDoc state", () => {

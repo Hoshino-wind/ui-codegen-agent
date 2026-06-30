@@ -42,6 +42,35 @@ test("moveSection reorders sections while keeping layer membership intact", () =
       { id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 800, height: 400 }, layerIds: ["headline"] },
       { id: "proof", name: "Proof", bounds: { x: 0, y: 400, width: 800, height: 400 }, layerIds: ["metric"] },
       { id: "cta", name: "CTA", bounds: { x: 0, y: 800, width: 800, height: 400 }, layerIds: ["button"] }
+    ],
+    layers: [
+      {
+        id: "headline",
+        sectionId: "hero",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 40, y: 48, width: 320, height: 48 },
+        content: { text: "Hero" }
+      },
+      {
+        id: "metric",
+        sectionId: "proof",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 40, y: 448, width: 320, height: 48 },
+        content: { text: "Proof" }
+      },
+      {
+        id: "button",
+        sectionId: "cta",
+        kind: "button",
+        track: "component",
+        editable: true,
+        bounds: { x: 40, y: 836, width: 160, height: 44 },
+        content: { text: "Start" }
+      }
     ]
   });
 
@@ -49,6 +78,15 @@ test("moveSection reorders sections while keeping layer membership intact", () =
 
   assert.deepEqual(next.sections.map((section) => section.id), ["cta", "hero", "proof"]);
   assert.deepEqual(next.sections[0].layerIds, ["button"]);
+  assert.deepEqual(next.sections.map((section) => [section.id, section.bounds.y]), [
+    ["cta", 0],
+    ["hero", 400],
+    ["proof", 800]
+  ]);
+  assert.equal(next.layers.find((layer) => layer.id === "button").bounds.y, 36);
+  assert.equal(next.layers.find((layer) => layer.id === "headline").bounds.y, 448);
+  assert.equal(next.layers.find((layer) => layer.id === "metric").bounds.y, 848);
+  assert.equal(doc.layers.find((layer) => layer.id === "button").bounds.y, 836);
 });
 
 test("setSectionVisibility hides a module without removing its editable layers", () => {

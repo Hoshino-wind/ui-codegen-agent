@@ -66,6 +66,29 @@ function findEditableLayer(doc: LayerDoc, layerId: string): LayerNode {
   return layer;
 }
 
+function belongsToSection(layer: LayerNode, section: SectionNode): boolean {
+  return layer.sectionId === section.id || section.layerIds.includes(layer.id);
+}
+
+function reflowSectionStack(doc: LayerDoc): void {
+  let nextY = 0;
+
+  for (const section of doc.sections) {
+    const previousY = section.bounds.y;
+    const deltaY = nextY - previousY;
+
+    section.bounds = { ...section.bounds, y: nextY };
+    for (const layer of doc.layers) {
+      if (belongsToSection(layer, section)) {
+        layer.bounds = { ...layer.bounds, y: layer.bounds.y + deltaY };
+      }
+    }
+    nextY += section.bounds.height;
+  }
+
+  doc.canvas.height = Math.max(doc.canvas.height, nextY);
+}
+
 /**
  * Update an editable text layer while preserving the original document.
  * Editor operations are pure so preview, undo, verifier, and code export can
@@ -158,8 +181,8 @@ export function updateImageLayerAsset(doc: LayerDoc, layerId: string, asset: Ima
 
 /**
  * Move a section to a new position in the document order.
- * This operation intentionally moves only the section reference; layer
- * membership stays attached to the section and can be re-laid out later.
+ * The homepage MVP treats sections as a vertical stack, so reordering must
+ * also translate section and layer bounds in the same LayerDoc edit.
  */
 export function moveSection(doc: LayerDoc, sectionId: string, targetIndex: number): LayerDoc {
   const next = cloneDoc(doc);
@@ -172,6 +195,7 @@ export function moveSection(doc: LayerDoc, sectionId: string, targetIndex: numbe
   const [section] = next.sections.splice(currentIndex, 1);
   const boundedIndex = Math.max(0, Math.min(targetIndex, next.sections.length));
   next.sections.splice(boundedIndex, 0, section);
+  reflowSectionStack(next);
   return next;
 }
 
