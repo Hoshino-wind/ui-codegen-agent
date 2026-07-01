@@ -241,6 +241,12 @@ base64 entries in `project-package.json`, and `parseProjectExportPackageJson`
 plus `writeProjectExportPackage` can restore the package into a runnable project
 directory.
 
+```bash
+npm run materialize:project -- \
+  --input artifacts/project-package.json \
+  --out artifacts/materialized-project
+```
+
 ## Verification Dimensions
 
 Verifier output must stay split by concern:
