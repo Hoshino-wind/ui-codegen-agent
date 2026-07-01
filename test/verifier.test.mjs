@@ -85,6 +85,58 @@ test("createVerificationReport can consume a PNG visual diff result", () => {
   assert.equal(report.componentScore, 100);
 });
 
+test("createVerificationReport maps visual problem areas to affected LayerDoc layers", () => {
+  const doc = createLayerDoc({
+    name: "Visual problem attribution",
+    canvas: { width: 300, height: 200 },
+    layers: [
+      {
+        id: "hero-art",
+        kind: "image",
+        track: "asset",
+        editable: true,
+        bounds: { x: 24, y: 24, width: 220, height: 120 },
+        assetId: "art"
+      },
+      {
+        id: "headline",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 40, y: 48, width: 160, height: 36 },
+        content: { text: "Production UI" }
+      }
+    ],
+    assets: [{ id: "art", type: "image", source: "generated", bounds: { x: 24, y: 24, width: 220, height: 120 } }],
+    components: [{ id: "Headline", layerIds: ["headline"], exportable: true }]
+  });
+
+  const report = createVerificationReport(doc, {
+    visualDiff: {
+      visualSimilarity: 96.5,
+      mismatchedPixels: 14,
+      comparedPixels: 400,
+      dimensions: { width: 20, height: 20 },
+      mismatchBounds: { x: 42, y: 50, width: 12, height: 8 },
+      problemAreas: [{ x: 42, y: 50, width: 12, height: 8 }],
+      diffPath: "/tmp/diff.png",
+      threshold: 0.1
+    }
+  });
+
+  assert.deepEqual(report.visualProblemAreas, [
+    {
+      id: "visual-problem-1",
+      bounds: { x: 42, y: 50, width: 12, height: 8 },
+      affectedLayerId: "headline",
+      affectedLayerKind: "text",
+      affectedLayerTrack: "component",
+      affectedLayerEditable: true,
+      affectedSectionId: null
+    }
+  ]);
+});
+
 test("createVerificationReport preserves explicit visual evidence provenance", () => {
   const doc = createLayerDoc({
     name: "Evidence override",

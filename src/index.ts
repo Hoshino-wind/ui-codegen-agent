@@ -98,7 +98,8 @@ export type {
   VerificationInput,
   VerificationReport,
   VerificationVisualEvidence,
-  VerificationVisualEvidenceKind
+  VerificationVisualEvidenceKind,
+  VerificationVisualProblemArea
 } from "./verifier/report.js";
 export type {
   ImageDataSnapshot,

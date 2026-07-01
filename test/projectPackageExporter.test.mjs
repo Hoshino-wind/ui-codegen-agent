@@ -97,6 +97,26 @@ function createExportDoc() {
   });
 }
 
+function createPreviewAttributionDoc() {
+  return createLayerDoc({
+    name: "Preview Attribution",
+    canvas: { width: 20, height: 20, background: "#ffffff" },
+    sections: [{ id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 20, height: 20 }, layerIds: ["headline"] }],
+    components: [{ id: "HeroSection", layerIds: ["headline"], exportable: true }],
+    layers: [
+      {
+        id: "headline",
+        sectionId: "hero",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 1, y: 0, width: 12, height: 8 },
+        content: { text: "LayerDoc first" }
+      }
+    ]
+  });
+}
+
 function expectedVerificationAttributesFor(report) {
   return {
     "data-verification-visual-similarity": report.visualSimilarity === null ? "n/a" : String(report.visualSimilarity),
@@ -1238,13 +1258,13 @@ test("exported LayerDoc verifier script rejects missing responsive rule targets"
 
 test("exported preview verifier script updates the handoff report from candidate screenshots", () => {
   const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-preview-verifier-"));
-  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  const output = createProjectExportPackage(createPreviewAttributionDoc(), { componentName: "ProductionHomepage" });
   writeProjectExportPackage(output, directory);
 
   const referencePath = join(directory, "reference.png");
   const candidatePath = join(directory, "candidate.png");
-  writeSolidPng(referencePath, 2, 1, [255, 255, 255, 255]);
-  writeSolidPng(candidatePath, 2, 1, [255, 255, 255, 255], [{ x: 1, y: 0, color: [15, 23, 42, 255] }]);
+  writeSolidPng(referencePath, 20, 20, [255, 255, 255, 255]);
+  writeSolidPng(candidatePath, 20, 20, [255, 255, 255, 255], [{ x: 1, y: 0, color: [15, 23, 42, 255] }]);
 
   const result = spawnSync(
     process.execPath,
@@ -1253,7 +1273,7 @@ test("exported preview verifier script updates the handoff report from candidate
   );
 
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /"visualSimilarity": 50/);
+  assert.match(result.stdout, /"visualSimilarity": 99.75/);
   assert.equal(existsSync(join(directory, "verification-artifacts", "diff.png")), true);
   const report = JSON.parse(readFileSync(join(directory, "verification-report.json"), "utf8"));
   const manifest = JSON.parse(readFileSync(join(directory, "manifest.json"), "utf8"));
@@ -1263,21 +1283,33 @@ test("exported preview verifier script updates the handoff report from candidate
   const componentSource = readFileSync(join(directory, "src", "ProductionHomepage.tsx"), "utf8");
   const previewSource = readFileSync(join(directory, "preview.html"), "utf8");
   const expectedAttributes = expectedVerificationAttributesFor(report);
-  assert.equal(report.visualSimilarity, 50);
+  assert.equal(report.visualSimilarity, 99.75);
   assert.equal(report.evidence.visual.kind, "html-screenshot");
   assert.equal(report.visualDiff.diffPath, "verification-artifacts/diff.png");
   assert.deepEqual(report.visualDiff.problemAreas, [{ x: 1, y: 0, width: 1, height: 1 }]);
-  assert.equal(manifest.scores.visualSimilarity, 50);
+  assert.deepEqual(report.visualProblemAreas, [
+    {
+      id: "visual-problem-1",
+      bounds: { x: 1, y: 0, width: 1, height: 1 },
+      affectedLayerId: "headline",
+      affectedLayerKind: "text",
+      affectedLayerTrack: "component",
+      affectedLayerEditable: true,
+      affectedSectionId: "hero"
+    }
+  ]);
+  assert.deepEqual(manifest.scores.visualProblemAreas, report.visualProblemAreas);
+  assert.equal(manifest.scores.visualSimilarity, 99.75);
   assert.equal(manifest.scores.evidence.visual.kind, "html-screenshot");
-  assert.equal(handoffSummary.quality.scores.visual_similarity, 50);
+  assert.equal(handoffSummary.quality.scores.visual_similarity, 99.75);
   assert.equal(handoffSummary.quality.visualEvidence.kind, "html-screenshot");
-  assert.equal(layerDoc.verification.scores.visualSimilarity, 50);
+  assert.equal(layerDoc.verification.scores.visualSimilarity, 99.75);
   assert.deepEqual(contract.component.verificationAttributes, expectedAttributes);
   assert.deepEqual(contract.preview.verificationAttributes, expectedAttributes);
   assert.equal(contract.layerDoc.hash, manifest.layerDocHash);
   assert.equal(handoffSummary.sourceOfTruth.hash, manifest.layerDocHash);
-  assert.match(componentSource, /data-verification-visual-similarity="50"/);
-  assert.match(previewSource, /data-verification-visual-similarity="50"/);
+  assert.match(componentSource, /data-verification-visual-similarity="99.75"/);
+  assert.match(previewSource, /data-verification-visual-similarity="99.75"/);
 
   const layerDocVerification = spawnSync(process.execPath, ["scripts/verify-layerdoc.mjs"], { cwd: directory, encoding: "utf8" });
   assert.equal(layerDocVerification.status, 0, layerDocVerification.stderr);

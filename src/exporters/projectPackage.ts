@@ -2210,6 +2210,63 @@ function boundsFromAreas(areas) {
   return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
+function rectArea(rect) {
+  return rect.width * rect.height;
+}
+
+function intersectionArea(a, b) {
+  const left = Math.max(a.x, b.x);
+  const right = Math.min(a.x + a.width, b.x + b.width);
+  const top = Math.max(a.y, b.y);
+  const bottom = Math.min(a.y + a.height, b.y + b.height);
+  if (right <= left || bottom <= top) {
+    return 0;
+  }
+  return (right - left) * (bottom - top);
+}
+
+function visibleLayersFor(layerDoc) {
+  const visibleSectionIds = new Set((layerDoc.sections ?? []).filter((section) => section.visible !== false).map((section) => section.id));
+  return (layerDoc.layers ?? []).filter((layer) => !layer.sectionId || visibleSectionIds.has(layer.sectionId));
+}
+
+function affectedLayerForProblemArea(area, layers) {
+  const ranked = layers
+    .map((layer) => ({
+      layer,
+      overlap: intersectionArea(area, layer.bounds),
+      layerArea: rectArea(layer.bounds)
+    }))
+    .filter((candidate) => candidate.overlap > 0)
+    .sort((a, b) => {
+      if (b.overlap !== a.overlap) {
+        return b.overlap - a.overlap;
+      }
+      if (a.layer.editable !== b.layer.editable) {
+        return a.layer.editable ? -1 : 1;
+      }
+      return a.layerArea - b.layerArea;
+    });
+
+  return ranked[0]?.layer ?? null;
+}
+
+function visualProblemAreasFor(layerDoc, visualDiff) {
+  const layers = visibleLayersFor(layerDoc);
+  return (visualDiff.problemAreas ?? []).map((area, index) => {
+    const affectedLayer = affectedLayerForProblemArea(area, layers);
+    return {
+      id: \`visual-problem-\${index + 1}\`,
+      bounds: { ...area },
+      affectedLayerId: affectedLayer?.id ?? null,
+      affectedLayerKind: affectedLayer?.kind ?? null,
+      affectedLayerTrack: affectedLayer?.track ?? null,
+      affectedLayerEditable: affectedLayer?.editable ?? null,
+      affectedSectionId: affectedLayer?.sectionId ?? null
+    };
+  });
+}
+
 function comparePngs(referencePath, candidatePath, diffPath, threshold, includeAA) {
   const reference = PNG.sync.read(readFileSync(referencePath));
   const candidate = PNG.sync.read(readFileSync(candidatePath));
@@ -2280,6 +2337,7 @@ report.visualDiff = {
   ...visualDiff,
   diffPath: normalizedRelative(join(options.out, "diff.png"))
 };
+report.visualProblemAreas = visualProblemAreasFor(layerDoc, visualDiff);
 report.evidence = {
   ...(report.evidence ?? {}),
   visual: {

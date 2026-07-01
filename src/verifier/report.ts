@@ -1,6 +1,6 @@
 import { scoreProjectFit } from "../layerdoc/scoring.js";
 import { validateLayerDoc } from "../layerdoc/validation.js";
-import type { LayerDoc, VerificationIssue } from "../layerdoc/types.js";
+import type { LayerDoc, LayerKind, LayerNode, LayerTrack, Rect, VerificationIssue } from "../layerdoc/types.js";
 import type { PngSnapshotComparisonResult } from "./visualDiff.js";
 
 export interface VerificationInput {
@@ -21,9 +21,20 @@ export interface VerificationEvidence {
   visual: VerificationVisualEvidence;
 }
 
+export interface VerificationVisualProblemArea {
+  id: string;
+  bounds: Rect;
+  affectedLayerId: string | null;
+  affectedLayerKind: LayerKind | null;
+  affectedLayerTrack: LayerTrack | null;
+  affectedLayerEditable: boolean | null;
+  affectedSectionId: string | null;
+}
+
 export interface VerificationReport {
   visualSimilarity: number | null;
   visualDiff: PngSnapshotComparisonResult | null;
+  visualProblemAreas: VerificationVisualProblemArea[];
   evidence: VerificationEvidence;
   structureScore: number;
   componentScore: number;
@@ -85,6 +96,69 @@ function visualEvidenceFor(input: VerificationInput): VerificationVisualEvidence
   return { ...verificationVisualEvidence.none };
 }
 
+function rectArea(rect: Rect): number {
+  return rect.width * rect.height;
+}
+
+function intersectionArea(a: Rect, b: Rect): number {
+  const left = Math.max(a.x, b.x);
+  const right = Math.min(a.x + a.width, b.x + b.width);
+  const top = Math.max(a.y, b.y);
+  const bottom = Math.min(a.y + a.height, b.y + b.height);
+
+  if (right <= left || bottom <= top) {
+    return 0;
+  }
+
+  return (right - left) * (bottom - top);
+}
+
+function visibleLayers(doc: LayerDoc): LayerNode[] {
+  const visibleSectionIds = new Set(doc.sections.filter((section) => section.visible !== false).map((section) => section.id));
+  return doc.layers.filter((layer) => !layer.sectionId || visibleSectionIds.has(layer.sectionId));
+}
+
+function affectedLayerForProblemArea(area: Rect, layers: LayerNode[]): LayerNode | null {
+  const ranked = layers
+    .map((layer) => ({
+      layer,
+      overlap: intersectionArea(area, layer.bounds),
+      layerArea: rectArea(layer.bounds)
+    }))
+    .filter((candidate) => candidate.overlap > 0)
+    .sort((a, b) => {
+      if (b.overlap !== a.overlap) {
+        return b.overlap - a.overlap;
+      }
+      if (a.layer.editable !== b.layer.editable) {
+        return a.layer.editable ? -1 : 1;
+      }
+      return a.layerArea - b.layerArea;
+    });
+
+  return ranked[0]?.layer ?? null;
+}
+
+function visualProblemAreasFor(doc: LayerDoc, visualDiff: PngSnapshotComparisonResult | undefined): VerificationVisualProblemArea[] {
+  if (!visualDiff) {
+    return [];
+  }
+
+  const layers = visibleLayers(doc);
+  return visualDiff.problemAreas.map((area, index) => {
+    const affectedLayer = affectedLayerForProblemArea(area, layers);
+    return {
+      id: `visual-problem-${index + 1}`,
+      bounds: { ...area },
+      affectedLayerId: affectedLayer?.id ?? null,
+      affectedLayerKind: affectedLayer?.kind ?? null,
+      affectedLayerTrack: affectedLayer?.track ?? null,
+      affectedLayerEditable: affectedLayer?.editable ?? null,
+      affectedSectionId: affectedLayer?.sectionId ?? null
+    };
+  });
+}
+
 /**
  * Combine verifier dimensions without pretending they measure the same thing.
  * Pixel similarity comes from screenshots; structure and component scores come
@@ -98,6 +172,7 @@ export function createVerificationReport(doc: LayerDoc, input: VerificationInput
   return {
     visualSimilarity,
     visualDiff: input.visualDiff ?? null,
+    visualProblemAreas: visualProblemAreasFor(doc, input.visualDiff),
     evidence: {
       visual: visualEvidenceFor(input)
     },
