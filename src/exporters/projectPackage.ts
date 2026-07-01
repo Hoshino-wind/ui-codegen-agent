@@ -628,10 +628,16 @@ pushIf(handoff.contract?.generationRequests !== (contract.generationRequests?.le
 
 pushIf(handoff.quality?.referenceVisual?.file !== manifest.referenceVisual?.file, failures, "handoff_reference_visual_mismatch", "handoff reference visual must match manifest referenceVisual.");
 pushIf(handoff.quality?.gatesFile !== "quality-gates.json", failures, "handoff_gates_file_mismatch", "handoff quality gatesFile must be quality-gates.json.");
+pushIf(manifest.scores?.visualSimilarity !== report.visualSimilarity, failures, "manifest_visual_score_mismatch", "manifest visual score must match verification-report.json.");
+pushIf(manifest.scores?.structureScore !== report.structureScore, failures, "manifest_structure_score_mismatch", "manifest structure score must match verification-report.json.");
+pushIf(manifest.scores?.componentScore !== report.componentScore, failures, "manifest_component_score_mismatch", "manifest component score must match verification-report.json.");
+pushIf(manifest.scores?.projectFitScore !== report.projectFitScore, failures, "manifest_project_fit_score_mismatch", "manifest project fit score must match verification-report.json.");
+pushIf(stableJson(manifest.scores?.evidence?.visual) !== stableJson(report.evidence?.visual), failures, "manifest_visual_evidence_mismatch", "manifest visual evidence must match verification-report.json.");
 pushIf(handoff.quality?.scores?.visual_similarity !== report.visualSimilarity, failures, "handoff_visual_score_mismatch", "handoff visual score must match verification-report.json.");
 pushIf(handoff.quality?.scores?.structure_score !== report.structureScore, failures, "handoff_structure_score_mismatch", "handoff structure score must match verification-report.json.");
 pushIf(handoff.quality?.scores?.component_score !== report.componentScore, failures, "handoff_component_score_mismatch", "handoff component score must match verification-report.json.");
 pushIf(handoff.quality?.scores?.project_fit_score !== report.projectFitScore, failures, "handoff_project_fit_score_mismatch", "handoff project fit score must match verification-report.json.");
+pushIf(stableJson(handoff.quality?.visualEvidence) !== stableJson(report.evidence?.visual), failures, "handoff_visual_evidence_mismatch", "handoff visual evidence must match verification-report.json.");
 
 pushIf(handoff.audit?.file !== "layerdoc-audit.json", failures, "handoff_audit_file_mismatch", "handoff audit.file must be layerdoc-audit.json.");
 pushIf(handoff.audit?.assetCompliancePassed !== audit.assetCompliance?.passed, failures, "handoff_asset_compliance_mismatch", "handoff asset compliance result must match layerdoc-audit.json.");
@@ -2145,6 +2151,7 @@ if (!options.candidate) {
 }
 
 const visualDiff = comparePngs(referencePath, candidatePath, diffPath, options.threshold, options.includeAA);
+const handoff = readJson("../handoff-summary.json");
 const report = readJson("../verification-report.json");
 report.visualSimilarity = visualDiff.visualSimilarity;
 report.visualDiff = {
@@ -2161,8 +2168,25 @@ report.evidence = {
 };
 writeJson("../verification-report.json", report);
 
+manifest.scores = report;
+writeJson("../manifest.json", manifest);
+
+handoff.quality = {
+  ...(handoff.quality ?? {}),
+  scores: {
+    visual_similarity: report.visualSimilarity,
+    structure_score: report.structureScore,
+    component_score: report.componentScore,
+    project_fit_score: report.projectFitScore
+  },
+  visualEvidence: report.evidence.visual
+};
+writeJson("../handoff-summary.json", handoff);
+
 process.stdout.write(\`\${JSON.stringify({
   reportPath: "verification-report.json",
+  manifestPath: "manifest.json",
+  handoffSummaryPath: "handoff-summary.json",
   referencePath,
   candidatePath,
   diffPath: normalizedRelative(join(options.out, "diff.png")),
@@ -2312,7 +2336,7 @@ Verification:
 - Run \`npm run verify:contract\` to confirm \`integration-contract.json\` still matches the LayerDoc source, project selectors, preview selectors, section order, layer bounds, layer style, layer copy, assets, responsive CSS, and interaction metadata.
 - Hidden sections remain editable in \`layerdoc.json\` but are intentionally omitted from rendered project, preview, and responsive CSS contract requirements.
 - Put the original target visual at \`${manifest.referenceVisual.file}\`.
-- Run \`npm run verify:preview\` to use the manifest reference visual, render \`preview.html\`, capture \`verification-artifacts/candidate.png\`, produce \`verification-artifacts/diff.png\`, and update \`verification-report.json\`.
+- Run \`npm run verify:preview\` to use the manifest reference visual, render \`preview.html\`, capture \`verification-artifacts/candidate.png\`, produce \`verification-artifacts/diff.png\`, and sync \`verification-report.json\`, \`manifest.json\`, and \`handoff-summary.json\` quality scores.
 - Run \`npm run verify:gates\` after preview verification to enforce score thresholds and LayerDoc asset compliance.
 
 Verifier scores:

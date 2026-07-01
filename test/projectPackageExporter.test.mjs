@@ -1140,10 +1140,20 @@ test("exported preview verifier script updates the handoff report from candidate
   assert.match(result.stdout, /"visualSimilarity": 50/);
   assert.equal(existsSync(join(directory, "verification-artifacts", "diff.png")), true);
   const report = JSON.parse(readFileSync(join(directory, "verification-report.json"), "utf8"));
+  const manifest = JSON.parse(readFileSync(join(directory, "manifest.json"), "utf8"));
+  const handoffSummary = JSON.parse(readFileSync(join(directory, "handoff-summary.json"), "utf8"));
   assert.equal(report.visualSimilarity, 50);
   assert.equal(report.evidence.visual.kind, "html-screenshot");
   assert.equal(report.visualDiff.diffPath, "verification-artifacts/diff.png");
   assert.deepEqual(report.visualDiff.problemAreas, [{ x: 1, y: 0, width: 1, height: 1 }]);
+  assert.equal(manifest.scores.visualSimilarity, 50);
+  assert.equal(manifest.scores.evidence.visual.kind, "html-screenshot");
+  assert.equal(handoffSummary.quality.scores.visual_similarity, 50);
+  assert.equal(handoffSummary.quality.visualEvidence.kind, "html-screenshot");
+
+  const handoffVerification = spawnSync(process.execPath, ["scripts/verify-handoff.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.equal(handoffVerification.status, 0, handoffVerification.stderr);
+  assert.match(handoffVerification.stdout, /"passed": true/);
 });
 
 test("exported preview verifier script defaults to manifest reference visual", () => {
