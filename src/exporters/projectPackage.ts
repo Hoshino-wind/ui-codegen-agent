@@ -2395,7 +2395,8 @@ layerDoc.verification = {
     componentScore: report.componentScore,
     projectFitScore: report.projectFitScore
   },
-  issues: (report.issues ?? []).map((issue) => ({ ...issue }))
+  issues: (report.issues ?? []).map((issue) => ({ ...issue })),
+  visualProblemAreas: (report.visualProblemAreas ?? []).map((area) => ({ ...area, bounds: { ...area.bounds } }))
 };
 const layerDocHash = sha256(stableJson(layerDoc));
 writeJson("../layerdoc.json", layerDoc);

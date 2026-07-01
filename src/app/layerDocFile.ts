@@ -49,7 +49,11 @@ function isLayerDocCandidate(value: unknown): value is LayerDoc {
 function normalizeLayerDocCandidate(doc: LayerDoc): LayerDoc {
   return {
     ...doc,
-    generation: doc.generation ?? { sectionRequests: [] }
+    generation: doc.generation ?? { sectionRequests: [] },
+    verification: {
+      ...doc.verification,
+      visualProblemAreas: doc.verification.visualProblemAreas ?? []
+    }
   };
 }
 

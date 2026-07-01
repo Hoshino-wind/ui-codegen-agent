@@ -498,6 +498,25 @@ test("createProjectExportPackage returns project-ready files derived from one La
     layerDocSchema.properties.verification.properties.issues.items.properties.code.enum.includes("metadata_invalid"),
     true
   );
+  assert.deepEqual(layerDocSchema.properties.verification.required, ["scores", "issues", "visualProblemAreas"]);
+  const visualProblemAreaSchema = layerDocSchema.properties.verification.properties.visualProblemAreas.items;
+  assert.deepEqual(visualProblemAreaSchema.required, [
+    "id",
+    "bounds",
+    "affectedLayerId",
+    "affectedLayerKind",
+    "affectedLayerTrack",
+    "affectedLayerEditable",
+    "affectedSectionId"
+  ]);
+  assert.equal(visualProblemAreaSchema.additionalProperties, false);
+  assert.deepEqual(visualProblemAreaSchema.properties.affectedLayerTrack.enum, [
+    "component",
+    "asset",
+    "approximation",
+    "layout",
+    null
+  ]);
   assert.equal(layerDocSchema.properties.responsive.properties.rules.items.required.includes("target"), true);
   assert.deepEqual(layerDocSchema.properties.responsive.properties.rules.items.properties.target.properties.type.enum, [
     "section",
@@ -640,6 +659,7 @@ test("createProjectExportPackage stores verifier scores on the exported LayerDoc
     projectFitScore: 94
   });
   assert.deepEqual(layerDoc.verification.issues, report.issues);
+  assert.deepEqual(layerDoc.verification.visualProblemAreas, report.visualProblemAreas);
   assert.equal(manifest.layerDocHash, output.manifest.layerDocHash);
   assert.equal(contract.layerDoc.hash, output.manifest.layerDocHash);
 });
@@ -1316,6 +1336,7 @@ test("exported preview verifier script updates the handoff report from candidate
     areas: report.visualProblemAreas
   });
   assert.equal(layerDoc.verification.scores.visualSimilarity, 99.75);
+  assert.deepEqual(layerDoc.verification.visualProblemAreas, report.visualProblemAreas);
   assert.deepEqual(contract.component.verificationAttributes, expectedAttributes);
   assert.deepEqual(contract.preview.verificationAttributes, expectedAttributes);
   assert.equal(contract.layerDoc.hash, manifest.layerDocHash);

@@ -151,6 +151,7 @@ test("createLayerDocDownload serializes verifier scores stored on the current La
   assert.equal(parsed.verification.scores.visualSimilarity, 88.25);
   assert.equal(parsed.verification.scores.structureScore, verified.report.structureScore);
   assert.deepEqual(parsed.verification.issues, verified.report.issues);
+  assert.deepEqual(parsed.verification.visualProblemAreas, verified.report.visualProblemAreas);
 });
 
 test("createAnalysisPlanDownload serializes the current structured intake plan", () => {

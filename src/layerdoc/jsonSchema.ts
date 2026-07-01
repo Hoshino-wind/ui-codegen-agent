@@ -118,6 +118,29 @@ const verificationIssueSchema = {
   }
 };
 
+const verificationVisualProblemAreaSchema = {
+  type: "object",
+  required: [
+    "id",
+    "bounds",
+    "affectedLayerId",
+    "affectedLayerKind",
+    "affectedLayerTrack",
+    "affectedLayerEditable",
+    "affectedSectionId"
+  ],
+  additionalProperties: false,
+  properties: {
+    id: { type: "string", minLength: 1 },
+    bounds: rectSchema,
+    affectedLayerId: { type: ["string", "null"] },
+    affectedLayerKind: { enum: [...layerKinds, null] },
+    affectedLayerTrack: { enum: [...layerTracks, null] },
+    affectedLayerEditable: { type: ["boolean", "null"] },
+    affectedSectionId: { type: ["string", "null"] }
+  }
+};
+
 /**
  * Publish the LayerDoc contract with exported packages so downstream projects
  * can validate the editable source without depending on this repository.
@@ -367,7 +390,7 @@ export function createLayerDocJsonSchema(): Record<string, unknown> {
       },
       verification: {
         type: "object",
-        required: ["scores", "issues"],
+        required: ["scores", "issues", "visualProblemAreas"],
         additionalProperties: false,
         properties: {
           scores: {
@@ -384,6 +407,10 @@ export function createLayerDocJsonSchema(): Record<string, unknown> {
           issues: {
             type: "array",
             items: verificationIssueSchema
+          },
+          visualProblemAreas: {
+            type: "array",
+            items: verificationVisualProblemAreaSchema
           }
         }
       }

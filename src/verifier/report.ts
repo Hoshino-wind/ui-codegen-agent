@@ -1,6 +1,6 @@
 import { scoreProjectFit } from "../layerdoc/scoring.js";
 import { validateLayerDoc } from "../layerdoc/validation.js";
-import type { LayerDoc, LayerKind, LayerNode, LayerTrack, Rect, VerificationIssue } from "../layerdoc/types.js";
+import type { LayerDoc, LayerNode, Rect, VerificationIssue, VerificationVisualProblemArea } from "../layerdoc/types.js";
 import type { PngSnapshotComparisonResult } from "./visualDiff.js";
 
 export interface VerificationInput {
@@ -19,16 +19,6 @@ export interface VerificationVisualEvidence {
 
 export interface VerificationEvidence {
   visual: VerificationVisualEvidence;
-}
-
-export interface VerificationVisualProblemArea {
-  id: string;
-  bounds: Rect;
-  affectedLayerId: string | null;
-  affectedLayerKind: LayerKind | null;
-  affectedLayerTrack: LayerTrack | null;
-  affectedLayerEditable: boolean | null;
-  affectedSectionId: string | null;
 }
 
 export interface VerificationReport {
@@ -193,7 +183,10 @@ export function layerDocWithVerificationReport(doc: LayerDoc, report: Verificati
         componentScore: report.componentScore,
         projectFitScore: report.projectFitScore
       },
-      issues: report.issues.map((issue) => ({ ...issue }))
+      issues: report.issues.map((issue) => ({ ...issue })),
+      visualProblemAreas: report.visualProblemAreas.map((area) => ({ ...area, bounds: { ...area.bounds } }))
     }
   };
 }
+
+export type { VerificationVisualProblemArea } from "../layerdoc/types.js";

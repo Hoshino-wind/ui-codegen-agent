@@ -52,7 +52,8 @@ function cloneDoc(doc: LayerDoc): LayerDoc {
     },
     verification: {
       scores: { ...doc.verification.scores },
-      issues: doc.verification.issues.map((issue) => ({ ...issue }))
+      issues: doc.verification.issues.map((issue) => ({ ...issue })),
+      visualProblemAreas: doc.verification.visualProblemAreas.map((area) => ({ ...area, bounds: { ...area.bounds } }))
     }
   };
 }

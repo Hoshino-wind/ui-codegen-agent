@@ -77,6 +77,7 @@ test("createLayerDoc returns a complete editable production asset shell", () => 
   assert.deepEqual(doc.metadata.analysisPlanAudit, createAnalysisPlanAudit());
   assert.deepEqual(doc.generation.sectionRequests, []);
   assert.equal(doc.verification.scores.visualSimilarity, null);
+  assert.deepEqual(doc.verification.visualProblemAreas, []);
 });
 
 test("classifyLayer maps production layer kinds to controlled tracks", () => {

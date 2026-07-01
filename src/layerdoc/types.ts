@@ -186,6 +186,16 @@ export interface VerificationScores {
   projectFitScore: number | null;
 }
 
+export interface VerificationVisualProblemArea {
+  id: string;
+  bounds: Rect;
+  affectedLayerId: string | null;
+  affectedLayerKind: LayerKind | null;
+  affectedLayerTrack: LayerTrack | null;
+  affectedLayerEditable: boolean | null;
+  affectedSectionId: string | null;
+}
+
 export interface LayerDoc {
   schema: "layerdoc";
   version: "0.1.0";
@@ -211,6 +221,7 @@ export interface LayerDoc {
   verification: {
     scores: VerificationScores;
     issues: VerificationIssue[];
+    visualProblemAreas: VerificationVisualProblemArea[];
   };
 }
 

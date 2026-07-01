@@ -75,7 +75,8 @@ export function createLayerDoc(input: CreateLayerDocInput): LayerDoc {
     },
     verification: {
       scores: { ...emptyScores },
-      issues: []
+      issues: [],
+      visualProblemAreas: []
     }
   };
 }
