@@ -113,6 +113,8 @@ test("homepage pipeline CLI runs PNG intake, verification, and project export", 
   assert.equal(projectManifest.imageManifestFile, "image-manifest.json");
   assert.equal(projectManifest.analysisPlanSchema, "analysis-plan.schema.json");
   assert.equal(projectManifest.analysisPlanAuditFile, "analysis-plan-audit.json");
+  assert.equal(projectManifest.files.includes("reference.png"), true);
+  assert.deepEqual([...readFileSync(join(outputDir, "project", "reference.png"))], [...readFileSync(inputPath)]);
   assert.equal(handoffSummary.sourceImageManifestFile, "image-manifest.json");
   assert.deepEqual(handoffSummary.sourceAnalysisPlanFiles, {
     planFile: "analysis-plan.json",

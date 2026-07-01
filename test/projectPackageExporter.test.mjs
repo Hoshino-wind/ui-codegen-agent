@@ -649,6 +649,23 @@ test("writeProjectExportPackage writes every package file under the target direc
   );
 });
 
+test("createProjectExportPackage can include the visual reference PNG as a binary file", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-reference-export-"));
+  const referencePng = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x00, 0xff]);
+  const output = createProjectExportPackage(createExportDoc(), {
+    componentName: "ProductionHomepage",
+    referencePng
+  });
+
+  assert.equal(output.manifest.files.includes("reference.png"), true);
+  const referenceFile = output.files.find((file) => file.path === "reference.png");
+  assert.equal(referenceFile.contents instanceof Uint8Array, true);
+  assert.deepEqual([...referenceFile.contents], [...referencePng]);
+
+  writeProjectExportPackage(output, directory);
+  assert.deepEqual([...readFileSync(join(directory, "reference.png"))], [...referencePng]);
+});
+
 test("exported integration contract verifier validates the handoff mapping", () => {
   const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-contract-verifier-"));
   const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });

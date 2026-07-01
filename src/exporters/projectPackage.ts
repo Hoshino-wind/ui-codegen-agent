@@ -15,11 +15,12 @@ export interface ProjectExportPackageOptions {
   analysisPlan?: HomepageAnalysisPlan;
   imageManifest?: ImageAnalysisManifest;
   report?: VerificationReport;
+  referencePng?: Uint8Array;
 }
 
 export interface ProjectExportFile {
   path: string;
-  contents: string;
+  contents: string | Uint8Array;
 }
 
 export interface ProjectReferenceVisual {
@@ -2487,7 +2488,7 @@ Generated assets:
 - \`handoff-summary.json\`: machine-readable integration summary for CI, importers, and downstream project handoff
 - \`integration-contract.json\`: stable mapping from visible LayerDoc objects to project files and DOM selectors
 - \`manifest.json\`, \`layerdoc.schema.json\`: project package manifest and LayerDoc source contract
-${manifest.analysisPlanFile ? `- \`${manifest.analysisPlanFile}\`: confirmed Homepage Analysis Plan used before LayerDoc build\n` : ""}${manifest.analysisPlanSchema ? `- \`${manifest.analysisPlanSchema}\`: Homepage Analysis Plan source contract\n` : ""}${manifest.analysisPlanAuditFile ? `- \`${manifest.analysisPlanAuditFile}\`: Analysis Plan coverage, track, and readiness audit\n` : ""}${manifest.imageManifestFile ? `- \`${manifest.imageManifestFile}\`: source image decomposition manifest connecting the visual intake to LayerDoc sections and layers\n` : ""}- \`${manifest.referenceVisual.file}\`: original target visual expected by preview verification; homepage pipeline exports copy this automatically
+${manifest.analysisPlanFile ? `- \`${manifest.analysisPlanFile}\`: confirmed Homepage Analysis Plan used before LayerDoc build\n` : ""}${manifest.analysisPlanSchema ? `- \`${manifest.analysisPlanSchema}\`: Homepage Analysis Plan source contract\n` : ""}${manifest.analysisPlanAuditFile ? `- \`${manifest.analysisPlanAuditFile}\`: Analysis Plan coverage, track, and readiness audit\n` : ""}${manifest.imageManifestFile ? `- \`${manifest.imageManifestFile}\`: source image decomposition manifest connecting the visual intake to LayerDoc sections and layers\n` : ""}- \`${manifest.referenceVisual.file}\`: original target visual expected by preview verification; included when the exporter receives \`referencePng\`; homepage pipeline supplies it automatically
 - \`layerdoc-audit.json\`: structure, track, and asset-compliance audit
 - \`verification-report.json\`, \`quality-gates.json\`, \`scripts/verify-handoff.mjs\`, \`scripts/verify-analysis-plan.mjs\`, \`scripts/verify-image-manifest.mjs\`, \`scripts/verify-layerdoc.mjs\`, \`scripts/verify-contract.mjs\`, \`scripts/verify-preview.mjs\`, \`scripts/verify-gates.mjs\`: executable source, structure, contract, visual, and quality gate handoff
 
@@ -2626,6 +2627,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     "package.json",
     "preview.html",
     "quality-gates.json",
+    ...(options.referencePng ? [referenceVisual.file] : []),
     "scripts/verify-analysis-plan.mjs",
     "scripts/verify-contract.mjs",
     "scripts/verify-gates.mjs",
@@ -2689,6 +2691,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
       { path: "package.json", contents: packageJsonFor(manifest) },
       { path: "preview.html", contents: renderHtmlPreview(sourceDoc) },
       { path: "quality-gates.json", contents: stableJson(defaultVerificationGates) },
+      ...(options.referencePng ? [{ path: referenceVisual.file, contents: options.referencePng }] : []),
       { path: "scripts/verify-analysis-plan.mjs", contents: analysisPlanVerifierScriptFor() },
       { path: "scripts/verify-contract.mjs", contents: contractVerifierScriptFor() },
       { path: "scripts/verify-gates.mjs", contents: qualityGateScriptFor() },

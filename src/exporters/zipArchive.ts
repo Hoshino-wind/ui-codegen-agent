@@ -1,6 +1,6 @@
 export interface ZipArchiveFile {
   path: string;
-  contents: string;
+  contents: string | Uint8Array;
 }
 
 interface ZipEntry {
@@ -50,6 +50,10 @@ function concat(parts: Uint8Array[]): Uint8Array {
     offset += part.length;
   }
   return output;
+}
+
+function fileData(contents: string | Uint8Array): Uint8Array {
+  return typeof contents === "string" ? textEncoder.encode(contents) : contents;
 }
 
 function localFileHeader(entry: ZipEntry): Uint8Array {
@@ -118,7 +122,7 @@ export function createStoredZipArchive(files: ZipArchiveFile[]): Uint8Array {
   for (const file of files) {
     const entry: ZipEntry = {
       name: textEncoder.encode(file.path),
-      data: textEncoder.encode(file.contents),
+      data: fileData(file.contents),
       crc: 0,
       localHeaderOffset: offset
     };

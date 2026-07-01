@@ -12,7 +12,7 @@ import {
 } from "../dist/app/layerDocFile.js";
 import { applyWorkspaceVisualDiff } from "../dist/app/editorWorkspace.js";
 import { createSampleHomepageLayerDoc } from "../dist/app/sampleDocument.js";
-import { createHomepageAnalysisPlan } from "../dist/index.js";
+import { createHomepageAnalysisPlan, createStoredZipArchive } from "../dist/index.js";
 
 function readUInt16LE(bytes, offset) {
   return bytes[offset] | (bytes[offset + 1] << 8);
@@ -48,6 +48,27 @@ function zipCentralDirectoryNames(bytes) {
   }
 
   return names;
+}
+
+function zipLocalFileData(bytes, path) {
+  const encoder = new TextEncoder();
+  const expectedName = encoder.encode(path);
+  let offset = 0;
+
+  while (offset < bytes.length && readUInt32LE(bytes, offset) === 0x04034b50) {
+    const compressedSize = readUInt32LE(bytes, offset + 18);
+    const fileNameLength = readUInt16LE(bytes, offset + 26);
+    const extraLength = readUInt16LE(bytes, offset + 28);
+    const nameStart = offset + 30;
+    const dataStart = nameStart + fileNameLength + extraLength;
+    const name = bytes.slice(nameStart, nameStart + fileNameLength);
+    if (name.length === expectedName.length && name.every((byte, index) => byte === expectedName[index])) {
+      return bytes.slice(dataStart, dataStart + compressedSize);
+    }
+    offset = dataStart + compressedSize;
+  }
+
+  throw new Error(`ZIP entry ${path} was not found.`);
 }
 
 test("createWorkspaceFromLayerDocJson imports a valid LayerDoc into the editor workspace", () => {
@@ -246,6 +267,18 @@ test("createProjectPackageZipDownload serializes the project package as a real Z
   assert.equal(zipCentralDirectoryNames(artifact.contents).includes("scripts/verify-analysis-plan.mjs"), true);
   assert.equal(zipCentralDirectoryNames(artifact.contents).includes("scripts/verify-image-manifest.mjs"), true);
   assert.equal(zipCentralDirectoryNames(artifact.contents).includes("src/ProductionHomepage.tsx"), true);
+});
+
+test("createStoredZipArchive preserves binary project files", () => {
+  const referencePng = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x00, 0xff]);
+
+  const archive = createStoredZipArchive([
+    { path: "reference.png", contents: referencePng },
+    { path: "README.md", contents: "hello\n" }
+  ]);
+
+  assert.deepEqual([...zipLocalFileData(archive, "reference.png")], [...referencePng]);
+  assert.equal(new TextDecoder().decode(zipLocalFileData(archive, "README.md")), "hello\n");
 });
 
 test("createVerificationReportDownload serializes verifier scores without inventing screenshot similarity", () => {

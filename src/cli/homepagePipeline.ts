@@ -263,10 +263,10 @@ export async function runHomepagePipelineCli(args: string[]): Promise<number> {
       packageName: options.packageName,
       analysisPlan: intake.analysisPlan,
       imageManifest: intake.imageManifest,
-      report: verification.report
+      report: verification.report,
+      referencePng: readFileSync(inputPath)
     });
     const writtenProject = writeProjectExportPackage(projectPackage, projectDir);
-    copyFileSync(inputPath, projectReferencePath);
     const previewAssets = copyDirectory(intakeAssetDir, projectAssetDir).map((file) => join("assets", file));
     const publicAssets = copyDirectory(intakeAssetDir, projectPublicAssetDir).map((file) => join("public", "assets", file));
     const copiedAssets = [...previewAssets, ...publicAssets];

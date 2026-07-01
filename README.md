@@ -229,9 +229,9 @@ layerdoc-run-homepage \
 The resulting `pipeline-report.json` records whether the structure came from a
 provided plan or from the seeded MVP scaffold.
 
-The homepage pipeline CLI also copies the original input PNG into the exported
-project as `reference.png`, so the handoff project can rerun visual verification
-without manually locating the source image.
+The homepage pipeline CLI also writes the original input PNG into the exported
+project package as `reference.png`, so the handoff project can rerun visual
+verification without manually locating the source image.
 
 ## Verification Dimensions
 
