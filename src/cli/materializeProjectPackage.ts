@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { delimiter, resolve } from "node:path";
 import process from "node:process";
 
 import { parseProjectExportPackageJson, writeProjectExportPackage } from "../exporters/projectPackageWriter.js";
@@ -13,6 +13,13 @@ interface MaterializeProjectPackageCliOptions {
   verifyHandoff: boolean;
   verifyStructure: boolean;
   verifyQuality: boolean;
+  verifyPreview: boolean;
+  candidatePath?: string;
+  referencePath?: string;
+  previewOutDir?: string;
+  previewThreshold?: string;
+  browserPath?: string;
+  includeAA: boolean;
 }
 
 const usage = `Usage: layerdoc-materialize-project --input <project-package.json> --out <directory>
@@ -23,6 +30,13 @@ Options:
   --verify-handoff               Run scripts/verify-handoff.mjs after writing files.
   --verify-structure             Run handoff, source, LayerDoc, and contract verifiers.
   --verify-quality               Run structure verifiers and generated quality gates.
+  --verify-preview               Run preview visual diff, structure verifiers, and quality gates.
+  --candidate <candidate.png>    Candidate PNG for --verify-preview; omitted values use Playwright.
+  --reference <reference.png>    Optional reference PNG override for --verify-preview.
+  --preview-out <directory>      Optional preview artifact directory inside the project.
+  --threshold <0-1>              Optional preview pixelmatch threshold.
+  --browser <executable>         Optional Playwright browser executable for screenshot capture.
+  --include-aa                   Include anti-aliased pixels in preview diff.
   -h, --help                     Show this help.
 `;
 
@@ -37,6 +51,11 @@ const structureVerificationScripts = [
 const qualityVerificationScripts = [
   ...structureVerificationScripts,
   "scripts/verify-gates.mjs"
+];
+
+const previewVerificationScripts = [
+  "scripts/verify-preview.mjs",
+  ...qualityVerificationScripts
 ];
 
 interface ParsedArgs {
@@ -86,6 +105,53 @@ function parseArgs(args: string[]): ParsedArgs {
       continue;
     }
 
+    if (arg === "--verify-preview") {
+      values.verifyPreview = true;
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--candidate" || arg.startsWith("--candidate=")) {
+      const option = readOptionValue(args, index, "--candidate");
+      values.candidatePath = option.value;
+      index = option.nextIndex;
+      continue;
+    }
+
+    if (arg === "--reference" || arg.startsWith("--reference=")) {
+      const option = readOptionValue(args, index, "--reference");
+      values.referencePath = option.value;
+      index = option.nextIndex;
+      continue;
+    }
+
+    if (arg === "--preview-out" || arg.startsWith("--preview-out=")) {
+      const option = readOptionValue(args, index, "--preview-out");
+      values.previewOutDir = option.value;
+      index = option.nextIndex;
+      continue;
+    }
+
+    if (arg === "--threshold" || arg.startsWith("--threshold=")) {
+      const option = readOptionValue(args, index, "--threshold");
+      values.previewThreshold = option.value;
+      index = option.nextIndex;
+      continue;
+    }
+
+    if (arg === "--browser" || arg.startsWith("--browser=")) {
+      const option = readOptionValue(args, index, "--browser");
+      values.browserPath = option.value;
+      index = option.nextIndex;
+      continue;
+    }
+
+    if (arg === "--include-aa") {
+      values.includeAA = true;
+      index += 1;
+      continue;
+    }
+
     throw new CliError(`Unknown argument: ${arg}.`, true);
   }
 
@@ -106,16 +172,32 @@ function parseArgs(args: string[]): ParsedArgs {
       outputDir,
       verifyHandoff: values.verifyHandoff ?? false,
       verifyStructure: values.verifyStructure ?? false,
-      verifyQuality: values.verifyQuality ?? false
+      verifyQuality: values.verifyQuality ?? false,
+      verifyPreview: values.verifyPreview ?? false,
+      candidatePath: values.candidatePath,
+      referencePath: values.referencePath,
+      previewOutDir: values.previewOutDir,
+      previewThreshold: values.previewThreshold,
+      browserPath: values.browserPath,
+      includeAA: values.includeAA ?? false
     }
   };
 }
 
-function runProjectVerifier(rootDir: string, scriptPath: string) {
-  const command = `node ${scriptPath}`;
-  const result = spawnSync(process.execPath, [scriptPath], {
+function projectVerifierEnv() {
+  const nodePath = [resolve("node_modules"), process.env.NODE_PATH].filter(Boolean).join(delimiter);
+  return {
+    ...process.env,
+    NODE_PATH: nodePath
+  };
+}
+
+function runProjectVerifier(rootDir: string, scriptPath: string, scriptArgs: string[] = []) {
+  const command = ["node", scriptPath, ...scriptArgs].join(" ");
+  const result = spawnSync(process.execPath, [scriptPath, ...scriptArgs], {
     cwd: rootDir,
-    encoding: "utf8"
+    encoding: "utf8",
+    env: projectVerifierEnv()
   });
 
   if (result.status !== 0) {
@@ -147,6 +229,40 @@ function verifyQuality(rootDir: string) {
   };
 }
 
+function previewArgsFor(options: MaterializeProjectPackageCliOptions): string[] {
+  const args: string[] = [];
+
+  if (options.candidatePath) {
+    args.push("--candidate", resolve(options.candidatePath));
+  }
+  if (options.referencePath) {
+    args.push("--reference", resolve(options.referencePath));
+  }
+  if (options.previewOutDir) {
+    args.push("--out", options.previewOutDir);
+  }
+  if (options.previewThreshold) {
+    args.push("--threshold", options.previewThreshold);
+  }
+  if (options.browserPath) {
+    args.push("--browser", resolve(options.browserPath));
+  }
+  if (options.includeAA) {
+    args.push("--include-aa");
+  }
+
+  return args;
+}
+
+function verifyPreview(rootDir: string, options: MaterializeProjectPackageCliOptions) {
+  return {
+    mode: "preview",
+    results: previewVerificationScripts.map((scriptPath) =>
+      runProjectVerifier(rootDir, scriptPath, scriptPath === "scripts/verify-preview.mjs" ? previewArgsFor(options) : [])
+    )
+  };
+}
+
 export function runMaterializeProjectPackageCli(args: string[]): number {
   try {
     const parsed = parseArgs(args);
@@ -164,7 +280,9 @@ export function runMaterializeProjectPackageCli(args: string[]): number {
     const outputDir = resolve(options.outputDir);
     const projectPackage = parseProjectExportPackageJson(readFileSync(inputPath, "utf8"));
     const written = writeProjectExportPackage(projectPackage, outputDir);
-    const verification = options.verifyQuality
+    const verification = options.verifyPreview
+      ? verifyPreview(outputDir, options)
+      : options.verifyQuality
       ? verifyQuality(outputDir)
       : options.verifyStructure
         ? verifyStructure(outputDir)

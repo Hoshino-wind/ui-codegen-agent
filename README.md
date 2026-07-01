@@ -263,6 +263,19 @@ npm run materialize:project -- \
 so handoff packages that already contain visual evidence can enforce the stored
 score thresholds immediately after materialization.
 
+```bash
+npm run materialize:project -- \
+  --input artifacts/project-package.json \
+  --out artifacts/materialized-project \
+  --verify-preview \
+  --candidate artifacts/candidate.png
+```
+
+`--verify-preview` runs the generated `scripts/verify-preview.mjs` before the
+structure and gate checks. Passing `--candidate` uses a pre-rendered PNG for
+deterministic screenshot diff; omitting it lets the generated verifier capture
+`preview.html` with Playwright.
+
 ## Verification Dimensions
 
 Verifier output must stay split by concern:

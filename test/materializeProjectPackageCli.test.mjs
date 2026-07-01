@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 
+import { PNG } from "pngjs";
+
 import {
   createLayerDoc,
   createProjectExportPackage,
@@ -56,6 +58,22 @@ function projectPackageJson(packageOutput) {
           }
     )
   };
+}
+
+function solidPngBytes(width, height, color) {
+  const png = new PNG({ width, height });
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = (width * y + x) << 2;
+      png.data[index] = color[0];
+      png.data[index + 1] = color[1];
+      png.data[index + 2] = color[2];
+      png.data[index + 3] = color[3];
+    }
+  }
+
+  return PNG.sync.write(png);
 }
 
 test("materialize project package CLI writes a runnable project from Studio JSON handoff", () => {
@@ -197,6 +215,61 @@ test("materialize project package CLI can verify the written quality gates", () 
   );
   assert.equal(summary.verification.results.every((entry) => entry.status === 0), true);
   assert.equal(summary.verification.results.at(-1).result.passed, true);
+});
+
+test("materialize project package CLI can verify preview diff from a candidate PNG", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-cli-materialize-preview-"));
+  const inputPath = join(directory, "project-package.json");
+  const outputDir = join(directory, "materialized-project");
+  const candidatePath = join(directory, "candidate.png");
+  const doc = createCliDoc();
+  const report = {
+    ...createVerificationReport(doc, { visualSimilarity: 92 }),
+    projectFitScore: 95
+  };
+  const referencePng = solidPngBytes(2, 1, [255, 255, 255, 255]);
+  const projectPackage = createProjectExportPackage(doc, {
+    componentName: "ProductionHomepage",
+    packageName: "studio-json-handoff",
+    report,
+    referencePng
+  });
+  writeFileSync(candidatePath, solidPngBytes(2, 1, [255, 255, 255, 255]));
+  writeFileSync(inputPath, `${JSON.stringify(projectPackageJson(projectPackage), null, 2)}\n`);
+
+  const result = spawnSync(process.execPath, [
+    cliPath,
+    "--input",
+    inputPath,
+    "--out",
+    outputDir,
+    "--verify-preview",
+    "--candidate",
+    candidatePath
+  ], { cwd: rootDir, encoding: "utf8" });
+
+  assert.equal(result.status, 0, result.stderr);
+  const summary = JSON.parse(result.stdout);
+  const verificationReport = JSON.parse(readFileSync(join(outputDir, "verification-report.json"), "utf8"));
+
+  assert.equal(summary.verification.mode, "preview");
+  assert.match(summary.verification.results[0].command, /^node scripts\/verify-preview\.mjs --candidate /);
+  assert.deepEqual(
+    summary.verification.results.slice(1).map((entry) => entry.command),
+    [
+      "node scripts/verify-handoff.mjs",
+      "node scripts/verify-analysis-plan.mjs",
+      "node scripts/verify-image-manifest.mjs",
+      "node scripts/verify-layerdoc.mjs",
+      "node scripts/verify-contract.mjs",
+      "node scripts/verify-gates.mjs"
+    ]
+  );
+  assert.equal(summary.verification.results.every((entry) => entry.status === 0), true);
+  assert.equal(summary.verification.results[0].result.visualSimilarity, 100);
+  assert.equal(verificationReport.visualSimilarity, 100);
+  assert.equal(verificationReport.evidence.visual.kind, "html-screenshot");
+  assert.equal(existsSync(join(outputDir, "verification-artifacts", "diff.png")), true);
 });
 
 test("materialize project package CLI rejects missing required arguments with usage guidance", () => {
