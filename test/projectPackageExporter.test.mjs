@@ -291,8 +291,12 @@ test("createProjectExportPackage returns project-ready files derived from one La
     uri: "/references/analysis-plan.json"
   });
   assert.deepEqual(output.manifest.analysisPlanAudit, createExportAnalysisPlanAudit());
+  assert.equal(output.manifest.analysisPlanSchema, "analysis-plan.schema.json");
+  assert.equal(output.manifest.analysisPlanAuditFile, "analysis-plan-audit.json");
   assert.deepEqual(paths, [
     "README.md",
+    "analysis-plan-audit.json",
+    "analysis-plan.schema.json",
     "handoff-summary.json",
     "index.html",
     "integration-contract.json",
@@ -419,6 +423,8 @@ test("createProjectExportPackage returns project-ready files derived from one La
     "component"
   ]);
   assert.match(output.files.find((file) => file.path === "layerdoc-audit.json").contents, /"assetCompliance"/);
+  assert.match(output.files.find((file) => file.path === "analysis-plan.schema.json").contents, /"HomepageAnalysisPlan 0.1.0"/);
+  assert.deepEqual(JSON.parse(output.files.find((file) => file.path === "analysis-plan-audit.json").contents), output.manifest.analysisPlanAudit);
   assert.match(output.files.find((file) => file.path === "verification-report.json").contents, /"structureScore": 100/);
   assert.match(output.files.find((file) => file.path === "verification-report.json").contents, /"evidence"/);
   assert.match(output.files.find((file) => file.path === "quality-gates.json").contents, /"visualSimilarity": 85/);
@@ -437,6 +443,10 @@ test("createProjectExportPackage returns project-ready files derived from one La
   });
   assert.deepEqual(handoffSummary.sourceAnalysisPlan, output.manifest.analysisPlan);
   assert.deepEqual(handoffSummary.sourceAnalysisPlanAudit, output.manifest.analysisPlanAudit);
+  assert.deepEqual(handoffSummary.sourceAnalysisPlanFiles, {
+    schemaFile: "analysis-plan.schema.json",
+    auditFile: "analysis-plan-audit.json"
+  });
   assert.deepEqual(handoffSummary.entrypoint, {
     component: "ProductionHomepage",
     file: "src/ProductionHomepage.tsx",
@@ -539,10 +549,12 @@ test("writeProjectExportPackage writes every package file under the target direc
 
   const written = writeProjectExportPackage(output, directory);
 
-  assert.equal(written.files.length, 22);
+  assert.equal(written.files.length, output.files.length);
   assert.equal(existsSync(join(directory, "src", "ProductionHomepage.tsx")), true);
   assert.equal(existsSync(join(directory, "integration-contract.json")), true);
   assert.equal(existsSync(join(directory, "handoff-summary.json")), true);
+  assert.equal(existsSync(join(directory, "analysis-plan.schema.json")), true);
+  assert.equal(existsSync(join(directory, "analysis-plan-audit.json")), true);
   assert.equal(existsSync(join(directory, "layerdoc-audit.json")), true);
   assert.equal(existsSync(join(directory, "layerdoc.schema.json")), true);
   assert.equal(existsSync(join(directory, "src", "main.tsx")), true);

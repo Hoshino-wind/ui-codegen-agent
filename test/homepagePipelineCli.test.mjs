@@ -90,6 +90,8 @@ test("homepage pipeline CLI runs PNG intake, verification, and project export", 
   assert.equal(existsSync(join(outputDir, "intake", "assets", "hero-crop.png")), true);
   assert.equal(existsSync(join(outputDir, "project", "src", "ProductionHomepage.tsx")), true);
   assert.equal(existsSync(join(outputDir, "project", "reference.png")), true);
+  assert.equal(existsSync(join(outputDir, "project", "analysis-plan.schema.json")), true);
+  assert.equal(existsSync(join(outputDir, "project", "analysis-plan-audit.json")), true);
   assert.equal(existsSync(join(outputDir, "project", "assets", "hero-crop.png")), true);
   assert.equal(existsSync(join(outputDir, "project", "public", "assets", "hero-crop.png")), true);
   assert.equal(existsSync(join(outputDir, "verification", "diff.png")), true);
@@ -100,6 +102,8 @@ test("homepage pipeline CLI runs PNG intake, verification, and project export", 
   assert.equal(pipelineReport.verification.scores.visualSimilarity, 100);
   assert.equal(pipelineReport.project.referencePath, join(outputDir, "project", "reference.png"));
   assert.deepEqual(pipelineReport.project.copiedAssets.sort(), ["assets/hero-crop.png", "public/assets/hero-crop.png"]);
+  assert.equal(projectManifest.analysisPlanSchema, "analysis-plan.schema.json");
+  assert.equal(projectManifest.analysisPlanAuditFile, "analysis-plan-audit.json");
   assert.equal(projectManifest.scores.visualSimilarity, 100);
   assert.match(readFileSync(join(outputDir, "project", "src", "ProductionHomepage.tsx"), "utf8"), /Pipeline Homepage|Imported hero headline/);
 });

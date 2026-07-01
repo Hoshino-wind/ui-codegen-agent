@@ -1,4 +1,5 @@
 import type { LayerDoc } from "../layerdoc/types.js";
+import { createHomepageAnalysisPlanJsonSchema } from "../importers/homepageAnalysisPlan.js";
 import { createLayerDocAudit, type LayerDocAudit } from "../layerdoc/audit.js";
 import { createLayerDocJsonSchema } from "../layerdoc/jsonSchema.js";
 import { defaultVerificationGates, type VerificationGates } from "../verifier/gates.js";
@@ -33,6 +34,8 @@ export interface ProjectExportManifest {
   referenceVisual: ProjectReferenceVisual;
   analysisPlan?: NonNullable<LayerDoc["metadata"]["analysisPlan"]>;
   analysisPlanAudit?: NonNullable<LayerDoc["metadata"]["analysisPlanAudit"]>;
+  analysisPlanSchema?: string;
+  analysisPlanAuditFile?: string;
   files: string[];
   scores: VerificationReport;
   audit: LayerDocAudit;
@@ -55,6 +58,10 @@ export interface ProjectHandoffSummary {
   sourceVisual?: NonNullable<LayerDoc["metadata"]["sourceImage"]>;
   sourceAnalysisPlan?: NonNullable<LayerDoc["metadata"]["analysisPlan"]>;
   sourceAnalysisPlanAudit?: NonNullable<LayerDoc["metadata"]["analysisPlanAudit"]>;
+  sourceAnalysisPlanFiles?: {
+    schemaFile?: string;
+    auditFile?: string;
+  };
   entrypoint: {
     component: string;
     file: string;
@@ -1985,7 +1992,7 @@ Generated assets:
 - \`handoff-summary.json\`: machine-readable integration summary for CI, importers, and downstream project handoff
 - \`integration-contract.json\`: stable mapping from visible LayerDoc objects to project files and DOM selectors
 - \`manifest.json\`, \`layerdoc.schema.json\`: project package manifest and LayerDoc source contract
-- \`${manifest.referenceVisual.file}\`: original target visual expected by preview verification; homepage pipeline exports copy this automatically
+${manifest.analysisPlanSchema ? `- \`${manifest.analysisPlanSchema}\`: Homepage Analysis Plan source contract\n` : ""}${manifest.analysisPlanAuditFile ? `- \`${manifest.analysisPlanAuditFile}\`: Analysis Plan coverage, track, and readiness audit\n` : ""}- \`${manifest.referenceVisual.file}\`: original target visual expected by preview verification; homepage pipeline exports copy this automatically
 - \`layerdoc-audit.json\`: structure, track, and asset-compliance audit
 - \`verification-report.json\`, \`quality-gates.json\`, \`scripts/verify-layerdoc.mjs\`, \`scripts/verify-contract.mjs\`, \`scripts/verify-preview.mjs\`, \`scripts/verify-gates.mjs\`: executable source, contract, visual, and quality gate handoff
 
@@ -2039,6 +2046,14 @@ function createHandoffSummary(
     ...(sourceImage ? { sourceVisual: { ...sourceImage } } : {}),
     ...(analysisPlan ? { sourceAnalysisPlan: { ...analysisPlan } } : {}),
     ...(analysisPlanAudit ? { sourceAnalysisPlanAudit: { ...analysisPlanAudit } } : {}),
+    ...(manifest.analysisPlanSchema || manifest.analysisPlanAuditFile
+      ? {
+          sourceAnalysisPlanFiles: {
+            ...(manifest.analysisPlanSchema ? { schemaFile: manifest.analysisPlanSchema } : {}),
+            ...(manifest.analysisPlanAuditFile ? { auditFile: manifest.analysisPlanAuditFile } : {})
+          }
+        }
+      : {}),
     entrypoint: {
       component: contract.component.name,
       file: contract.component.file,
@@ -2087,8 +2102,12 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
   const packageName = options.packageName ?? toKebabCase(options.componentName);
   const sourceHash = layerDocHash(sourceDoc);
   const referenceVisual = referenceVisualFor(sourceDoc.metadata.sourceImage);
+  const analysisPlanSchemaPath = sourceDoc.metadata.analysisPlan || sourceDoc.metadata.analysisPlanAudit ? "analysis-plan.schema.json" : undefined;
+  const analysisPlanAuditPath = sourceDoc.metadata.analysisPlanAudit ? "analysis-plan-audit.json" : undefined;
   const files = [
     "README.md",
+    ...(analysisPlanAuditPath ? [analysisPlanAuditPath] : []),
+    ...(analysisPlanSchemaPath ? [analysisPlanSchemaPath] : []),
     "handoff-summary.json",
     "index.html",
     "integration-contract.json",
@@ -2121,6 +2140,8 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     referenceVisual,
     ...(sourceDoc.metadata.analysisPlan ? { analysisPlan: { ...sourceDoc.metadata.analysisPlan } } : {}),
     ...(sourceDoc.metadata.analysisPlanAudit ? { analysisPlanAudit: { ...sourceDoc.metadata.analysisPlanAudit } } : {}),
+    ...(analysisPlanSchemaPath ? { analysisPlanSchema: analysisPlanSchemaPath } : {}),
+    ...(analysisPlanAuditPath ? { analysisPlanAuditFile: analysisPlanAuditPath } : {}),
     files,
     scores: report,
     audit
@@ -2139,6 +2160,10 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     manifest,
     files: [
       { path: "README.md", contents: readmeFor(manifest) },
+      ...(analysisPlanAuditPath && sourceDoc.metadata.analysisPlanAudit
+        ? [{ path: analysisPlanAuditPath, contents: stableJson(sourceDoc.metadata.analysisPlanAudit) }]
+        : []),
+      ...(analysisPlanSchemaPath ? [{ path: analysisPlanSchemaPath, contents: stableJson(createHomepageAnalysisPlanJsonSchema()) }] : []),
       { path: "handoff-summary.json", contents: stableJson(handoffSummary) },
       { path: "index.html", contents: indexHtmlFor(options.componentName) },
       { path: "integration-contract.json", contents: stableJson(integrationContract) },
