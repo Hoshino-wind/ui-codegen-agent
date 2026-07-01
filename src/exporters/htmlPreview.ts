@@ -1,5 +1,6 @@
 import type { AssetNode, ComponentNode, InteractionNode, LayerDoc, LayerNode, LayerStyle, Rect, SectionNode } from "../layerdoc/types.js";
 import { renderResponsiveCss } from "./responsiveCss.js";
+import { verificationDataAttributes } from "./verificationAttributes.js";
 
 function escapeHtml(value: string): string {
   return value
@@ -108,6 +109,12 @@ function interactionAttributes(doc: LayerDoc, layer: LayerNode): string {
   return ` data-interaction-ids="${escapeHtml(interactions.map((interaction) => interaction.id).join(" "))}" data-interaction-events="${escapeHtml(interactions.map((interaction) => interaction.event).join(" "))}" data-interaction-actions="${escapeHtml(interactions.map((interaction) => interaction.action).join(" "))}"`;
 }
 
+function dataAttributes(attrs: Record<string, string>): string {
+  return Object.entries(attrs)
+    .map(([name, value]) => `${name}="${escapeHtml(value)}"`)
+    .join(" ");
+}
+
 function renderLayer(doc: LayerDoc, layer: LayerNode, bounds: Rect = layer.bounds): string {
   const common = `data-layer-id="${escapeHtml(layer.id)}" data-kind="${layer.kind}" data-track="${layer.track}"${interactionAttributes(doc, layer)} style="${styleFor(bounds, layer.style)}"`;
 
@@ -186,6 +193,7 @@ export function renderHtmlPreview(doc: LayerDoc): string {
   const body = [sections, layers].filter(Boolean).join("\n    ");
   const responsiveCss = renderResponsiveCss(doc);
   const responsiveStyle = responsiveCss ? `\n    <style>\n${escapeStyleText(responsiveCss)}\n    </style>` : "";
+  const verificationAttributes = dataAttributes(verificationDataAttributes(doc));
 
   return `<!doctype html>
 <html lang="en">
@@ -195,7 +203,7 @@ export function renderHtmlPreview(doc: LayerDoc): string {
     ${responsiveStyle}
   </head>
   <body style="margin:0;background:${background};">
-    <main data-layerdoc="${doc.version}" style="position:relative;width:${doc.canvas.width}px;height:${doc.canvas.height}px;overflow:hidden;background:${background};">
+    <main data-layerdoc="${doc.version}" ${verificationAttributes} style="position:relative;width:${doc.canvas.width}px;height:${doc.canvas.height}px;overflow:hidden;background:${background};">
     ${body}
     </main>
   </body>

@@ -40,8 +40,7 @@ function selectedLayerExists(doc: LayerDoc, layerId: string): boolean {
   return doc.layers.some((layer) => layer.id === layerId);
 }
 
-function materialize(doc: LayerDoc, selectedLayerId: string): EditorWorkspace {
-  const report = createVerificationReport(doc);
+function materialize(doc: LayerDoc, selectedLayerId: string, report: VerificationReport = createVerificationReport(doc)): EditorWorkspace {
   const verifiedDoc = layerDocWithVerificationReport(doc, report);
   const audit = createLayerDocAudit(verifiedDoc);
 
@@ -81,14 +80,7 @@ export function applyWorkspaceVisualDiff(
   visualEvidence?: VerificationVisualEvidence
 ): EditorWorkspace {
   const report = createVerificationReport(workspace.doc, { visualDiff, visualEvidence });
-  const verifiedDoc = layerDocWithVerificationReport(workspace.doc, report);
-
-  return {
-    ...workspace,
-    doc: verifiedDoc,
-    report,
-    projectExport: createProjectExportPackage(verifiedDoc, { componentName: "ProductionHomepage", report })
-  };
+  return materialize(workspace.doc, workspace.selectedLayerId, report);
 }
 
 export function updateSelectedText(workspace: EditorWorkspace, text: string): EditorWorkspace {

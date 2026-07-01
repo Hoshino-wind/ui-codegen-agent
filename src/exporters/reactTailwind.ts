@@ -1,5 +1,6 @@
 import type { AssetNode, ComponentNode, InteractionNode, LayerDoc, LayerNode, LayerStyle, Rect, SectionNode } from "../layerdoc/types.js";
 import { renderResponsiveCss } from "./responsiveCss.js";
+import { verificationDataAttributes } from "./verificationAttributes.js";
 
 export interface ReactTailwindExportOptions {
   componentName: string;
@@ -114,6 +115,12 @@ function interactionAttributes(doc: LayerDoc, layer: LayerNode): string {
   }
 
   return ` data-interaction-ids="${escapeAttribute(interactions.map((interaction) => interaction.id).join(" "))}" data-interaction-events="${escapeAttribute(interactions.map((interaction) => interaction.event).join(" "))}" data-interaction-actions="${escapeAttribute(interactions.map((interaction) => interaction.action).join(" "))}"`;
+}
+
+function jsxDataAttributes(attrs: Record<string, string>): string {
+  return Object.entries(attrs)
+    .map(([name, value]) => ` ${name}="${escapeAttribute(value)}"`)
+    .join("");
 }
 
 function relativeBounds(bounds: Rect, origin: Rect): Rect {
@@ -236,12 +243,13 @@ export function exportReactTailwind(doc: LayerDoc, options: ReactTailwindExportO
     .join("\n");
   const responsiveStyle = renderResponsiveStyleTag(doc);
   const body = [responsiveStyle, sections, orphanLayers].filter(Boolean).join("\n");
+  const verificationAttributes = jsxDataAttributes(verificationDataAttributes(doc));
 
   return {
     fileName: `${options.componentName}.tsx`,
     code: `${componentFunctions ? `${componentFunctions}\n` : ""}export function ${options.componentName}() {
   return (
-    <main data-layerdoc-version="${doc.version}" className="relative overflow-hidden" style={{ width: ${doc.canvas.width}, height: ${doc.canvas.height}, background: "${doc.canvas.background ?? "#ffffff"}" }}>
+    <main data-layerdoc-version="${doc.version}"${verificationAttributes} className="relative overflow-hidden" style={{ width: ${doc.canvas.width}, height: ${doc.canvas.height}, background: "${doc.canvas.background ?? "#ffffff"}" }}>
 ${body}
     </main>
   );

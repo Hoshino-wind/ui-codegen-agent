@@ -73,11 +73,13 @@ test("applyWorkspaceVisualDiff updates verifier scores without mutating the Laye
   assert.equal(workspace.report.visualSimilarity, null);
   assert.equal(workspace.doc.verification.scores.visualSimilarity, null);
   assert.notEqual(next.doc, workspace.doc);
-  assert.equal(next.previewHtml, workspace.previewHtml);
+  assert.notEqual(next.previewHtml, workspace.previewHtml);
   assert.equal(next.report.visualSimilarity, 97.5);
   assert.equal(next.doc.verification.scores.visualSimilarity, 97.5);
   assert.equal(next.doc.verification.scores.structureScore, next.report.structureScore);
   assert.deepEqual(next.doc.verification.issues, next.report.issues);
+  assert.match(next.previewHtml, /data-verification-visual-similarity="97.5"/);
+  assert.match(next.reactExport.code, /data-verification-visual-similarity="97.5"/);
   assert.equal(exportedLayerDoc.verification.scores.visualSimilarity, 97.5);
   assert.equal(next.report.visualDiff.mismatchedPixels, 25);
   assert.equal(next.projectExport.manifest.scores.visualSimilarity, 97.5);

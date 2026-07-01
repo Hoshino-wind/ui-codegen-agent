@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createLayerDoc, exportReactTailwind } from "../dist/index.js";
+import { createLayerDoc, createVerificationReport, exportReactTailwind, layerDocWithVerificationReport } from "../dist/index.js";
 
 test("exportReactTailwind turns LayerDoc sections into a React component with Tailwind classes", () => {
   const doc = createLayerDoc({
@@ -57,6 +57,33 @@ test("exportReactTailwind turns LayerDoc sections into a React component with Ta
   assert.match(output.code, /className="absolute/);
   assert.match(output.code, /src="\/assets\/cover\.png"/);
   assert.match(output.code, /alt="Generated landing page preview"/);
+});
+
+test("exportReactTailwind exposes verification scores on the root surface", () => {
+  const doc = createLayerDoc({
+    name: "Verified export",
+    canvas: { width: 640, height: 480 },
+    components: [{ id: "HeroTitle", layerIds: ["headline"], exportable: true }],
+    layers: [
+      {
+        id: "headline",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 24, y: 32, width: 320, height: 48 },
+        content: { text: "Verified export" }
+      }
+    ]
+  });
+  const verifiedDoc = layerDocWithVerificationReport(doc, createVerificationReport(doc, { visualSimilarity: 93.25 }));
+
+  const output = exportReactTailwind(verifiedDoc, { componentName: "VerifiedExport" });
+
+  assert.match(output.code, /data-verification-visual-similarity="93.25"/);
+  assert.match(output.code, /data-verification-structure-score="100"/);
+  assert.match(output.code, /data-verification-component-score="100"/);
+  assert.match(output.code, /data-verification-project-fit-score="\d+"/);
+  assert.match(output.code, /data-verification-issues="0"/);
 });
 
 test("exportReactTailwind positions section layers relative to their section bounds", () => {

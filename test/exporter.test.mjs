@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createLayerDoc, renderHtmlPreview } from "../dist/index.js";
+import { createLayerDoc, createVerificationReport, layerDocWithVerificationReport, renderHtmlPreview } from "../dist/index.js";
 
 test("renderHtmlPreview emits editable DOM markers from LayerDoc layers", () => {
   const doc = createLayerDoc({
@@ -35,6 +35,33 @@ test("renderHtmlPreview emits editable DOM markers from LayerDoc layers", () => 
   assert.match(html, /data-track="asset"/);
   assert.match(html, /src="\/hero.png"/);
   assert.match(html, /width:640px/);
+});
+
+test("renderHtmlPreview exposes verification scores on the root surface", () => {
+  const doc = createLayerDoc({
+    name: "Verified preview",
+    canvas: { width: 640, height: 480 },
+    components: [{ id: "HeroTitle", layerIds: ["headline"], exportable: true }],
+    layers: [
+      {
+        id: "headline",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 24, y: 32, width: 320, height: 48 },
+        content: { text: "Verified structure" }
+      }
+    ]
+  });
+  const verifiedDoc = layerDocWithVerificationReport(doc, createVerificationReport(doc, { visualSimilarity: 93.25 }));
+
+  const html = renderHtmlPreview(verifiedDoc);
+
+  assert.match(html, /data-verification-visual-similarity="93.25"/);
+  assert.match(html, /data-verification-structure-score="100"/);
+  assert.match(html, /data-verification-component-score="100"/);
+  assert.match(html, /data-verification-project-fit-score="\d+"/);
+  assert.match(html, /data-verification-issues="0"/);
 });
 
 test("renderHtmlPreview emits section and component DOM markers", () => {
