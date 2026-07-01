@@ -257,11 +257,25 @@ test("requestWorkspaceSectionRegeneration refreshes the project package with a q
     requestedAt: "2026-06-30T10:05:00.000Z"
   });
   const layerDocFile = next.projectExport.files.find((file) => file.path === "layerdoc.json");
+  const contract = JSON.parse(next.projectExport.files.find((file) => file.path === "integration-contract.json").contents);
+  const handoffSummary = JSON.parse(next.projectExport.files.find((file) => file.path === "handoff-summary.json").contents);
 
   assert.equal(next.doc.generation.sectionRequests.length, 1);
   assert.equal(next.doc.generation.sectionRequests[0].sectionId, "hero");
   assert.match(layerDocFile.contents, /"sectionId": "hero"/);
   assert.match(layerDocFile.contents, /Regenerate the hero/);
+  assert.deepEqual(contract.generationRequests, [
+    {
+      id: "regen-hero-1",
+      sectionId: "hero",
+      prompt: "Regenerate the hero with a stronger SaaS product story.",
+      status: "requested",
+      requestedAt: "2026-06-30T10:05:00.000Z",
+      selector: '[data-section-id="hero"]',
+      sectionVisible: true
+    }
+  ]);
+  assert.equal(handoffSummary.contract.generationRequests, 1);
   assert.equal(next.previewHtml, workspace.previewHtml);
   assert.equal(next.reactExport.code, workspace.reactExport.code);
 });

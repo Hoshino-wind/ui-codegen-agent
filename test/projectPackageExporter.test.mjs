@@ -122,6 +122,18 @@ function createExportImageManifest() {
   };
 }
 
+function createRegenerationExportDoc() {
+  const doc = createExportDoc();
+  doc.generation.sectionRequests.push({
+    id: "regen-hero-1",
+    sectionId: "hero",
+    prompt: "Regenerate the hero section with stronger enterprise positioning.",
+    status: "requested",
+    requestedAt: "2026-06-30T10:05:00.000Z"
+  });
+  return doc;
+}
+
 function createInteractiveExportDoc() {
   return createLayerDoc({
     name: "Interactive Homepage",
@@ -416,6 +428,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     selector: '[data-layer-id="cta"]',
     changes: { bounds: { x: 24, y: 340, width: 280, height: 52 } }
   });
+  assert.deepEqual(contract.generationRequests, []);
   const layerDocSchema = JSON.parse(output.files.find((file) => file.path === "layerdoc.schema.json").contents);
   assert.equal(layerDocSchema.properties.schema.const, "layerdoc");
   assert.deepEqual(layerDocSchema.properties.metadata.properties.sourceImage.required, ["uri", "width", "height"]);
@@ -494,7 +507,8 @@ test("createProjectExportPackage returns project-ready files derived from one La
     components: 1,
     assets: 0,
     interactions: 0,
-    responsiveRules: 1
+    responsiveRules: 1,
+    generationRequests: 0
   });
   assert.deepEqual(handoffSummary.quality.scores, {
     visual_similarity: output.manifest.scores.visualSimilarity,
@@ -641,6 +655,36 @@ test("exported integration contract verifier validates the handoff mapping", () 
   assert.match(failed.stdout, /integration_contract_mismatch/);
   assert.match(failed.stdout, /layers/);
   assert.match(failed.stdout, /stale-headline/);
+});
+
+test("exported integration contract verifier checks section regeneration requests", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-regeneration-contract-"));
+  const output = createProjectExportPackage(createRegenerationExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const contractPath = join(directory, "integration-contract.json");
+  const handoffSummary = JSON.parse(readFileSync(join(directory, "handoff-summary.json"), "utf8"));
+  const contract = JSON.parse(readFileSync(contractPath, "utf8"));
+  assert.deepEqual(contract.generationRequests, [
+    {
+      id: "regen-hero-1",
+      sectionId: "hero",
+      prompt: "Regenerate the hero section with stronger enterprise positioning.",
+      status: "requested",
+      requestedAt: "2026-06-30T10:05:00.000Z",
+      selector: '[data-section-id="hero"]',
+      sectionVisible: true
+    }
+  ]);
+  assert.equal(handoffSummary.contract.generationRequests, 1);
+
+  contract.generationRequests[0].status = "applied";
+  writeFileSync(contractPath, `${JSON.stringify(contract, null, 2)}\n`);
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /integration_contract_mismatch/);
+  assert.match(failed.stdout, /generationRequests/);
 });
 
 test("exported integration contract verifier accepts hidden sections omitted from project surfaces", () => {

@@ -82,6 +82,7 @@ export interface ProjectHandoffSummary {
     assets: number;
     interactions: number;
     responsiveRules: number;
+    generationRequests: number;
   };
   quality: {
     scores: {
@@ -162,6 +163,15 @@ export interface ProjectIntegrationContract {
     target: LayerDoc["responsive"]["rules"][number]["target"];
     selector: string | null;
     changes: Record<string, unknown>;
+  }>;
+  generationRequests: Array<{
+    id: string;
+    sectionId: string;
+    prompt: string;
+    status: string;
+    requestedAt: string;
+    selector: string | null;
+    sectionVisible: boolean;
   }>;
 }
 
@@ -353,6 +363,7 @@ function createIntegrationContract(doc: LayerDoc, componentName: string, compone
   const components = visibleContractComponents(doc, visibleLayerIds);
   const visibleComponentIds = new Set(components.map((component) => component.id));
   const responsiveRules = visibleContractResponsiveRules(doc, visibleSectionIds, visibleLayerIds, visibleComponentIds);
+  const sectionsById = new Map(doc.sections.map((section) => [section.id, section]));
   const componentIdsByLayerId = new Map<string, string[]>();
   for (const component of components) {
     for (const layerId of visibleComponentLayerIds(component, visibleLayerIds)) {
@@ -419,6 +430,15 @@ function createIntegrationContract(doc: LayerDoc, componentName: string, compone
       target: { ...rule.target },
       selector: selectorForResponsiveTarget(doc, rule.target),
       changes: { ...rule.changes }
+    })),
+    generationRequests: doc.generation.sectionRequests.map((request) => ({
+      id: request.id,
+      sectionId: request.sectionId,
+      prompt: request.prompt,
+      status: request.status,
+      requestedAt: request.requestedAt,
+      selector: visibleSectionIds.has(request.sectionId) ? selectorFor("data-section-id", request.sectionId) : null,
+      sectionVisible: sectionsById.get(request.sectionId)?.visible !== false
     }))
   };
 }
@@ -604,6 +624,7 @@ pushIf(handoff.contract?.components !== (contract.components?.length ?? 0), fail
 pushIf(handoff.contract?.assets !== (contract.assets ?? []).filter((asset) => Array.isArray(asset.usedByLayerIds) && asset.usedByLayerIds.length > 0).length, failures, "handoff_contract_asset_count_mismatch", "handoff asset count must match integration contract used assets.");
 pushIf(handoff.contract?.interactions !== (contract.interactions?.length ?? 0), failures, "handoff_contract_interaction_count_mismatch", "handoff interaction count must match integration contract.");
 pushIf(handoff.contract?.responsiveRules !== (contract.responsiveRules?.length ?? 0), failures, "handoff_contract_responsive_count_mismatch", "handoff responsive rule count must match integration contract.");
+pushIf(handoff.contract?.generationRequests !== (contract.generationRequests?.length ?? 0), failures, "handoff_contract_generation_request_count_mismatch", "handoff generation request count must match integration contract.");
 
 pushIf(handoff.quality?.referenceVisual?.file !== manifest.referenceVisual?.file, failures, "handoff_reference_visual_mismatch", "handoff reference visual must match manifest referenceVisual.");
 pushIf(handoff.quality?.gatesFile !== "quality-gates.json", failures, "handoff_gates_file_mismatch", "handoff quality gatesFile must be quality-gates.json.");
@@ -1243,6 +1264,8 @@ function expectedContractFrom(layerDoc, manifest) {
   const sections = (layerDoc.sections ?? []).filter((section) => section.visible !== false);
   const layers = visibleLayerEntries(layerDoc).map(({ layer }) => layer);
   const visibleLayerIds = new Set(layers.map((layer) => layer.id));
+  const visibleSectionIds = new Set(sections.map((section) => section.id));
+  const sectionsById = new Map((layerDoc.sections ?? []).map((section) => [section.id, section]));
   const components = (layerDoc.components ?? []).filter((component) => (component.layerIds ?? []).some((layerId) => visibleLayerIds.has(layerId)));
   const responsiveRules = visibleResponsiveRules(layerDoc, sections, layers, components);
   const componentIdsByLayerId = new Map();
@@ -1315,6 +1338,15 @@ function expectedContractFrom(layerDoc, manifest) {
       target: { ...rule.target },
       selector: selectorForResponsiveTarget(layerDoc, rule.target),
       changes: { ...(rule.changes ?? {}) }
+    })),
+    generationRequests: (layerDoc.generation?.sectionRequests ?? []).map((request) => ({
+      id: request.id,
+      sectionId: request.sectionId,
+      prompt: request.prompt,
+      status: request.status,
+      requestedAt: request.requestedAt,
+      selector: visibleSectionIds.has(request.sectionId) ? selectorFor("data-section-id", request.sectionId) : null,
+      sectionVisible: sectionsById.get(request.sectionId)?.visible !== false
     }))
   };
 }
@@ -2350,7 +2382,8 @@ function createHandoffSummary(
       components: contract.components.length,
       assets: contract.assets.filter((asset) => asset.usedByLayerIds.length > 0).length,
       interactions: contract.interactions.length,
-      responsiveRules: contract.responsiveRules.length
+      responsiveRules: contract.responsiveRules.length,
+      generationRequests: contract.generationRequests.length
     },
     quality: {
       scores: {
