@@ -93,6 +93,16 @@ function createExportDoc() {
   });
 }
 
+function expectedVerificationAttributesFor(report) {
+  return {
+    "data-verification-visual-similarity": report.visualSimilarity === null ? "n/a" : String(report.visualSimilarity),
+    "data-verification-structure-score": String(report.structureScore),
+    "data-verification-component-score": String(report.componentScore),
+    "data-verification-project-fit-score": String(report.projectFitScore),
+    "data-verification-issues": String(report.issues.length)
+  };
+}
+
 function createExportImageManifest() {
   return {
     name: "Production Homepage",
@@ -396,6 +406,8 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.deepEqual(exportedLayerDoc.metadata.analysisPlanAudit, output.manifest.analysisPlanAudit);
   assert.equal(contract.component.name, "ProductionHomepage");
   assert.equal(contract.component.file, "src/ProductionHomepage.tsx");
+  assert.deepEqual(contract.component.verificationAttributes, expectedVerificationAttributesFor(output.manifest.scores));
+  assert.deepEqual(contract.preview.verificationAttributes, expectedVerificationAttributesFor(output.manifest.scores));
   assert.equal(contract.layerDoc.file, "layerdoc.json");
   assert.equal(contract.layerDoc.hash, output.manifest.layerDocHash);
   assert.deepEqual(contract.sections[0], {
@@ -740,6 +752,25 @@ test("exported integration contract verifier checks preview selectors", () => {
   assert.match(failed.stdout, /preview_selector_missing/);
   assert.match(failed.stdout, /preview\.html/);
   assert.match(failed.stdout, /data-layer-id=\\"headline\\"/);
+});
+
+test("exported integration contract verifier checks root verification attributes", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-root-verification-contract-"));
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const componentPath = join(directory, "src", "ProductionHomepage.tsx");
+  const previewPath = join(directory, "preview.html");
+  const componentSource = readFileSync(componentPath, "utf8");
+  const previewSource = readFileSync(previewPath, "utf8");
+  writeFileSync(componentPath, componentSource.replace(' data-verification-visual-similarity="n/a"', ""));
+  writeFileSync(previewPath, previewSource.replace(' data-verification-visual-similarity="n/a"', ""));
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /project_verification_attribute_missing/);
+  assert.match(failed.stdout, /preview_verification_attribute_missing/);
+  assert.match(failed.stdout, /data-verification-visual-similarity/);
 });
 
 test("exported integration contract verifier checks project layer bounds", () => {

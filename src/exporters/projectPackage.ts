@@ -7,6 +7,7 @@ import { defaultVerificationGates, type VerificationGates } from "../verifier/ga
 import { createVerificationReport, layerDocWithVerificationReport, type VerificationReport } from "../verifier/report.js";
 import { renderHtmlPreview } from "./htmlPreview.js";
 import { exportReactTailwind } from "./reactTailwind.js";
+import { verificationDataAttributes } from "./verificationAttributes.js";
 
 export interface ProjectExportPackageOptions {
   componentName: string;
@@ -116,9 +117,12 @@ export interface ProjectIntegrationContract {
     name: string;
     file: string;
     rootSelector: string;
+    verificationAttributes: Record<string, string>;
   };
   preview: {
     file: string;
+    rootSelector: string;
+    verificationAttributes: Record<string, string>;
   };
   sections: Array<{
     id: string;
@@ -382,10 +386,13 @@ function createIntegrationContract(doc: LayerDoc, componentName: string, compone
     component: {
       name: componentName,
       file: `src/${componentFile}`,
-      rootSelector: selectorFor("data-layerdoc-version", doc.version)
+      rootSelector: selectorFor("data-layerdoc-version", doc.version),
+      verificationAttributes: verificationDataAttributes(doc)
     },
     preview: {
-      file: "preview.html"
+      file: "preview.html",
+      rootSelector: selectorFor("data-layerdoc", doc.version),
+      verificationAttributes: verificationDataAttributes(doc)
     },
     sections: sections.map((section) => ({
       id: section.id,
@@ -837,6 +844,21 @@ function selectorFor(attribute, value) {
   return \`[\${attribute}="\${String(value).replace(/\\\\/g, "\\\\\\\\").replace(/"/g, '\\\\"')}"]\`;
 }
 
+function scoreAttributeValue(value) {
+  return value === null || value === undefined ? "n/a" : String(value);
+}
+
+function verificationDataAttributes(layerDoc) {
+  const scores = layerDoc.verification?.scores ?? {};
+  return {
+    "data-verification-visual-similarity": scoreAttributeValue(scores.visualSimilarity),
+    "data-verification-structure-score": scoreAttributeValue(scores.structureScore),
+    "data-verification-component-score": scoreAttributeValue(scores.componentScore),
+    "data-verification-project-fit-score": scoreAttributeValue(scores.projectFitScore),
+    "data-verification-issues": String((layerDoc.verification?.issues ?? []).length)
+  };
+}
+
 function selectorAttributeNeedle(selector) {
   const match = /^\\[([^=\\]]+)="(.*)"\\]$/.exec(selector ?? "");
   if (!match) {
@@ -1254,6 +1276,21 @@ function projectSelectors(contract) {
   ].filter((entry) => typeof entry.selector === "string" && entry.selector.length > 0);
 }
 
+function previewSelectors(contract) {
+  return [
+    { path: "preview.rootSelector", selector: contract.preview?.rootSelector },
+    ...domSelectors(contract)
+  ].filter((entry) => typeof entry.selector === "string" && entry.selector.length > 0);
+}
+
+function verificationAttributeRequirements(pathPrefix, attributes) {
+  return Object.entries(attributes ?? {}).map(([attribute, value]) => ({
+    path: pathPrefix + ".verificationAttributes." + attribute,
+    attribute,
+    value
+  }));
+}
+
 function selectorForResponsiveTarget(layerDoc, target) {
   if (target?.type === "section") {
     return selectorFor("data-section-id", target.id);
@@ -1296,10 +1333,13 @@ function expectedContractFrom(layerDoc, manifest) {
     component: {
       name: manifest.componentName,
       file: \`src/\${manifest.componentName}.tsx\`,
-      rootSelector: selectorFor("data-layerdoc-version", layerDoc.version)
+      rootSelector: selectorFor("data-layerdoc-version", layerDoc.version),
+      verificationAttributes: verificationDataAttributes(layerDoc)
     },
     preview: {
-      file: "preview.html"
+      file: "preview.html",
+      rootSelector: selectorFor("data-layerdoc", layerDoc.version),
+      verificationAttributes: verificationDataAttributes(layerDoc)
     },
     sections: sections.map((section) => ({
       id: section.id,
@@ -1392,6 +1432,15 @@ try {
       ));
     }
   }
+  for (const entry of verificationAttributeRequirements("component", contract.component?.verificationAttributes)) {
+    if (!sourceHasAttributeValue(componentSource, entry.attribute, entry.value)) {
+      issues.push(issue(
+        "project_verification_attribute_missing",
+        entry.path,
+        \`Project file \${componentPath} does not contain \${entry.attribute} value \${entry.value}.\`
+      ));
+    }
+  }
   const sectionOrder = sectionOrderRequirement(layerDoc);
   if (sectionOrder) {
     const actual = sectionOrderFromSource(componentSource, sectionOrder.expected);
@@ -1469,13 +1518,22 @@ try {
 try {
   const previewPath = contract.preview?.file ?? "preview.html";
   const previewSource = readText(\`../\${previewPath}\`);
-  for (const entry of domSelectors(contract)) {
+  for (const entry of previewSelectors(contract)) {
     const needle = selectorAttributeNeedle(entry.selector);
     if (!needle || !previewSource.includes(needle)) {
       issues.push(issue(
         "preview_selector_missing",
         entry.path,
         \`Preview file \${previewPath} does not contain selector \${entry.selector}.\`
+      ));
+    }
+  }
+  for (const entry of verificationAttributeRequirements("preview", contract.preview?.verificationAttributes)) {
+    if (!sourceHasAttributeValue(previewSource, entry.attribute, entry.value)) {
+      issues.push(issue(
+        "preview_verification_attribute_missing",
+        entry.path,
+        \`Preview file \${previewPath} does not contain \${entry.attribute} value \${entry.value}.\`
       ));
     }
   }

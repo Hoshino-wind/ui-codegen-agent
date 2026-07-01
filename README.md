@@ -76,9 +76,10 @@ The repository currently implements the core LayerDoc domain layer:
 - Project responsive rules into preview and exported React media-query CSS.
 - Export an `integration-contract.json` mapping LayerDoc objects to project
   files, responsive rules, DOM selectors, and queued section regeneration
-  requests for downstream integration; hidden sections stay editable in
-  `layerdoc.json` without being required in rendered project surfaces or
-  responsive CSS contract checks.
+  requests for downstream integration; it also binds root `data-verification-*`
+  quality attributes in both project and preview surfaces. Hidden sections stay
+  editable in `layerdoc.json` without being required in rendered project
+  surfaces or responsive CSS contract checks.
 - Export a `handoff-summary.json` with the source LayerDoc hash, entry
   component, contract counts, regeneration request count, verifier scores,
   audit status, and verification commands so CI or downstream importers can
