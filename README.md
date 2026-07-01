@@ -96,6 +96,10 @@ The repository currently implements the core LayerDoc domain layer:
 - Write current verifier scores back into `LayerDoc.verification` so saved
   LayerDoc files carry quality state while screenshot evidence remains in the
   external verifier report.
+- Sync exported preview verification back into `layerdoc.json`, package
+  manifests, handoff summaries, integration contracts, and rendered root
+  `data-verification-*` attributes so rerunning project verification stays
+  self-consistent after a screenshot diff.
 - Preserve Analysis Plan provenance in `LayerDoc.metadata.analysisPlan` and
   exported project handoff files so downstream consumers can see whether the
   editable structure came from a seeded scaffold, provided plan, or editor

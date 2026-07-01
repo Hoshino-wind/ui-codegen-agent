@@ -1173,6 +1173,11 @@ test("exported preview verifier script updates the handoff report from candidate
   const report = JSON.parse(readFileSync(join(directory, "verification-report.json"), "utf8"));
   const manifest = JSON.parse(readFileSync(join(directory, "manifest.json"), "utf8"));
   const handoffSummary = JSON.parse(readFileSync(join(directory, "handoff-summary.json"), "utf8"));
+  const layerDoc = JSON.parse(readFileSync(join(directory, "layerdoc.json"), "utf8"));
+  const contract = JSON.parse(readFileSync(join(directory, "integration-contract.json"), "utf8"));
+  const componentSource = readFileSync(join(directory, "src", "ProductionHomepage.tsx"), "utf8");
+  const previewSource = readFileSync(join(directory, "preview.html"), "utf8");
+  const expectedAttributes = expectedVerificationAttributesFor(report);
   assert.equal(report.visualSimilarity, 50);
   assert.equal(report.evidence.visual.kind, "html-screenshot");
   assert.equal(report.visualDiff.diffPath, "verification-artifacts/diff.png");
@@ -1181,6 +1186,19 @@ test("exported preview verifier script updates the handoff report from candidate
   assert.equal(manifest.scores.evidence.visual.kind, "html-screenshot");
   assert.equal(handoffSummary.quality.scores.visual_similarity, 50);
   assert.equal(handoffSummary.quality.visualEvidence.kind, "html-screenshot");
+  assert.equal(layerDoc.verification.scores.visualSimilarity, 50);
+  assert.deepEqual(contract.component.verificationAttributes, expectedAttributes);
+  assert.deepEqual(contract.preview.verificationAttributes, expectedAttributes);
+  assert.equal(contract.layerDoc.hash, manifest.layerDocHash);
+  assert.equal(handoffSummary.sourceOfTruth.hash, manifest.layerDocHash);
+  assert.match(componentSource, /data-verification-visual-similarity="50"/);
+  assert.match(previewSource, /data-verification-visual-similarity="50"/);
+
+  const layerDocVerification = spawnSync(process.execPath, ["scripts/verify-layerdoc.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.equal(layerDocVerification.status, 0, layerDocVerification.stderr);
+
+  const contractVerification = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.equal(contractVerification.status, 0, contractVerification.stderr);
 
   const handoffVerification = spawnSync(process.execPath, ["scripts/verify-handoff.mjs"], { cwd: directory, encoding: "utf8" });
   assert.equal(handoffVerification.status, 0, handoffVerification.stderr);

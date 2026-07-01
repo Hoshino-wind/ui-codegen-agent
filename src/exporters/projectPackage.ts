@@ -1969,7 +1969,8 @@ if (!result.passed) {
 }
 
 function previewVerifierScriptFor(): string {
-  return `import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+  return `import { createHash } from "node:crypto";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -2062,8 +2063,24 @@ function readJson(path) {
   return JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
 }
 
+function readText(path) {
+  return readFileSync(new URL(path, import.meta.url), "utf8");
+}
+
+function stableJson(value) {
+  return \`\${JSON.stringify(value, null, 2)}\\n\`;
+}
+
 function writeJson(path, value) {
-  writeFileSync(new URL(path, import.meta.url), \`\${JSON.stringify(value, null, 2)}\\n\`);
+  writeFileSync(new URL(path, import.meta.url), stableJson(value));
+}
+
+function writeText(path, value) {
+  writeFileSync(new URL(path, import.meta.url), value);
+}
+
+function sha256(value) {
+  return \`sha256:\${createHash("sha256").update(value).digest("hex")}\`;
 }
 
 function referencePathFrom(options, manifest) {
@@ -2081,6 +2098,47 @@ function normalizedRelative(path) {
 
 function roundPercentage(value) {
   return Math.round(value * 100) / 100;
+}
+
+function scoreAttributeValue(value) {
+  return value === null || value === undefined ? "n/a" : String(value);
+}
+
+function verificationDataAttributes(report) {
+  return {
+    "data-verification-visual-similarity": scoreAttributeValue(report.visualSimilarity),
+    "data-verification-structure-score": scoreAttributeValue(report.structureScore),
+    "data-verification-component-score": scoreAttributeValue(report.componentScore),
+    "data-verification-project-fit-score": scoreAttributeValue(report.projectFitScore),
+    "data-verification-issues": String((report.issues ?? []).length)
+  };
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[\\\\^$.*+?()[\\]{}|]/g, "\\\\$&");
+}
+
+function escapeAttribute(value) {
+  return String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+}
+
+function syncRootAttributes(source, rootAttribute, attrs) {
+  let next = source;
+  for (const [attribute, value] of Object.entries(attrs)) {
+    const replacement = \` \${attribute}="\${escapeAttribute(value)}"\`;
+    const attributePattern = new RegExp(\`\\\\s\${escapeRegExp(attribute)}="[^"]*"\`);
+    if (attributePattern.test(next)) {
+      next = next.replace(attributePattern, replacement);
+      continue;
+    }
+
+    const rootPattern = new RegExp(\`(\${escapeRegExp(rootAttribute)}="[^"]*")\`);
+    if (!rootPattern.test(next)) {
+      throw new Error(\`Could not find root attribute \${rootAttribute} while syncing verification attributes.\`);
+    }
+    next = next.replace(rootPattern, \`$1\${replacement}\`);
+  }
+  return next;
 }
 
 function isDifference(diffData, width, x, y) {
@@ -2210,6 +2268,8 @@ if (!options.candidate) {
 
 const visualDiff = comparePngs(referencePath, candidatePath, diffPath, options.threshold, options.includeAA);
 const handoff = readJson("../handoff-summary.json");
+const layerDoc = readJson("../layerdoc.json");
+const contract = readJson("../integration-contract.json");
 const report = readJson("../verification-report.json");
 report.visualSimilarity = visualDiff.visualSimilarity;
 report.visualDiff = {
@@ -2226,9 +2286,46 @@ report.evidence = {
 };
 writeJson("../verification-report.json", report);
 
+const verificationAttributes = verificationDataAttributes(report);
+layerDoc.verification = {
+  scores: {
+    visualSimilarity: report.visualSimilarity,
+    structureScore: report.structureScore,
+    componentScore: report.componentScore,
+    projectFitScore: report.projectFitScore
+  },
+  issues: (report.issues ?? []).map((issue) => ({ ...issue }))
+};
+const layerDocHash = sha256(stableJson(layerDoc));
+writeJson("../layerdoc.json", layerDoc);
+
 manifest.scores = report;
+manifest.layerDocHash = layerDocHash;
 writeJson("../manifest.json", manifest);
 
+contract.layerDoc = {
+  ...(contract.layerDoc ?? {}),
+  hash: layerDocHash
+};
+contract.component = {
+  ...(contract.component ?? {}),
+  verificationAttributes
+};
+contract.preview = {
+  ...(contract.preview ?? {}),
+  verificationAttributes
+};
+writeJson("../integration-contract.json", contract);
+
+const componentPath = contract.component?.file ?? \`src/\${manifest.componentName}.tsx\`;
+const previewPath = contract.preview?.file ?? "preview.html";
+writeText(\`../\${componentPath}\`, syncRootAttributes(readText(\`../\${componentPath}\`), "data-layerdoc-version", verificationAttributes));
+writeText(\`../\${previewPath}\`, syncRootAttributes(readText(\`../\${previewPath}\`), "data-layerdoc", verificationAttributes));
+
+handoff.sourceOfTruth = {
+  ...(handoff.sourceOfTruth ?? {}),
+  hash: layerDocHash
+};
 handoff.quality = {
   ...(handoff.quality ?? {}),
   scores: {
@@ -2245,6 +2342,11 @@ process.stdout.write(\`\${JSON.stringify({
   reportPath: "verification-report.json",
   manifestPath: "manifest.json",
   handoffSummaryPath: "handoff-summary.json",
+  layerDocPath: "layerdoc.json",
+  contractPath: "integration-contract.json",
+  componentPath,
+  previewPath,
+  layerDocHash,
   referencePath,
   candidatePath,
   diffPath: normalizedRelative(join(options.out, "diff.png")),
@@ -2394,7 +2496,7 @@ Verification:
 - Run \`npm run verify:contract\` to confirm \`integration-contract.json\` still matches the LayerDoc source, project selectors, preview selectors, section order, layer bounds, layer style, layer copy, assets, responsive CSS, and interaction metadata.
 - Hidden sections remain editable in \`layerdoc.json\` but are intentionally omitted from rendered project, preview, and responsive CSS contract requirements.
 - Put the original target visual at \`${manifest.referenceVisual.file}\`.
-- Run \`npm run verify:preview\` to use the manifest reference visual, render \`preview.html\`, capture \`verification-artifacts/candidate.png\`, produce \`verification-artifacts/diff.png\`, and sync \`verification-report.json\`, \`manifest.json\`, and \`handoff-summary.json\` quality scores.
+- Run \`npm run verify:preview\` to use the manifest reference visual, render \`preview.html\`, capture \`verification-artifacts/candidate.png\`, produce \`verification-artifacts/diff.png\`, and sync \`verification-report.json\`, \`layerdoc.json\`, \`manifest.json\`, \`integration-contract.json\`, \`handoff-summary.json\`, and rendered root quality attributes.
 - Run \`npm run verify:gates\` after preview verification to enforce score thresholds and LayerDoc asset compliance.
 
 Verifier scores:
