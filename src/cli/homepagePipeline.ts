@@ -261,6 +261,7 @@ export async function runHomepagePipelineCli(args: string[]): Promise<number> {
     const projectPackage = createProjectExportPackage(intake.layerDoc, {
       componentName: options.componentName,
       packageName: options.packageName,
+      analysisPlan: intake.analysisPlan,
       report: verification.report
     });
     const writtenProject = writeProjectExportPackage(projectPackage, projectDir);

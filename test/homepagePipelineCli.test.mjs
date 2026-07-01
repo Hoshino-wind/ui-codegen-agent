@@ -78,6 +78,8 @@ test("homepage pipeline CLI runs PNG intake, verification, and project export", 
   const summary = JSON.parse(result.stdout);
   const pipelineReport = JSON.parse(readFileSync(join(outputDir, "pipeline-report.json"), "utf8"));
   const projectManifest = JSON.parse(readFileSync(join(outputDir, "project", "manifest.json"), "utf8"));
+  const projectAnalysisPlan = JSON.parse(readFileSync(join(outputDir, "project", "analysis-plan.json"), "utf8"));
+  const handoffSummary = JSON.parse(readFileSync(join(outputDir, "project", "handoff-summary.json"), "utf8"));
 
   assert.equal(summary.name, "Pipeline Homepage");
   assert.equal(summary.passed, true);
@@ -90,6 +92,7 @@ test("homepage pipeline CLI runs PNG intake, verification, and project export", 
   assert.equal(existsSync(join(outputDir, "intake", "assets", "hero-crop.png")), true);
   assert.equal(existsSync(join(outputDir, "project", "src", "ProductionHomepage.tsx")), true);
   assert.equal(existsSync(join(outputDir, "project", "reference.png")), true);
+  assert.equal(existsSync(join(outputDir, "project", "analysis-plan.json")), true);
   assert.equal(existsSync(join(outputDir, "project", "analysis-plan.schema.json")), true);
   assert.equal(existsSync(join(outputDir, "project", "analysis-plan-audit.json")), true);
   assert.equal(existsSync(join(outputDir, "project", "assets", "hero-crop.png")), true);
@@ -102,9 +105,24 @@ test("homepage pipeline CLI runs PNG intake, verification, and project export", 
   assert.equal(pipelineReport.verification.scores.visualSimilarity, 100);
   assert.equal(pipelineReport.project.referencePath, join(outputDir, "project", "reference.png"));
   assert.deepEqual(pipelineReport.project.copiedAssets.sort(), ["assets/hero-crop.png", "public/assets/hero-crop.png"]);
+  assert.equal(projectManifest.analysisPlanFile, "analysis-plan.json");
   assert.equal(projectManifest.analysisPlanSchema, "analysis-plan.schema.json");
   assert.equal(projectManifest.analysisPlanAuditFile, "analysis-plan-audit.json");
+  assert.deepEqual(handoffSummary.sourceAnalysisPlanFiles, {
+    planFile: "analysis-plan.json",
+    schemaFile: "analysis-plan.schema.json",
+    auditFile: "analysis-plan-audit.json"
+  });
+  assert.equal(projectAnalysisPlan.name, "Pipeline Homepage");
+  assert.equal(projectAnalysisPlan.sections.length, 8);
+  assert.equal(projectAnalysisPlan.sections.reduce((total, section) => total + section.layers.length, 0), 18);
   assert.equal(projectManifest.scores.visualSimilarity, 100);
+  const analysisPlanVerification = spawnSync(process.execPath, ["scripts/verify-analysis-plan.mjs"], {
+    cwd: join(outputDir, "project"),
+    encoding: "utf8"
+  });
+  assert.equal(analysisPlanVerification.status, 0, analysisPlanVerification.stderr);
+  assert.match(analysisPlanVerification.stdout, /"passed": true/);
   assert.match(readFileSync(join(outputDir, "project", "src", "ProductionHomepage.tsx"), "utf8"), /Pipeline Homepage|Imported hero headline/);
 });
 

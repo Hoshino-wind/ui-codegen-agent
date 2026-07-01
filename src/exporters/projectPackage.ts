@@ -1,5 +1,5 @@
 import type { LayerDoc } from "../layerdoc/types.js";
-import { createHomepageAnalysisPlanJsonSchema } from "../importers/homepageAnalysisPlan.js";
+import { createHomepageAnalysisPlanJsonSchema, type HomepageAnalysisPlan } from "../importers/homepageAnalysisPlan.js";
 import { createLayerDocAudit, type LayerDocAudit } from "../layerdoc/audit.js";
 import { createLayerDocJsonSchema } from "../layerdoc/jsonSchema.js";
 import { defaultVerificationGates, type VerificationGates } from "../verifier/gates.js";
@@ -10,6 +10,7 @@ import { exportReactTailwind } from "./reactTailwind.js";
 export interface ProjectExportPackageOptions {
   componentName: string;
   packageName?: string;
+  analysisPlan?: HomepageAnalysisPlan;
   report?: VerificationReport;
 }
 
@@ -33,6 +34,7 @@ export interface ProjectExportManifest {
   handoffSummary: string;
   referenceVisual: ProjectReferenceVisual;
   analysisPlan?: NonNullable<LayerDoc["metadata"]["analysisPlan"]>;
+  analysisPlanFile?: string;
   analysisPlanAudit?: NonNullable<LayerDoc["metadata"]["analysisPlanAudit"]>;
   analysisPlanSchema?: string;
   analysisPlanAuditFile?: string;
@@ -59,6 +61,7 @@ export interface ProjectHandoffSummary {
   sourceAnalysisPlan?: NonNullable<LayerDoc["metadata"]["analysisPlan"]>;
   sourceAnalysisPlanAudit?: NonNullable<LayerDoc["metadata"]["analysisPlanAudit"]>;
   sourceAnalysisPlanFiles?: {
+    planFile?: string;
     schemaFile?: string;
     auditFile?: string;
   };
@@ -535,9 +538,10 @@ function pushIf(condition, failures, code, message) {
 const manifest = readJson("../manifest.json");
 const handoff = readJson("../handoff-summary.json");
 const layerDoc = readJson("../layerdoc.json");
+const defaultAnalysisPlanFile = "analysis-plan.json";
 const defaultAnalysisPlanSchemaFile = "analysis-plan.schema.json";
 const defaultAnalysisPlanAuditFile = "analysis-plan-audit.json";
-const hasAnalysisPlan = Boolean(manifest.analysisPlan || manifest.analysisPlanAudit || manifest.analysisPlanSchema || manifest.analysisPlanAuditFile);
+const hasAnalysisPlan = Boolean(manifest.analysisPlan || manifest.analysisPlanFile || manifest.analysisPlanAudit || manifest.analysisPlanSchema || manifest.analysisPlanAuditFile);
 const failures = [];
 
 if (!hasAnalysisPlan) {
@@ -545,9 +549,11 @@ if (!hasAnalysisPlan) {
 } else {
   pushIf(!manifest.analysisPlanSchema, failures, "analysis_plan_schema_missing", "manifest.json must declare analysisPlanSchema.");
   pushIf(!manifest.analysisPlanAuditFile, failures, "analysis_plan_audit_file_missing", "manifest.json must declare analysisPlanAuditFile.");
+  pushIf(Boolean(manifest.analysisPlanFile) && manifest.analysisPlanFile !== defaultAnalysisPlanFile, failures, "analysis_plan_file_unexpected", \`Analysis Plan file must be \${defaultAnalysisPlanFile}.\`);
   pushIf(Boolean(manifest.analysisPlanSchema) && manifest.analysisPlanSchema !== defaultAnalysisPlanSchemaFile, failures, "analysis_plan_schema_file_unexpected", \`Analysis Plan schema file must be \${defaultAnalysisPlanSchemaFile}.\`);
   pushIf(Boolean(manifest.analysisPlanAuditFile) && manifest.analysisPlanAuditFile !== defaultAnalysisPlanAuditFile, failures, "analysis_plan_audit_file_unexpected", \`Analysis Plan audit file must be \${defaultAnalysisPlanAuditFile}.\`);
 
+  const plan = manifest.analysisPlanFile ? readJson(\`../\${manifest.analysisPlanFile}\`) : null;
   const schema = manifest.analysisPlanSchema ? readJson(\`../\${manifest.analysisPlanSchema}\`) : null;
   const audit = manifest.analysisPlanAuditFile ? readJson(\`../\${manifest.analysisPlanAuditFile}\`) : null;
 
@@ -556,6 +562,17 @@ if (!hasAnalysisPlan) {
   pushIf(schema?.properties?.sections?.maxItems !== 15, failures, "analysis_plan_schema_max_sections_invalid", "Analysis Plan schema must allow no more than 15 homepage sections.");
   pushIf(audit?.readiness?.readyForLayerDoc !== true, failures, "analysis_plan_not_ready", "Analysis Plan audit is not ready for LayerDoc.");
   pushIf(Array.isArray(audit?.readiness?.blockers) && audit.readiness.blockers.length > 0, failures, "analysis_plan_blockers_present", "Analysis Plan audit still contains blockers.");
+
+  if (plan) {
+    const planLayerCount = Array.isArray(plan.sections)
+      ? plan.sections.reduce((total, section) => total + (Array.isArray(section.layers) ? section.layers.length : 0), 0)
+      : 0;
+    pushIf(plan.name !== manifest.analysisPlan?.name, failures, "analysis_plan_name_mismatch", "analysis-plan.json name must match manifest.json analysisPlan.name.");
+    pushIf(!Array.isArray(plan.sections), failures, "analysis_plan_sections_missing", "analysis-plan.json sections must be an array.");
+    pushIf(Array.isArray(plan.sections) && plan.sections.length !== manifest.analysisPlan?.sectionCount, failures, "analysis_plan_section_count_mismatch", "analysis-plan.json section count must match manifest.json analysisPlan.sectionCount.");
+    pushIf(planLayerCount !== manifest.analysisPlan?.layerCount, failures, "analysis_plan_layer_count_mismatch", "analysis-plan.json layer count must match manifest.json analysisPlan.layerCount.");
+    pushIf(plan.canvas?.width !== layerDoc.canvas?.width || plan.canvas?.height !== layerDoc.canvas?.height, failures, "analysis_plan_canvas_mismatch", "analysis-plan.json canvas must match layerdoc.json canvas.");
+  }
 
   if (manifest.analysisPlanAudit && stableJson(manifest.analysisPlanAudit) !== stableJson(audit)) {
     failures.push({ code: "manifest_analysis_plan_audit_mismatch", message: "manifest.json analysisPlanAudit must match analysis-plan-audit.json." });
@@ -566,12 +583,14 @@ if (!hasAnalysisPlan) {
   }
 
   const files = handoff.sourceAnalysisPlanFiles ?? {};
+  pushIf(files.planFile !== manifest.analysisPlanFile, failures, "handoff_analysis_plan_file_mismatch", "handoff-summary.json sourceAnalysisPlanFiles.planFile must match manifest.json.");
   pushIf(files.schemaFile !== manifest.analysisPlanSchema, failures, "handoff_analysis_plan_schema_mismatch", "handoff-summary.json sourceAnalysisPlanFiles.schemaFile must match manifest.json.");
   pushIf(files.auditFile !== manifest.analysisPlanAuditFile, failures, "handoff_analysis_plan_audit_mismatch", "handoff-summary.json sourceAnalysisPlanFiles.auditFile must match manifest.json.");
 
   const result = {
     passed: failures.length === 0,
     failures,
+    planFile: manifest.analysisPlanFile,
     schemaFile: manifest.analysisPlanSchema,
     auditFile: manifest.analysisPlanAuditFile,
     readiness: audit?.readiness ?? null
@@ -2063,7 +2082,7 @@ Generated assets:
 - \`handoff-summary.json\`: machine-readable integration summary for CI, importers, and downstream project handoff
 - \`integration-contract.json\`: stable mapping from visible LayerDoc objects to project files and DOM selectors
 - \`manifest.json\`, \`layerdoc.schema.json\`: project package manifest and LayerDoc source contract
-${manifest.analysisPlanSchema ? `- \`${manifest.analysisPlanSchema}\`: Homepage Analysis Plan source contract\n` : ""}${manifest.analysisPlanAuditFile ? `- \`${manifest.analysisPlanAuditFile}\`: Analysis Plan coverage, track, and readiness audit\n` : ""}- \`${manifest.referenceVisual.file}\`: original target visual expected by preview verification; homepage pipeline exports copy this automatically
+${manifest.analysisPlanFile ? `- \`${manifest.analysisPlanFile}\`: confirmed Homepage Analysis Plan used before LayerDoc build\n` : ""}${manifest.analysisPlanSchema ? `- \`${manifest.analysisPlanSchema}\`: Homepage Analysis Plan source contract\n` : ""}${manifest.analysisPlanAuditFile ? `- \`${manifest.analysisPlanAuditFile}\`: Analysis Plan coverage, track, and readiness audit\n` : ""}- \`${manifest.referenceVisual.file}\`: original target visual expected by preview verification; homepage pipeline exports copy this automatically
 - \`layerdoc-audit.json\`: structure, track, and asset-compliance audit
 - \`verification-report.json\`, \`quality-gates.json\`, \`scripts/verify-analysis-plan.mjs\`, \`scripts/verify-layerdoc.mjs\`, \`scripts/verify-contract.mjs\`, \`scripts/verify-preview.mjs\`, \`scripts/verify-gates.mjs\`: executable source, structure, contract, visual, and quality gate handoff
 
@@ -2119,9 +2138,10 @@ function createHandoffSummary(
     ...(sourceImage ? { sourceVisual: { ...sourceImage } } : {}),
     ...(analysisPlan ? { sourceAnalysisPlan: { ...analysisPlan } } : {}),
     ...(analysisPlanAudit ? { sourceAnalysisPlanAudit: { ...analysisPlanAudit } } : {}),
-    ...(manifest.analysisPlanSchema || manifest.analysisPlanAuditFile
+    ...(manifest.analysisPlanFile || manifest.analysisPlanSchema || manifest.analysisPlanAuditFile
       ? {
           sourceAnalysisPlanFiles: {
+            ...(manifest.analysisPlanFile ? { planFile: manifest.analysisPlanFile } : {}),
             ...(manifest.analysisPlanSchema ? { schemaFile: manifest.analysisPlanSchema } : {}),
             ...(manifest.analysisPlanAuditFile ? { auditFile: manifest.analysisPlanAuditFile } : {})
           }
@@ -2175,10 +2195,12 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
   const packageName = options.packageName ?? toKebabCase(options.componentName);
   const sourceHash = layerDocHash(sourceDoc);
   const referenceVisual = referenceVisualFor(sourceDoc.metadata.sourceImage);
+  const analysisPlanPath = options.analysisPlan ? "analysis-plan.json" : undefined;
   const analysisPlanSchemaPath = sourceDoc.metadata.analysisPlan || sourceDoc.metadata.analysisPlanAudit ? "analysis-plan.schema.json" : undefined;
   const analysisPlanAuditPath = sourceDoc.metadata.analysisPlanAudit ? "analysis-plan-audit.json" : undefined;
   const files = [
     "README.md",
+    ...(analysisPlanPath ? [analysisPlanPath] : []),
     ...(analysisPlanAuditPath ? [analysisPlanAuditPath] : []),
     ...(analysisPlanSchemaPath ? [analysisPlanSchemaPath] : []),
     "handoff-summary.json",
@@ -2213,6 +2235,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     handoffSummary: "handoff-summary.json",
     referenceVisual,
     ...(sourceDoc.metadata.analysisPlan ? { analysisPlan: { ...sourceDoc.metadata.analysisPlan } } : {}),
+    ...(analysisPlanPath ? { analysisPlanFile: analysisPlanPath } : {}),
     ...(sourceDoc.metadata.analysisPlanAudit ? { analysisPlanAudit: { ...sourceDoc.metadata.analysisPlanAudit } } : {}),
     ...(analysisPlanSchemaPath ? { analysisPlanSchema: analysisPlanSchemaPath } : {}),
     ...(analysisPlanAuditPath ? { analysisPlanAuditFile: analysisPlanAuditPath } : {}),
@@ -2234,6 +2257,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     manifest,
     files: [
       { path: "README.md", contents: readmeFor(manifest) },
+      ...(analysisPlanPath && options.analysisPlan ? [{ path: analysisPlanPath, contents: stableJson(options.analysisPlan) }] : []),
       ...(analysisPlanAuditPath && sourceDoc.metadata.analysisPlanAudit
         ? [{ path: analysisPlanAuditPath, contents: stableJson(sourceDoc.metadata.analysisPlanAudit) }]
         : []),
