@@ -86,6 +86,23 @@ const workflowIcons = {
 
 type PreviewSurface = "canvas" | "html";
 
+const pipelineBacktestCommand = [
+  "npm run pipeline:homepage --",
+  "--input references/homepage.png",
+  "--candidate artifacts/candidate.png",
+  "--out artifacts/homepage-run",
+  "--component ProductionHomepage",
+  "--verify-project"
+].join(" ");
+
+const materializeBacktestCommand = [
+  "npm run materialize:project --",
+  "--input artifacts/project-package.json",
+  "--out artifacts/materialized-project",
+  "--verify-preview",
+  "--candidate artifacts/candidate.png"
+].join(" ");
+
 function formatScore(value: number | null): string {
   return value === null ? "n/a" : String(value);
 }
@@ -778,6 +795,14 @@ function ProjectExportPanel({
           <Download size={13} />
           Export Project
         </button>
+      </div>
+      <div className="project-backtest-card">
+        <div className="project-backtest-head">
+          <span>Backtest Handoff</span>
+          <strong>project.verification</strong>
+        </div>
+        <code>{pipelineBacktestCommand}</code>
+        <code>{materializeBacktestCommand}</code>
       </div>
       <div className="export-file-list">
         {workspace.projectExport.files.map((file) => (

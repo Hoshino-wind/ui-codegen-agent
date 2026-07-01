@@ -58,6 +58,17 @@ test("app shell exposes a project ZIP export action", () => {
   assert.match(source, /createProjectPackageZipDownload/);
 });
 
+test("app shell exposes project backtest handoff commands", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /Backtest Handoff/);
+  assert.match(source, /npm run pipeline:homepage --/);
+  assert.match(source, /--verify-project/);
+  assert.match(source, /npm run materialize:project --/);
+  assert.match(source, /--verify-preview/);
+  assert.match(source, /project\.verification/);
+});
+
 test("app shell exposes verifier problem areas in the editor surface", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 
