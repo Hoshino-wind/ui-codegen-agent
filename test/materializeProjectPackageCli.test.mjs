@@ -117,6 +117,43 @@ test("materialize project package CLI can verify the written handoff", () => {
   assert.equal(summary.verification.result.passed, true);
 });
 
+test("materialize project package CLI can verify the written structure chain", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-cli-materialize-structure-"));
+  const inputPath = join(directory, "project-package.json");
+  const outputDir = join(directory, "materialized-project");
+  const projectPackage = createProjectExportPackage(createCliDoc(), {
+    componentName: "ProductionHomepage",
+    packageName: "studio-json-handoff"
+  });
+  writeFileSync(inputPath, `${JSON.stringify(projectPackageJson(projectPackage), null, 2)}\n`);
+
+  const result = spawnSync(process.execPath, [
+    cliPath,
+    "--input",
+    inputPath,
+    "--out",
+    outputDir,
+    "--verify-structure"
+  ], { cwd: rootDir, encoding: "utf8" });
+
+  assert.equal(result.status, 0, result.stderr);
+  const summary = JSON.parse(result.stdout);
+
+  assert.equal(summary.verification.mode, "structure");
+  assert.deepEqual(
+    summary.verification.results.map((entry) => entry.command),
+    [
+      "node scripts/verify-handoff.mjs",
+      "node scripts/verify-analysis-plan.mjs",
+      "node scripts/verify-image-manifest.mjs",
+      "node scripts/verify-layerdoc.mjs",
+      "node scripts/verify-contract.mjs"
+    ]
+  );
+  assert.equal(summary.verification.results.every((entry) => entry.status === 0), true);
+  assert.equal(summary.verification.results.every((entry) => entry.result.passed === true), true);
+});
+
 test("materialize project package CLI rejects missing required arguments with usage guidance", () => {
   const result = spawnSync(process.execPath, [cliPath], { cwd: rootDir, encoding: "utf8" });
 

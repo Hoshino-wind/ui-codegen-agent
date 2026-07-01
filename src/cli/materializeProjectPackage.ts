@@ -11,6 +11,7 @@ interface MaterializeProjectPackageCliOptions {
   inputPath: string;
   outputDir: string;
   verifyHandoff: boolean;
+  verifyStructure: boolean;
 }
 
 const usage = `Usage: layerdoc-materialize-project --input <project-package.json> --out <directory>
@@ -19,8 +20,17 @@ Options:
   --input <project-package.json>  Studio JSON handoff package to materialize.
   --out <directory>              Target directory for the project package.
   --verify-handoff               Run scripts/verify-handoff.mjs after writing files.
+  --verify-structure             Run handoff, source, LayerDoc, and contract verifiers.
   -h, --help                     Show this help.
 `;
+
+const structureVerificationScripts = [
+  "scripts/verify-handoff.mjs",
+  "scripts/verify-analysis-plan.mjs",
+  "scripts/verify-image-manifest.mjs",
+  "scripts/verify-layerdoc.mjs",
+  "scripts/verify-contract.mjs"
+];
 
 interface ParsedArgs {
   options?: MaterializeProjectPackageCliOptions;
@@ -57,6 +67,12 @@ function parseArgs(args: string[]): ParsedArgs {
       continue;
     }
 
+    if (arg === "--verify-structure") {
+      values.verifyStructure = true;
+      index += 1;
+      continue;
+    }
+
     throw new CliError(`Unknown argument: ${arg}.`, true);
   }
 
@@ -72,25 +88,41 @@ function parseArgs(args: string[]): ParsedArgs {
 
   return {
     help: false,
-    options: { inputPath, outputDir, verifyHandoff: values.verifyHandoff ?? false }
+    options: {
+      inputPath,
+      outputDir,
+      verifyHandoff: values.verifyHandoff ?? false,
+      verifyStructure: values.verifyStructure ?? false
+    }
   };
 }
 
-function verifyHandoff(rootDir: string) {
-  const command = "node scripts/verify-handoff.mjs";
-  const result = spawnSync(process.execPath, ["scripts/verify-handoff.mjs"], {
+function runProjectVerifier(rootDir: string, scriptPath: string) {
+  const command = `node ${scriptPath}`;
+  const result = spawnSync(process.execPath, [scriptPath], {
     cwd: rootDir,
     encoding: "utf8"
   });
 
   if (result.status !== 0) {
-    throw new Error(`Materialized project handoff verification failed:\n${result.stderr || result.stdout}`);
+    throw new Error(`Materialized project verification failed for ${command}:\n${result.stderr || result.stdout}`);
   }
 
   return {
     command,
     status: result.status,
     result: JSON.parse(result.stdout)
+  };
+}
+
+function verifyHandoff(rootDir: string) {
+  return runProjectVerifier(rootDir, "scripts/verify-handoff.mjs");
+}
+
+function verifyStructure(rootDir: string) {
+  return {
+    mode: "structure",
+    results: structureVerificationScripts.map((scriptPath) => runProjectVerifier(rootDir, scriptPath))
   };
 }
 
@@ -111,7 +143,7 @@ export function runMaterializeProjectPackageCli(args: string[]): number {
     const outputDir = resolve(options.outputDir);
     const projectPackage = parseProjectExportPackageJson(readFileSync(inputPath, "utf8"));
     const written = writeProjectExportPackage(projectPackage, outputDir);
-    const verification = options.verifyHandoff ? verifyHandoff(outputDir) : undefined;
+    const verification = options.verifyStructure ? verifyStructure(outputDir) : options.verifyHandoff ? verifyHandoff(outputDir) : undefined;
 
     process.stdout.write(`${JSON.stringify({
       packageName: projectPackage.manifest.packageName,

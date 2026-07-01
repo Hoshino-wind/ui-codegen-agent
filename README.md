@@ -245,8 +245,12 @@ directory.
 npm run materialize:project -- \
   --input artifacts/project-package.json \
   --out artifacts/materialized-project \
-  --verify-handoff
+  --verify-structure
 ```
+
+`--verify-structure` runs the generated handoff, Analysis Plan, Image
+Manifest, LayerDoc, and integration contract verifiers. Visual screenshot diff
+still runs from the materialized project with `npm run verify:preview`.
 
 ## Verification Dimensions
 
