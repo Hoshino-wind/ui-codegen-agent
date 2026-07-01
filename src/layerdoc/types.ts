@@ -45,6 +45,38 @@ export interface AnalysisPlanProvenance {
   uri?: string;
 }
 
+export type AnalysisPlanTrackCounts = Record<LayerTrack, number>;
+
+export interface AnalysisPlanSectionAudit {
+  sectionId: string;
+  name: string;
+  layerCount: number;
+  editableLayerCount: number;
+  tracks: AnalysisPlanTrackCounts;
+}
+
+export interface AnalysisPlanAudit {
+  summary: {
+    sections: number;
+    layers: number;
+    editableLayers: number;
+  };
+  tracks: AnalysisPlanTrackCounts;
+  coverage: {
+    sectionsWithLayers: number;
+    emptySectionIds: string[];
+  };
+  readiness: {
+    sectionRangeOk: boolean;
+    validPlan: boolean;
+    allSectionsHaveLayers: boolean;
+    readyForLayerDoc: boolean;
+    blockers: string[];
+  };
+  issues: string[];
+  sectionBreakdown: AnalysisPlanSectionAudit[];
+}
+
 export interface TokenSet {
   colors: Record<string, string>;
   typography: Record<string, unknown>;
@@ -162,6 +194,7 @@ export interface LayerDoc {
     createdAt: string;
     sourceImage?: SourceImageProvenance;
     analysisPlan?: AnalysisPlanProvenance;
+    analysisPlanAudit?: AnalysisPlanAudit;
   };
   canvas: Canvas;
   tokens: TokenSet;
@@ -186,6 +219,7 @@ export interface CreateLayerDocInput {
   canvas: Canvas;
   sourceImage?: SourceImageProvenance;
   analysisPlan?: AnalysisPlanProvenance;
+  analysisPlanAudit?: AnalysisPlanAudit;
   tokens?: Partial<TokenSet>;
   sections?: SectionNode[];
   layers?: LayerNode[];

@@ -31,6 +31,68 @@ const rectSchema = {
   }
 };
 
+const analysisPlanTrackCountsSchema = {
+  type: "object",
+  required: layerTracks,
+  additionalProperties: false,
+  properties: Object.fromEntries(layerTracks.map((track) => [track, { type: "number", minimum: 0 }]))
+};
+
+const analysisPlanSectionAuditSchema = {
+  type: "object",
+  required: ["sectionId", "name", "layerCount", "editableLayerCount", "tracks"],
+  additionalProperties: false,
+  properties: {
+    sectionId: { type: "string", minLength: 1 },
+    name: { type: "string", minLength: 1 },
+    layerCount: { type: "number", minimum: 0 },
+    editableLayerCount: { type: "number", minimum: 0 },
+    tracks: analysisPlanTrackCountsSchema
+  }
+};
+
+const analysisPlanAuditSchema = {
+  type: "object",
+  required: ["summary", "tracks", "coverage", "readiness", "issues", "sectionBreakdown"],
+  additionalProperties: false,
+  properties: {
+    summary: {
+      type: "object",
+      required: ["sections", "layers", "editableLayers"],
+      additionalProperties: false,
+      properties: {
+        sections: { type: "number", minimum: 0 },
+        layers: { type: "number", minimum: 0 },
+        editableLayers: { type: "number", minimum: 0 }
+      }
+    },
+    tracks: analysisPlanTrackCountsSchema,
+    coverage: {
+      type: "object",
+      required: ["sectionsWithLayers", "emptySectionIds"],
+      additionalProperties: false,
+      properties: {
+        sectionsWithLayers: { type: "number", minimum: 0 },
+        emptySectionIds: { type: "array", items: { type: "string" } }
+      }
+    },
+    readiness: {
+      type: "object",
+      required: ["sectionRangeOk", "validPlan", "allSectionsHaveLayers", "readyForLayerDoc", "blockers"],
+      additionalProperties: false,
+      properties: {
+        sectionRangeOk: { type: "boolean" },
+        validPlan: { type: "boolean" },
+        allSectionsHaveLayers: { type: "boolean" },
+        readyForLayerDoc: { type: "boolean" },
+        blockers: { type: "array", items: { type: "string" } }
+      }
+    },
+    issues: { type: "array", items: { type: "string" } },
+    sectionBreakdown: { type: "array", items: analysisPlanSectionAuditSchema }
+  }
+};
+
 const verificationIssueSchema = {
   type: "object",
   required: ["code", "path", "message"],
@@ -113,7 +175,8 @@ export function createLayerDocJsonSchema(): Record<string, unknown> {
               layerCount: { type: "number", minimum: 0 },
               uri: { type: "string", minLength: 1 }
             }
-          }
+          },
+          analysisPlanAudit: analysisPlanAuditSchema
         }
       },
       canvas: {

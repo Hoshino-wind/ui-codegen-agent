@@ -222,6 +222,7 @@ function toManifest(intake: IntakeWorkspace): ImageAnalysisManifest {
       sectionCount: intake.analysisPlan.sections.length,
       layerCount: intake.layerCount
     },
+    analysisPlanAudit: intake.audit,
     canvas: {
       width: intake.sourceImage.width,
       height: intake.sourceImage.height,

@@ -32,6 +32,7 @@ export interface ProjectExportManifest {
   handoffSummary: string;
   referenceVisual: ProjectReferenceVisual;
   analysisPlan?: NonNullable<LayerDoc["metadata"]["analysisPlan"]>;
+  analysisPlanAudit?: NonNullable<LayerDoc["metadata"]["analysisPlanAudit"]>;
   files: string[];
   scores: VerificationReport;
   audit: LayerDocAudit;
@@ -53,6 +54,7 @@ export interface ProjectHandoffSummary {
   };
   sourceVisual?: NonNullable<LayerDoc["metadata"]["sourceImage"]>;
   sourceAnalysisPlan?: NonNullable<LayerDoc["metadata"]["analysisPlan"]>;
+  sourceAnalysisPlanAudit?: NonNullable<LayerDoc["metadata"]["analysisPlanAudit"]>;
   entrypoint: {
     component: string;
     file: string;
@@ -1301,6 +1303,7 @@ function classifyLayer(layer) {
 }
 
 const analysisPlanSources = new Set(["seeded", "provided", "editor", "manual"]);
+const analysisPlanTrackKeys = ["component", "asset", "approximation", "layout"];
 
 function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
@@ -1308,6 +1311,110 @@ function isNonEmptyString(value) {
 
 function isNonNegativeNumber(value) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isStringArray(value) {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function validateNonNegativeNumber(value, path, message, issues) {
+  if (!isNonNegativeNumber(value)) {
+    issues.push(issue("metadata_invalid", path, message));
+  }
+}
+
+function validateBoolean(value, path, message, issues) {
+  if (typeof value !== "boolean") {
+    issues.push(issue("metadata_invalid", path, message));
+  }
+}
+
+function validateStringArray(value, path, message, issues) {
+  if (!isStringArray(value)) {
+    issues.push(issue("metadata_invalid", path, message));
+  }
+}
+
+function validateAnalysisPlanTrackCounts(value, path, issues) {
+  if (!isRecord(value)) {
+    issues.push(issue("metadata_invalid", path, "Analysis Plan audit track counts must be an object."));
+    return;
+  }
+
+  for (const track of analysisPlanTrackKeys) {
+    validateNonNegativeNumber(value[track], \`\${path}.\${track}\`, \`Analysis Plan audit \${track} track count must be a non-negative number.\`, issues);
+  }
+}
+
+function validateAnalysisPlanAudit(audit, issues) {
+  if (!audit) {
+    return;
+  }
+
+  const metadataPath = "metadata.analysisPlanAudit";
+  if (!isRecord(audit)) {
+    issues.push(issue("metadata_invalid", metadataPath, "Analysis Plan audit must be an object."));
+    return;
+  }
+
+  const summary = audit.summary;
+  if (!isRecord(summary)) {
+    issues.push(issue("metadata_invalid", \`\${metadataPath}.summary\`, "Analysis Plan audit summary must be an object."));
+  } else {
+    validateNonNegativeNumber(summary.sections, \`\${metadataPath}.summary.sections\`, "Analysis Plan audit section count must be a non-negative number.", issues);
+    validateNonNegativeNumber(summary.layers, \`\${metadataPath}.summary.layers\`, "Analysis Plan audit layer count must be a non-negative number.", issues);
+    validateNonNegativeNumber(summary.editableLayers, \`\${metadataPath}.summary.editableLayers\`, "Analysis Plan audit editable layer count must be a non-negative number.", issues);
+  }
+
+  validateAnalysisPlanTrackCounts(audit.tracks, \`\${metadataPath}.tracks\`, issues);
+
+  const coverage = audit.coverage;
+  if (!isRecord(coverage)) {
+    issues.push(issue("metadata_invalid", \`\${metadataPath}.coverage\`, "Analysis Plan audit coverage must be an object."));
+  } else {
+    validateNonNegativeNumber(coverage.sectionsWithLayers, \`\${metadataPath}.coverage.sectionsWithLayers\`, "Analysis Plan audit sectionsWithLayers must be a non-negative number.", issues);
+    validateStringArray(coverage.emptySectionIds, \`\${metadataPath}.coverage.emptySectionIds\`, "Analysis Plan audit emptySectionIds must be a string array.", issues);
+  }
+
+  const readiness = audit.readiness;
+  if (!isRecord(readiness)) {
+    issues.push(issue("metadata_invalid", \`\${metadataPath}.readiness\`, "Analysis Plan audit readiness must be an object."));
+  } else {
+    validateBoolean(readiness.sectionRangeOk, \`\${metadataPath}.readiness.sectionRangeOk\`, "Analysis Plan audit sectionRangeOk must be boolean.", issues);
+    validateBoolean(readiness.validPlan, \`\${metadataPath}.readiness.validPlan\`, "Analysis Plan audit validPlan must be boolean.", issues);
+    validateBoolean(readiness.allSectionsHaveLayers, \`\${metadataPath}.readiness.allSectionsHaveLayers\`, "Analysis Plan audit allSectionsHaveLayers must be boolean.", issues);
+    validateBoolean(readiness.readyForLayerDoc, \`\${metadataPath}.readiness.readyForLayerDoc\`, "Analysis Plan audit readyForLayerDoc must be boolean.", issues);
+    validateStringArray(readiness.blockers, \`\${metadataPath}.readiness.blockers\`, "Analysis Plan audit blockers must be a string array.", issues);
+  }
+
+  validateStringArray(audit.issues, \`\${metadataPath}.issues\`, "Analysis Plan audit issues must be a string array.", issues);
+
+  if (!Array.isArray(audit.sectionBreakdown)) {
+    issues.push(issue("metadata_invalid", \`\${metadataPath}.sectionBreakdown\`, "Analysis Plan audit sectionBreakdown must be an array."));
+    return;
+  }
+
+  for (const [index, section] of audit.sectionBreakdown.entries()) {
+    const sectionPath = \`\${metadataPath}.sectionBreakdown[\${index}]\`;
+    if (!isRecord(section)) {
+      issues.push(issue("metadata_invalid", sectionPath, "Analysis Plan audit section breakdown item must be an object."));
+      continue;
+    }
+
+    if (!isNonEmptyString(section.sectionId)) {
+      issues.push(issue("metadata_invalid", \`\${sectionPath}.sectionId\`, "Analysis Plan audit sectionId must be a non-empty string."));
+    }
+    if (!isNonEmptyString(section.name)) {
+      issues.push(issue("metadata_invalid", \`\${sectionPath}.name\`, "Analysis Plan audit section name must be a non-empty string."));
+    }
+    validateNonNegativeNumber(section.layerCount, \`\${sectionPath}.layerCount\`, "Analysis Plan audit section layerCount must be a non-negative number.", issues);
+    validateNonNegativeNumber(section.editableLayerCount, \`\${sectionPath}.editableLayerCount\`, "Analysis Plan audit section editableLayerCount must be a non-negative number.", issues);
+    validateAnalysisPlanTrackCounts(section.tracks, \`\${sectionPath}.tracks\`, issues);
+  }
 }
 
 function validateLayerDoc(doc) {
@@ -1328,6 +1435,7 @@ function validateLayerDoc(doc) {
   const sectionRequests = Array.isArray(doc?.generation?.sectionRequests) ? doc.generation.sectionRequests : [];
   const canvas = doc?.canvas ?? {};
   const analysisPlan = doc?.metadata?.analysisPlan;
+  const analysisPlanAudit = doc?.metadata?.analysisPlanAudit;
 
   const sectionIds = new Set(sections.map((section) => section.id));
   const layerIds = new Set(layers.map((layer) => layer.id));
@@ -1364,6 +1472,7 @@ function validateLayerDoc(doc) {
       issues.push(issue("metadata_invalid", "metadata.analysisPlan.uri", "Analysis Plan uri must be a non-empty string when provided."));
     }
   }
+  validateAnalysisPlanAudit(analysisPlanAudit, issues);
 
   for (const [index, section] of sections.entries()) {
     const path = \`sections[\${index}]\`;
@@ -1915,7 +2024,8 @@ function createHandoffSummary(
   contract: ProjectIntegrationContract,
   audit: LayerDocAudit,
   sourceImage: LayerDoc["metadata"]["sourceImage"],
-  analysisPlan: LayerDoc["metadata"]["analysisPlan"]
+  analysisPlan: LayerDoc["metadata"]["analysisPlan"],
+  analysisPlanAudit: LayerDoc["metadata"]["analysisPlanAudit"]
 ): ProjectHandoffSummary {
   return {
     version: "0.1.0",
@@ -1928,6 +2038,7 @@ function createHandoffSummary(
     },
     ...(sourceImage ? { sourceVisual: { ...sourceImage } } : {}),
     ...(analysisPlan ? { sourceAnalysisPlan: { ...analysisPlan } } : {}),
+    ...(analysisPlanAudit ? { sourceAnalysisPlanAudit: { ...analysisPlanAudit } } : {}),
     entrypoint: {
       component: contract.component.name,
       file: contract.component.file,
@@ -2009,6 +2120,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     handoffSummary: "handoff-summary.json",
     referenceVisual,
     ...(sourceDoc.metadata.analysisPlan ? { analysisPlan: { ...sourceDoc.metadata.analysisPlan } } : {}),
+    ...(sourceDoc.metadata.analysisPlanAudit ? { analysisPlanAudit: { ...sourceDoc.metadata.analysisPlanAudit } } : {}),
     files,
     scores: report,
     audit
@@ -2019,7 +2131,8 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     integrationContract,
     audit,
     sourceDoc.metadata.sourceImage,
-    sourceDoc.metadata.analysisPlan
+    sourceDoc.metadata.analysisPlan,
+    sourceDoc.metadata.analysisPlanAudit
   );
 
   return {

@@ -66,7 +66,8 @@ The repository currently implements the core LayerDoc domain layer:
 - Run a React/Vite controlled editor console for the sample homepage LayerDoc.
 - Edit an Analysis Plan panel that scaffolds homepage sections before building LayerDoc.
 - Audit Analysis Plans before LayerDoc build with section coverage, track counts,
-  blockers, and readiness evidence exposed in Studio and pipeline reports.
+  blockers, and readiness evidence exposed in Studio, LayerDoc metadata,
+  pipeline reports, and exported project handoff files.
 - Upload a PNG in the browser to initialize Analysis Plan dimensions.
 - Render a deterministic HTML preview with section, component, and layer DOM markers.
 - Export a React + Tailwind component that preserves LayerDoc traceability.

@@ -1,5 +1,14 @@
 import { classifyLayer } from "../layerdoc/classification.js";
-import type { Canvas, LayerKind, LayerStyle, LayerTrack, Rect } from "../layerdoc/types.js";
+import type {
+  AnalysisPlanAudit,
+  AnalysisPlanSectionAudit,
+  AnalysisPlanTrackCounts,
+  Canvas,
+  LayerKind,
+  LayerStyle,
+  LayerTrack,
+  Rect
+} from "../layerdoc/types.js";
 import type { PngIntakeAssetPlan, PngIntakeLayerPlan, PngIntakeSectionPlan } from "./pngIntake.js";
 
 export interface HomepageAnalysisPlan {
@@ -16,37 +25,9 @@ export interface CreateHomepageAnalysisPlanInput {
 
 export type AnalysisLayerPatch = Partial<Omit<PngIntakeLayerPlan, "id" | "kind">>;
 
-export type HomepageAnalysisPlanTrackCounts = Record<LayerTrack, number>;
-
-export interface HomepageAnalysisPlanSectionAudit {
-  sectionId: string;
-  name: string;
-  layerCount: number;
-  editableLayerCount: number;
-  tracks: HomepageAnalysisPlanTrackCounts;
-}
-
-export interface HomepageAnalysisPlanAudit {
-  summary: {
-    sections: number;
-    layers: number;
-    editableLayers: number;
-  };
-  tracks: HomepageAnalysisPlanTrackCounts;
-  coverage: {
-    sectionsWithLayers: number;
-    emptySectionIds: string[];
-  };
-  readiness: {
-    sectionRangeOk: boolean;
-    validPlan: boolean;
-    allSectionsHaveLayers: boolean;
-    readyForLayerDoc: boolean;
-    blockers: string[];
-  };
-  issues: string[];
-  sectionBreakdown: HomepageAnalysisPlanSectionAudit[];
-}
+export type HomepageAnalysisPlanTrackCounts = AnalysisPlanTrackCounts;
+export type HomepageAnalysisPlanSectionAudit = AnalysisPlanSectionAudit;
+export type HomepageAnalysisPlanAudit = AnalysisPlanAudit;
 
 const defaultSectionNames = ["Hero", "Proof", "Workflow", "Features", "Editor", "Export", "Verifier", "Final CTA"];
 const layerKinds: readonly LayerKind[] = [

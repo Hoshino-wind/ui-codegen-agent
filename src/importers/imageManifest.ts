@@ -1,6 +1,7 @@
 import { classifyLayer } from "../layerdoc/classification.js";
 import { createLayerDoc } from "../layerdoc/factory.js";
 import type {
+  AnalysisPlanAudit,
   AnalysisPlanProvenance,
   AssetNode,
   Canvas,
@@ -46,6 +47,7 @@ export interface ImageAnalysisManifest {
     height: number;
   };
   analysisPlan?: AnalysisPlanProvenance;
+  analysisPlanAudit?: AnalysisPlanAudit;
   canvas?: Canvas;
   sections: ImageManifestSectionInput[];
 }
@@ -164,6 +166,7 @@ export function createLayerDocFromImageManifest(
     },
     sourceImage: { ...manifest.sourceImage },
     analysisPlan: manifest.analysisPlan,
+    analysisPlanAudit: manifest.analysisPlanAudit,
     sections: manifest.sections.map(createSection),
     layers,
     assets,

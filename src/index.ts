@@ -57,6 +57,10 @@ export type {
   LayerDocTrackCounts
 } from "./layerdoc/audit.js";
 export type {
+  AnalysisPlanAudit,
+  AnalysisPlanProvenance,
+  AnalysisPlanSectionAudit,
+  AnalysisPlanTrackCounts,
   AssetNode,
   Canvas,
   ComponentNode,

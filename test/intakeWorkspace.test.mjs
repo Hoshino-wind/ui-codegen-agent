@@ -142,6 +142,7 @@ test("buildWorkspaceFromIntake converts annotations into the editable LayerDoc w
     sectionCount: 8,
     layerCount: 18
   });
+  assert.deepEqual(workspace.doc.metadata.analysisPlanAudit, intake.audit);
   assert.match(workspace.previewHtml, /Imported hero headline/);
   assert.equal(workspace.report.structureScore, 100);
 });

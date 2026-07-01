@@ -20,6 +20,31 @@ test("project package exporter stays browser-compatible for Studio exports", () 
   assert.doesNotMatch(source, /^import .*node:crypto/m);
 });
 
+function createExportAnalysisPlanAudit() {
+  return {
+    summary: { sections: 1, layers: 2, editableLayers: 2 },
+    tracks: { component: 2, asset: 0, approximation: 0, layout: 0 },
+    coverage: { sectionsWithLayers: 1, emptySectionIds: [] },
+    readiness: {
+      sectionRangeOk: false,
+      validPlan: true,
+      allSectionsHaveLayers: true,
+      readyForLayerDoc: true,
+      blockers: []
+    },
+    issues: [],
+    sectionBreakdown: [
+      {
+        sectionId: "hero",
+        name: "Hero",
+        layerCount: 2,
+        editableLayerCount: 2,
+        tracks: { component: 2, asset: 0, approximation: 0, layout: 0 }
+      }
+    ]
+  };
+}
+
 function createExportDoc() {
   return createLayerDoc({
     name: "Production Homepage",
@@ -32,6 +57,7 @@ function createExportDoc() {
       layerCount: 2,
       uri: "/references/analysis-plan.json"
     },
+    analysisPlanAudit: createExportAnalysisPlanAudit(),
     sections: [{ id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 1440, height: 900 }, layerIds: ["headline", "cta"] }],
     components: [{ id: "HeroSection", layerIds: ["headline", "cta"], exportable: true }],
     responsive: {
@@ -264,6 +290,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     layerCount: 2,
     uri: "/references/analysis-plan.json"
   });
+  assert.deepEqual(output.manifest.analysisPlanAudit, createExportAnalysisPlanAudit());
   assert.deepEqual(paths, [
     "README.md",
     "handoff-summary.json",
@@ -311,8 +338,11 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "layerdoc.json").contents, /"schema": "layerdoc"/);
   const contract = JSON.parse(output.files.find((file) => file.path === "integration-contract.json").contents);
   const manifest = JSON.parse(output.files.find((file) => file.path === "manifest.json").contents);
+  const exportedLayerDoc = JSON.parse(output.files.find((file) => file.path === "layerdoc.json").contents);
   assert.deepEqual(manifest.referenceVisual, output.manifest.referenceVisual);
   assert.deepEqual(manifest.analysisPlan, output.manifest.analysisPlan);
+  assert.deepEqual(manifest.analysisPlanAudit, output.manifest.analysisPlanAudit);
+  assert.deepEqual(exportedLayerDoc.metadata.analysisPlanAudit, output.manifest.analysisPlanAudit);
   assert.equal(contract.component.name, "ProductionHomepage");
   assert.equal(contract.component.file, "src/ProductionHomepage.tsx");
   assert.equal(contract.layerDoc.file, "layerdoc.json");
@@ -352,6 +382,20 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.deepEqual(layerDocSchema.properties.metadata.properties.sourceImage.required, ["uri", "width", "height"]);
   assert.deepEqual(layerDocSchema.properties.metadata.properties.analysisPlan.required, ["source", "name", "sectionCount", "layerCount"]);
   assert.deepEqual(layerDocSchema.properties.metadata.properties.analysisPlan.properties.source.enum, ["seeded", "provided", "editor", "manual"]);
+  assert.deepEqual(layerDocSchema.properties.metadata.properties.analysisPlanAudit.required, [
+    "summary",
+    "tracks",
+    "coverage",
+    "readiness",
+    "issues",
+    "sectionBreakdown"
+  ]);
+  assert.deepEqual(layerDocSchema.properties.metadata.properties.analysisPlanAudit.properties.tracks.required, [
+    "component",
+    "asset",
+    "approximation",
+    "layout"
+  ]);
   assert.equal(
     layerDocSchema.properties.verification.properties.issues.items.properties.code.enum.includes("section_empty"),
     true
@@ -392,6 +436,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     height: 900
   });
   assert.deepEqual(handoffSummary.sourceAnalysisPlan, output.manifest.analysisPlan);
+  assert.deepEqual(handoffSummary.sourceAnalysisPlanAudit, output.manifest.analysisPlanAudit);
   assert.deepEqual(handoffSummary.entrypoint, {
     component: "ProductionHomepage",
     file: "src/ProductionHomepage.tsx",
@@ -915,6 +960,22 @@ test("exported LayerDoc verifier script rejects invalid Analysis Plan provenance
   assert.notEqual(failed.status, 0);
   assert.match(failed.stdout, /metadata_invalid/);
   assert.match(failed.stdout, /metadata\.analysisPlan\.source/);
+});
+
+test("exported LayerDoc verifier script rejects invalid Analysis Plan audit metadata", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-plan-audit-verifier-"));
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const layerDocPath = join(directory, "layerdoc.json");
+  const layerDoc = JSON.parse(readFileSync(layerDocPath, "utf8"));
+  layerDoc.metadata.analysisPlanAudit.readiness.readyForLayerDoc = "yes";
+  writeFileSync(layerDocPath, `${JSON.stringify(layerDoc, null, 2)}\n`);
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-layerdoc.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /metadata_invalid/);
+  assert.match(failed.stdout, /metadata\.analysisPlanAudit\.readiness\.readyForLayerDoc/);
 });
 
 test("exported LayerDoc verifier script rejects mismatched section membership", () => {

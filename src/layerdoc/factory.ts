@@ -1,4 +1,4 @@
-import type { CreateLayerDocInput, GenerationState, LayerDoc, TokenSet, VerificationScores } from "./types.js";
+import type { AnalysisPlanAudit, CreateLayerDocInput, GenerationState, LayerDoc, TokenSet, VerificationScores } from "./types.js";
 
 const emptyTokens: TokenSet = {
   colors: {},
@@ -18,6 +18,26 @@ const emptyGeneration: GenerationState = {
   sectionRequests: []
 };
 
+function cloneAnalysisPlanAudit(audit: AnalysisPlanAudit): AnalysisPlanAudit {
+  return {
+    summary: { ...audit.summary },
+    tracks: { ...audit.tracks },
+    coverage: {
+      sectionsWithLayers: audit.coverage.sectionsWithLayers,
+      emptySectionIds: [...audit.coverage.emptySectionIds]
+    },
+    readiness: {
+      ...audit.readiness,
+      blockers: [...audit.readiness.blockers]
+    },
+    issues: [...audit.issues],
+    sectionBreakdown: audit.sectionBreakdown.map((section) => ({
+      ...section,
+      tracks: { ...section.tracks }
+    }))
+  };
+}
+
 /**
  * Create a complete LayerDoc shell from partial product data.
  * Consumers should never branch on missing top-level arrays; the editor,
@@ -31,7 +51,8 @@ export function createLayerDoc(input: CreateLayerDocInput): LayerDoc {
       name: input.name,
       createdAt: new Date(0).toISOString(),
       ...(input.sourceImage ? { sourceImage: { ...input.sourceImage } } : {}),
-      ...(input.analysisPlan ? { analysisPlan: { ...input.analysisPlan } } : {})
+      ...(input.analysisPlan ? { analysisPlan: { ...input.analysisPlan } } : {}),
+      ...(input.analysisPlanAudit ? { analysisPlanAudit: cloneAnalysisPlanAudit(input.analysisPlanAudit) } : {})
     },
     canvas: { ...input.canvas },
     tokens: {

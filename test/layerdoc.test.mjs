@@ -8,6 +8,31 @@ import {
   validateLayerDoc
 } from "../dist/index.js";
 
+function createAnalysisPlanAudit() {
+  return {
+    summary: { sections: 8, layers: 24, editableLayers: 21 },
+    tracks: { component: 18, asset: 4, approximation: 2, layout: 0 },
+    coverage: { sectionsWithLayers: 8, emptySectionIds: [] },
+    readiness: {
+      sectionRangeOk: true,
+      validPlan: true,
+      allSectionsHaveLayers: true,
+      readyForLayerDoc: true,
+      blockers: []
+    },
+    issues: [],
+    sectionBreakdown: [
+      {
+        sectionId: "hero",
+        name: "Hero",
+        layerCount: 4,
+        editableLayerCount: 4,
+        tracks: { component: 3, asset: 1, approximation: 0, layout: 0 }
+      }
+    ]
+  };
+}
+
 test("createLayerDoc returns a complete editable production asset shell", () => {
   const doc = createLayerDoc({
     name: "Landing page concept",
@@ -19,7 +44,8 @@ test("createLayerDoc returns a complete editable production asset shell", () => 
       sectionCount: 8,
       layerCount: 24,
       uri: "/references/analysis-plan.json"
-    }
+    },
+    analysisPlanAudit: createAnalysisPlanAudit()
   });
 
   assert.equal(doc.schema, "layerdoc");
@@ -48,6 +74,7 @@ test("createLayerDoc returns a complete editable production asset shell", () => 
     layerCount: 24,
     uri: "/references/analysis-plan.json"
   });
+  assert.deepEqual(doc.metadata.analysisPlanAudit, createAnalysisPlanAudit());
   assert.deepEqual(doc.generation.sectionRequests, []);
   assert.equal(doc.verification.scores.visualSimilarity, null);
 });
@@ -151,6 +178,62 @@ test("validateLayerDoc rejects invalid Analysis Plan provenance", () => {
       "metadata.analysisPlan.sectionCount",
       "metadata.analysisPlan.source",
       "metadata.analysisPlan.uri"
+    ]
+  );
+});
+
+test("validateLayerDoc rejects invalid Analysis Plan audit metadata", () => {
+  const doc = createLayerDoc({
+    name: "Bad audit",
+    canvas: { width: 320, height: 240 },
+    sections: [{ id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 320, height: 240 }, layerIds: ["headline"] }],
+    layers: [
+      {
+        id: "headline",
+        sectionId: "hero",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 20, y: 20, width: 180, height: 32 },
+        content: { text: "Hello" }
+      }
+    ]
+  });
+  doc.metadata.analysisPlanAudit = {
+    summary: { sections: -1 },
+    tracks: { component: -1 },
+    coverage: { sectionsWithLayers: -1, emptySectionIds: [7] },
+    readiness: { readyForLayerDoc: "yes", blockers: [false] },
+    issues: [5],
+    sectionBreakdown: [{ sectionId: "", layerCount: -1 }]
+  };
+
+  const result = validateLayerDoc(doc);
+
+  assert.equal(result.valid, false);
+  assert.deepEqual(
+    result.issues.filter((issue) => issue.code === "metadata_invalid").map((issue) => issue.path).sort(),
+    [
+      "metadata.analysisPlanAudit.coverage.emptySectionIds",
+      "metadata.analysisPlanAudit.coverage.sectionsWithLayers",
+      "metadata.analysisPlanAudit.issues",
+      "metadata.analysisPlanAudit.readiness.allSectionsHaveLayers",
+      "metadata.analysisPlanAudit.readiness.blockers",
+      "metadata.analysisPlanAudit.readiness.readyForLayerDoc",
+      "metadata.analysisPlanAudit.readiness.sectionRangeOk",
+      "metadata.analysisPlanAudit.readiness.validPlan",
+      "metadata.analysisPlanAudit.sectionBreakdown[0].editableLayerCount",
+      "metadata.analysisPlanAudit.sectionBreakdown[0].layerCount",
+      "metadata.analysisPlanAudit.sectionBreakdown[0].name",
+      "metadata.analysisPlanAudit.sectionBreakdown[0].sectionId",
+      "metadata.analysisPlanAudit.sectionBreakdown[0].tracks",
+      "metadata.analysisPlanAudit.summary.editableLayers",
+      "metadata.analysisPlanAudit.summary.layers",
+      "metadata.analysisPlanAudit.summary.sections",
+      "metadata.analysisPlanAudit.tracks.approximation",
+      "metadata.analysisPlanAudit.tracks.asset",
+      "metadata.analysisPlanAudit.tracks.component",
+      "metadata.analysisPlanAudit.tracks.layout"
     ]
   );
 });

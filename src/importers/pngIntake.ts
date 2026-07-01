@@ -3,7 +3,7 @@ import { basename, join } from "node:path";
 
 import { PNG } from "pngjs";
 
-import type { AnalysisPlanProvenance, AssetNode, LayerKind, LayerStyle, Rect } from "../layerdoc/types.js";
+import type { AnalysisPlanAudit, AnalysisPlanProvenance, AssetNode, LayerKind, LayerStyle, Rect } from "../layerdoc/types.js";
 import { assertHomepageSectionCoverage, type ImageAnalysisManifest, type ImageManifestSectionInput } from "./imageManifest.js";
 
 export interface PngIntakeAssetPlan {
@@ -41,6 +41,7 @@ export interface PngIntakeInput {
   publicAssetBaseUri?: string;
   canvasBackground?: string;
   analysisPlan?: AnalysisPlanProvenance;
+  analysisPlanAudit?: AnalysisPlanAudit;
 }
 
 function readPng(path: string): PNG {
@@ -169,6 +170,7 @@ export function createImageManifestFromPng(input: PngIntakeInput): ImageAnalysis
       height: source.height
     },
     analysisPlan: input.analysisPlan,
+    analysisPlanAudit: input.analysisPlanAudit,
     canvas: {
       width: source.width,
       height: source.height,

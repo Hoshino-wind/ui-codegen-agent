@@ -96,7 +96,8 @@ export function createHomepageLayerDocFromPng(input: HomepagePngPipelineInput): 
     assetOutputDir: input.assetOutputDir,
     publicAssetBaseUri: input.publicAssetBaseUri,
     canvasBackground: input.canvasBackground,
-    analysisPlan: provenance
+    analysisPlan: provenance,
+    analysisPlanAudit
   });
 
   return {
