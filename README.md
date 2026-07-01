@@ -236,6 +236,11 @@ The homepage pipeline CLI also writes the original input PNG into the exported
 project package as `reference.png`, so the handoff project can rerun visual
 verification without manually locating the source image.
 
+Studio JSON handoffs are also materializable: binary files are represented as
+base64 entries in `project-package.json`, and `parseProjectExportPackageJson`
+plus `writeProjectExportPackage` can restore the package into a runnable project
+directory.
+
 ## Verification Dimensions
 
 Verifier output must stay split by concern:

@@ -13,7 +13,7 @@ export { renderHtmlPreview } from "./exporters/htmlPreview.js";
 export {
   createProjectExportPackage
 } from "./exporters/projectPackage.js";
-export { writeProjectExportPackage } from "./exporters/projectPackageWriter.js";
+export { parseProjectExportPackageJson, writeProjectExportPackage } from "./exporters/projectPackageWriter.js";
 export { exportReactTailwind } from "./exporters/reactTailwind.js";
 export { createStoredZipArchive } from "./exporters/zipArchive.js";
 export {

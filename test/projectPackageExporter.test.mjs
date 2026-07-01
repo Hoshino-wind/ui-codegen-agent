@@ -11,6 +11,7 @@ import {
   createLayerDoc,
   createProjectExportPackage,
   createVerificationReport,
+  parseProjectExportPackageJson,
   writeProjectExportPackage
 } from "../dist/index.js";
 
@@ -664,6 +665,72 @@ test("createProjectExportPackage can include the visual reference PNG as a binar
 
   writeProjectExportPackage(output, directory);
   assert.deepEqual([...readFileSync(join(directory, "reference.png"))], [...referencePng]);
+});
+
+test("parseProjectExportPackageJson restores base64 binary files for project writers", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-json-export-"));
+  const referencePng = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x00, 0xff]);
+  const output = createProjectExportPackage(createExportDoc(), {
+    componentName: "ProductionHomepage",
+    referencePng
+  });
+  const jsonPackage = {
+    ...output,
+    files: output.files.map((file) =>
+      typeof file.contents === "string"
+        ? file
+        : {
+            path: file.path,
+            contentEncoding: "base64",
+            contentsBase64: Buffer.from(file.contents).toString("base64")
+          }
+    )
+  };
+
+  const parsed = parseProjectExportPackageJson(JSON.stringify(jsonPackage));
+  const referenceFile = parsed.files.find((file) => file.path === "reference.png");
+  const written = writeProjectExportPackage(parsed, directory);
+
+  assert.equal(parsed.manifest.files.includes("reference.png"), true);
+  assert.equal(referenceFile.contents instanceof Uint8Array, true);
+  assert.deepEqual([...referenceFile.contents], [...referencePng]);
+  assert.equal(written.files.some((file) => file.relativePath === "reference.png"), true);
+  assert.deepEqual([...readFileSync(join(directory, "reference.png"))], [...referencePng]);
+});
+
+test("parseProjectExportPackageJson rejects malformed binary handoff entries", () => {
+  const output = createProjectExportPackage(createExportDoc(), {
+    componentName: "ProductionHomepage",
+    referencePng: new Uint8Array([0x89, 0x50])
+  });
+  const jsonPackage = {
+    ...output,
+    files: output.files.map((file) =>
+      file.path === "reference.png" ? { path: file.path, contentEncoding: "base64", contentsBase64: "not png bytes!" } : file
+    )
+  };
+
+  assert.throws(
+    () => parseProjectExportPackageJson(JSON.stringify(jsonPackage)),
+    /Project package file "reference\.png" has invalid base64 contents/
+  );
+});
+
+test("parseProjectExportPackageJson rejects files outside the project root", () => {
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  const jsonPackage = {
+    ...output,
+    manifest: {
+      ...output.manifest,
+      files: [...output.manifest.files, "../escape.txt"]
+    },
+    files: [...output.files, { path: "../escape.txt", contents: "outside" }]
+  };
+
+  assert.throws(
+    () => parseProjectExportPackageJson(JSON.stringify(jsonPackage)),
+    /Project package file path "\.\.\/escape\.txt" must stay inside the project root/
+  );
 });
 
 test("exported integration contract verifier validates the handoff mapping", () => {

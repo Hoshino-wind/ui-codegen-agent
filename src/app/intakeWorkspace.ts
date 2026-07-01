@@ -14,7 +14,7 @@ import { addHeroAnnotationSetToPlan, seedHomepageAnalysisPlan } from "../importe
 import { createLayerDocFromImageManifest, type ImageAnalysisManifest } from "../importers/imageManifest.js";
 import type { PngIntakeLayerPlan } from "../importers/pngIntake.js";
 import type { LayerKind, Rect } from "../layerdoc/types.js";
-import { base64ToBytes } from "./base64.js";
+import { base64ToBytes } from "../shared/base64.js";
 import { createEditorWorkspace, selectWorkspaceLayer, type EditorWorkspace } from "./editorWorkspace.js";
 
 export interface SourceImageMetadata {

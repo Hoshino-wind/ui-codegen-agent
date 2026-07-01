@@ -3,7 +3,7 @@ import type { LayerDoc } from "../layerdoc/types.js";
 import type { HomepageAnalysisPlan } from "../importers/homepageAnalysisPlan.js";
 import type { ProjectExportPackage } from "../exporters/projectPackage.js";
 import { createStoredZipArchive } from "../exporters/zipArchive.js";
-import { bytesToBase64 } from "./base64.js";
+import { bytesToBase64 } from "../shared/base64.js";
 import { createEditorWorkspace, type EditorWorkspace } from "./editorWorkspace.js";
 
 export interface LayerDocDownloadArtifact {
