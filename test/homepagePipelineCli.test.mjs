@@ -151,6 +151,56 @@ test("homepage pipeline CLI runs PNG intake, verification, and project export", 
   assert.match(readFileSync(join(outputDir, "project", "src", "ProductionHomepage.tsx"), "utf8"), /Pipeline Homepage|Imported hero headline/);
 });
 
+test("homepage pipeline CLI can verify the exported project handoff", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-homepage-project-verification-"));
+  const inputPath = join(directory, "homepage.png");
+  const candidatePath = join(directory, "candidate.png");
+  const outputDir = join(directory, "run");
+  writeHomepagePng(inputPath);
+  writeHomepagePng(candidatePath);
+
+  const result = spawnSync(process.execPath, [
+    cliPath,
+    "--input",
+    inputPath,
+    "--candidate",
+    candidatePath,
+    "--out",
+    outputDir,
+    "--component",
+    "ProductionHomepage",
+    "--verify-project"
+  ], { cwd: rootDir, encoding: "utf8" });
+
+  assert.equal(result.status, 0, result.stderr);
+  const summary = JSON.parse(result.stdout);
+  const pipelineReport = JSON.parse(readFileSync(join(outputDir, "pipeline-report.json"), "utf8"));
+  const projectReport = JSON.parse(readFileSync(join(outputDir, "project", "verification-report.json"), "utf8"));
+
+  assert.deepEqual(summary.projectVerification, {
+    mode: "preview",
+    passed: true
+  });
+  assert.equal(pipelineReport.project.verification.mode, "preview");
+  assert.deepEqual(
+    pipelineReport.project.verification.results.map((entry) => entry.command),
+    [
+      `node scripts/verify-preview.mjs --candidate ${candidatePath}`,
+      "node scripts/verify-handoff.mjs",
+      "node scripts/verify-analysis-plan.mjs",
+      "node scripts/verify-image-manifest.mjs",
+      "node scripts/verify-layerdoc.mjs",
+      "node scripts/verify-contract.mjs",
+      "node scripts/verify-gates.mjs"
+    ]
+  );
+  assert.equal(pipelineReport.project.verification.results.every((entry) => entry.status === 0), true);
+  assert.equal(pipelineReport.project.verification.results[0].result.visualSimilarity, 100);
+  assert.equal(projectReport.visualSimilarity, 100);
+  assert.equal(projectReport.evidence.visual.kind, "html-screenshot");
+  assert.equal(existsSync(join(outputDir, "project", "verification-artifacts", "diff.png")), true);
+});
+
 test("homepage pipeline CLI can build from a provided analysis plan", () => {
   const directory = mkdtempSync(join(tmpdir(), "layerdoc-homepage-provided-plan-"));
   const inputPath = join(directory, "homepage.png");

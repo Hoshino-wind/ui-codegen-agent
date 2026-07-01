@@ -4,6 +4,7 @@ import { basename, extname, join, resolve } from "node:path";
 import process from "node:process";
 
 import { createProjectExportPackage } from "../exporters/projectPackage.js";
+import { verifyProjectPreview, type ProjectVerificationChainResult } from "../exporters/projectPackageVerification.js";
 import { writeProjectExportPackage } from "../exporters/projectPackageWriter.js";
 import { parseHomepageAnalysisPlanJson, type HomepageAnalysisPlan } from "../importers/homepageAnalysisPlan.js";
 import { createHomepageLayerDocFromPng } from "../importers/homepagePngPipeline.js";
@@ -21,6 +22,7 @@ interface HomepagePipelineCliOptions {
   candidatePath?: string;
   browserExecutablePath?: string;
   failOnQuality?: boolean;
+  verifyProject?: boolean;
 }
 
 interface ParsedArgs {
@@ -39,6 +41,7 @@ Options:
   --analysis-plan <plan.json>  Optional confirmed homepage Analysis Plan from a model, editor, or human review.
   --candidate <candidate.png>  Optional rendered candidate PNG. If omitted, Playwright renders preview.html.
   --browser <executable>       Optional browser executable path for Playwright preview rendering.
+  --verify-project             Run exported project preview, structure, contract, and gate verifiers.
   --fail-on-quality            Exit 2 when verifier quality gates fail.
   -h, --help                   Show this help.
 `;
@@ -64,6 +67,12 @@ function parseArgs(args: string[]): ParsedArgs {
 
     if (arg === "--fail-on-quality") {
       values.failOnQuality = true;
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--verify-project") {
+      values.verifyProject = true;
       index += 1;
       continue;
     }
@@ -150,7 +159,8 @@ function parseArgs(args: string[]): ParsedArgs {
       analysisPlanPath: values.analysisPlanPath,
       candidatePath: values.candidatePath,
       browserExecutablePath: values.browserExecutablePath,
-      failOnQuality: values.failOnQuality
+      failOnQuality: values.failOnQuality,
+      verifyProject: values.verifyProject
     }
   };
 }
@@ -194,6 +204,17 @@ function verificationScores(run: Awaited<ReturnType<typeof runLayerDocPreviewVer
     structureScore: run.report.structureScore,
     componentScore: run.report.componentScore,
     projectFitScore: run.report.projectFitScore
+  };
+}
+
+function projectVerificationSummary(verification: ProjectVerificationChainResult | null) {
+  if (!verification) {
+    return undefined;
+  }
+
+  return {
+    mode: verification.mode,
+    passed: verification.results.every((entry) => entry.status === 0)
   };
 }
 
@@ -270,6 +291,12 @@ export async function runHomepagePipelineCli(args: string[]): Promise<number> {
     const previewAssets = copyDirectory(intakeAssetDir, projectAssetDir).map((file) => join("assets", file));
     const publicAssets = copyDirectory(intakeAssetDir, projectPublicAssetDir).map((file) => join("public", "assets", file));
     const copiedAssets = [...previewAssets, ...publicAssets];
+    const projectVerification = options.verifyProject
+      ? verifyProjectPreview(projectDir, {
+        candidatePath: options.candidatePath ? resolve(options.candidatePath) : undefined,
+        browserPath: options.browserExecutablePath ? resolve(options.browserExecutablePath) : undefined
+      })
+      : null;
 
     const pipelineReport = {
       name: intake.layerDoc.metadata.name,
@@ -298,7 +325,8 @@ export async function runHomepagePipelineCli(args: string[]): Promise<number> {
         rootDir: writtenProject.rootDir,
         referencePath: projectReferencePath,
         files: writtenProject.files.map((file) => file.relativePath),
-        copiedAssets
+        copiedAssets,
+        ...(projectVerification ? { verification: projectVerification } : {})
       }
     };
     writeJson(pipelineReportPath, pipelineReport);
@@ -312,7 +340,8 @@ export async function runHomepagePipelineCli(args: string[]): Promise<number> {
         project: projectDir,
         verificationReport: verificationReportPath
       },
-      scores: pipelineReport.verification.scores
+      scores: pipelineReport.verification.scores,
+      ...(projectVerification ? { projectVerification: projectVerificationSummary(projectVerification) } : {})
     }, null, 2)}\n`);
 
     return options.failOnQuality && !verification.passed ? 2 : 0;

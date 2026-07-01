@@ -13,6 +13,13 @@ export { renderHtmlPreview } from "./exporters/htmlPreview.js";
 export {
   createProjectExportPackage
 } from "./exporters/projectPackage.js";
+export {
+  runProjectVerifier,
+  verifyProjectHandoff,
+  verifyProjectPreview,
+  verifyProjectQuality,
+  verifyProjectStructure
+} from "./exporters/projectPackageVerification.js";
 export { parseProjectExportPackageJson, writeProjectExportPackage } from "./exporters/projectPackageWriter.js";
 export { exportReactTailwind } from "./exporters/reactTailwind.js";
 export { createStoredZipArchive } from "./exporters/zipArchive.js";
@@ -128,6 +135,11 @@ export type {
   ProjectExportPackage,
   ProjectExportPackageOptions
 } from "./exporters/projectPackage.js";
+export type {
+  ProjectPreviewVerificationOptions,
+  ProjectVerificationChainResult,
+  ProjectVerifierResult
+} from "./exporters/projectPackageVerification.js";
 export type { ZipArchiveFile } from "./exporters/zipArchive.js";
 export type {
   WrittenProjectExportFile,

@@ -232,6 +232,23 @@ layerdoc-run-homepage \
 The resulting `pipeline-report.json` records whether the structure came from a
 provided plan or from the seeded MVP scaffold.
 
+For MVP backtests, add `--verify-project` so the exported project runs its own
+preview diff, handoff, source, LayerDoc, integration-contract, and gate checks:
+
+```bash
+npm run pipeline:homepage -- \
+  --input references/homepage.png \
+  --candidate artifacts/candidate.png \
+  --analysis-plan analysis-plan.json \
+  --out artifacts/homepage-run \
+  --component ProductionHomepage \
+  --verify-project
+```
+
+The project verification result is written into `pipeline-report.json` under
+`project.verification`, and the generated project receives
+`verification-artifacts/diff.png` plus synced score attributes.
+
 The homepage pipeline CLI also writes the original input PNG into the exported
 project package as `reference.png`, so the handoff project can rerun visual
 verification without manually locating the source image.
