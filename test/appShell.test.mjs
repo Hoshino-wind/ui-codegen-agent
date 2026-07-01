@@ -94,6 +94,16 @@ test("app shell exposes quality gate status in the verifier surface", () => {
   assert.match(source, /Quality gate/);
 });
 
+test("app shell exposes structural verifier issues in the verifier surface", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /Structure issues/);
+  assert.match(source, /workspace\.report\.issues/);
+  assert.match(source, /issue\.code/);
+  assert.match(source, /issue\.path/);
+  assert.match(source, /verifier-issue-list/);
+});
+
 test("app shell exposes verifier evidence provenance with HTML screenshot attempt and raster fallback", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 

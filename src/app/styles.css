@@ -1576,6 +1576,97 @@ button {
   color: #166534;
 }
 
+.verifier-issue-list {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fef2f2;
+}
+
+.verifier-issue-list.passed {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.verifier-issue-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.verifier-issue-head span,
+.verifier-issue-head strong,
+.verifier-issue-list > small,
+.verifier-issue-row span,
+.verifier-issue-row strong,
+.verifier-issue-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.verifier-issue-head span {
+  color: #991b1b;
+  font-size: 10px;
+  font-weight: 840;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.verifier-issue-list.passed .verifier-issue-head span {
+  color: #166534;
+}
+
+.verifier-issue-head strong {
+  color: #7f1d1d;
+  font-size: 12px;
+  font-weight: 840;
+}
+
+.verifier-issue-list.passed .verifier-issue-head strong {
+  color: #14532d;
+}
+
+.verifier-issue-list > small {
+  color: #166534;
+  font-size: 10px;
+  font-weight: 760;
+}
+
+.verifier-issue-row {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 4px 8px;
+  min-width: 0;
+  padding: 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.verifier-issue-row span {
+  color: #991b1b;
+  font-size: 10px;
+  font-weight: 820;
+}
+
+.verifier-issue-row strong {
+  color: #0f172a;
+  font-size: 10px;
+  font-weight: 820;
+}
+
+.verifier-issue-row small {
+  grid-column: 1 / -1;
+  color: #7f1d1d;
+  font-size: 10px;
+  font-weight: 720;
+}
+
 .problem-area-list {
   display: grid;
   gap: 5px;

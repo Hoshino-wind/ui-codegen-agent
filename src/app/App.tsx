@@ -1119,6 +1119,23 @@ function VerifierStrip({
           <strong>{gateResult.passed ? "passed" : "blocked"}</strong>
           {gateResult.failures.length > 0 ? <small>{gateResult.failures.slice(0, 2).join(" / ")}</small> : null}
         </div>
+        <div className={`verifier-issue-list ${workspace.report.issues.length === 0 ? "passed" : "blocked"}`}>
+          <div className="verifier-issue-head">
+            <span>Structure issues</span>
+            <strong>{workspace.report.issues.length}</strong>
+          </div>
+          {workspace.report.issues.length === 0 ? (
+            <small>No structural blockers</small>
+          ) : (
+            workspace.report.issues.slice(0, 3).map((issue) => (
+              <div className="verifier-issue-row" key={`${issue.code}-${issue.path}`}>
+                <span>{issue.code}</span>
+                <strong>{issue.path}</strong>
+                <small>{issue.message}</small>
+              </div>
+            ))
+          )}
+        </div>
         {visualDiff ? (
           <div className="problem-area-list">
             <div className="problem-area-list-head">
