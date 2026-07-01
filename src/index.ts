@@ -20,6 +20,7 @@ export {
   addAnalysisLayer,
   createHomepageAnalysisPlanAudit,
   createHomepageAnalysisPlan,
+  createHomepageAnalysisPlanJsonSchema,
   parseHomepageAnalysisPlanJson,
   toPngIntakeSections,
   updateAnalysisLayer,

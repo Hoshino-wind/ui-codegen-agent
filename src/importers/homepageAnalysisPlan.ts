@@ -52,6 +52,107 @@ const assetSources: readonly PngIntakeAssetPlan["source"][] = ["reference-crop",
 const assetTypes: readonly PngIntakeAssetPlan["type"][] = ["image", "video", "font", "json", "model", "other"];
 const trackOrder: readonly LayerTrack[] = ["component", "asset", "approximation", "layout"];
 
+function rectJsonSchema(): Record<string, unknown> {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["x", "y", "width", "height"],
+    properties: {
+      x: { type: "number" },
+      y: { type: "number" },
+      width: { type: "number", exclusiveMinimum: 0 },
+      height: { type: "number", exclusiveMinimum: 0 }
+    }
+  };
+}
+
+function spacingJsonSchema(): Record<string, unknown> {
+  return {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      x: { type: "number" },
+      y: { type: "number" },
+      top: { type: "number" },
+      right: { type: "number" },
+      bottom: { type: "number" },
+      left: { type: "number" }
+    }
+  };
+}
+
+function layerStyleJsonSchema(): Record<string, unknown> {
+  return {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      backgroundColor: { type: "string" },
+      textColor: { type: "string" },
+      borderColor: { type: "string" },
+      fontFamily: { type: "string" },
+      borderRadius: { type: "number" },
+      fontSize: { type: "number" },
+      fontWeight: { type: "number" },
+      lineHeight: { type: "number" },
+      letterSpacing: { type: "number" },
+      gap: { type: "number" },
+      opacity: { type: "number", minimum: 0, maximum: 1 },
+      padding: spacingJsonSchema()
+    }
+  };
+}
+
+function analysisAssetJsonSchema(): Record<string, unknown> {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["id"],
+    properties: {
+      id: { type: "string", minLength: 1 },
+      fileName: { type: "string", minLength: 1 },
+      cropBounds: rectJsonSchema(),
+      uri: { type: "string", minLength: 1 },
+      source: { type: "string", enum: [...assetSources] },
+      type: { type: "string", enum: [...assetTypes] }
+    }
+  };
+}
+
+function analysisLayerJsonSchema(): Record<string, unknown> {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["id", "kind", "bounds"],
+    properties: {
+      id: { type: "string", minLength: 1 },
+      kind: { type: "string", enum: [...layerKinds] },
+      bounds: rectJsonSchema(),
+      text: { type: "string" },
+      alt: { type: "string" },
+      editable: { type: "boolean" },
+      style: layerStyleJsonSchema(),
+      asset: analysisAssetJsonSchema()
+    }
+  };
+}
+
+function analysisSectionJsonSchema(): Record<string, unknown> {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["id", "name", "bounds", "layers"],
+    properties: {
+      id: { type: "string", minLength: 1 },
+      name: { type: "string", minLength: 1 },
+      bounds: rectJsonSchema(),
+      layers: {
+        type: "array",
+        items: analysisLayerJsonSchema()
+      }
+    }
+  };
+}
+
 function toKebabCase(value: string): string {
   return value
     .trim()
@@ -255,6 +356,39 @@ export function parseHomepageAnalysisPlanJson(contents: string): HomepageAnalysi
   }
 
   return clonePlan(parsed);
+}
+
+/**
+ * Publish the external contract used by vision models, operators, and CLIs
+ * before a homepage plan is allowed to become LayerDoc structure.
+ */
+export function createHomepageAnalysisPlanJsonSchema(): Record<string, unknown> {
+  return {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    title: "HomepageAnalysisPlan 0.1.0",
+    type: "object",
+    additionalProperties: false,
+    required: ["name", "canvas", "sections"],
+    properties: {
+      name: { type: "string", minLength: 1 },
+      canvas: {
+        type: "object",
+        additionalProperties: false,
+        required: ["width", "height"],
+        properties: {
+          width: { type: "number", exclusiveMinimum: 0 },
+          height: { type: "number", exclusiveMinimum: 0 },
+          background: { type: "string" }
+        }
+      },
+      sections: {
+        type: "array",
+        minItems: 8,
+        maxItems: 15,
+        items: analysisSectionJsonSchema()
+      }
+    }
+  };
 }
 
 function evenlySizedSections(names: string[], canvas: Canvas): PngIntakeSectionPlan[] {

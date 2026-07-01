@@ -7,6 +7,7 @@ import { PNG } from "pngjs";
 
 import {
   createHomepageAnalysisPlanAudit,
+  createHomepageAnalysisPlanJsonSchema,
   parseHomepageAnalysisPlanJson,
   type HomepageAnalysisPlan
 } from "../importers/homepageAnalysisPlan.js";
@@ -120,6 +121,7 @@ export function runVerifyAnalysisPlanCli(args: string[]): number {
     const sourcePngPath = options.sourcePngPath ? resolve(options.sourcePngPath) : undefined;
     const outputDir = options.outputDir ? resolve(options.outputDir) : undefined;
     const auditPath = outputDir ? join(outputDir, "analysis-plan-audit.json") : undefined;
+    const schemaPath = outputDir ? join(outputDir, "analysis-plan.schema.json") : undefined;
     const plan = readAnalysisPlan(inputPath);
 
     if (sourcePngPath) {
@@ -127,9 +129,10 @@ export function runVerifyAnalysisPlanCli(args: string[]): number {
     }
 
     const audit = createHomepageAnalysisPlanAudit(plan);
-    if (outputDir && auditPath) {
+    if (outputDir && auditPath && schemaPath) {
       mkdirSync(outputDir, { recursive: true });
       writeJson(auditPath, audit);
+      writeJson(schemaPath, createHomepageAnalysisPlanJsonSchema());
     }
 
     const passed = audit.readiness.readyForLayerDoc;
@@ -138,7 +141,7 @@ export function runVerifyAnalysisPlanCli(args: string[]): number {
       name: plan.name,
       inputPath,
       ...(sourcePngPath ? { sourcePngPath } : {}),
-      ...(auditPath ? { paths: { audit: auditPath } } : {}),
+      ...(auditPath && schemaPath ? { paths: { audit: auditPath, schema: schemaPath } } : {}),
       sectionCount: audit.summary.sections,
       layerCount: audit.summary.layers,
       tracks: audit.tracks,

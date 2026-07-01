@@ -72,10 +72,13 @@ test("verify analysis plan CLI accepts a complete plan and writes an audit repor
   assert.equal(result.status, 0, result.stderr);
   const summary = JSON.parse(result.stdout);
   const audit = JSON.parse(readFileSync(join(outputDir, "analysis-plan-audit.json"), "utf8"));
+  const schema = JSON.parse(readFileSync(join(outputDir, "analysis-plan.schema.json"), "utf8"));
 
   assert.equal(summary.passed, true);
   assert.equal(summary.paths.audit, join(outputDir, "analysis-plan-audit.json"));
+  assert.equal(summary.paths.schema, join(outputDir, "analysis-plan.schema.json"));
   assert.equal(existsSync(summary.paths.audit), true);
+  assert.equal(existsSync(summary.paths.schema), true);
   assert.equal(audit.readiness.readyForLayerDoc, true);
   assert.equal(audit.summary.sections, 8);
   assert.equal(audit.summary.layers, 8);
@@ -85,6 +88,8 @@ test("verify analysis plan CLI accepts a complete plan and writes an audit repor
     approximation: 0,
     layout: 0
   });
+  assert.equal(schema.title, "HomepageAnalysisPlan 0.1.0");
+  assert.equal(schema.properties.sections.minItems, 8);
 });
 
 test("verify analysis plan CLI rejects incomplete plans before LayerDoc build", () => {
@@ -132,4 +137,3 @@ test("verify analysis plan CLI rejects plans for a different source PNG canvas",
   assert.equal(result.status, 1);
   assert.match(result.stderr, /Analysis Plan canvas 800x960 must match source PNG 640x960/);
 });
-

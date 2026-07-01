@@ -10,6 +10,7 @@ import {
   addAnalysisLayer,
   createHomepageAnalysisPlanAudit,
   createHomepageAnalysisPlan,
+  createHomepageAnalysisPlanJsonSchema,
   createImageManifestFromPng,
   parseHomepageAnalysisPlanJson,
   seedHomepageAnalysisPlan,
@@ -192,6 +193,21 @@ test("parseHomepageAnalysisPlanJson rejects malformed plan sections before intak
     () => parseHomepageAnalysisPlanJson(JSON.stringify(malformedPlan)),
     /Input file is not a Homepage Analysis Plan/
   );
+});
+
+test("createHomepageAnalysisPlanJsonSchema publishes the external plan contract", () => {
+  const schema = createHomepageAnalysisPlanJsonSchema();
+
+  assert.equal(schema.title, "HomepageAnalysisPlan 0.1.0");
+  assert.deepEqual(schema.required, ["name", "canvas", "sections"]);
+  assert.equal(schema.properties.sections.minItems, 8);
+  assert.equal(schema.properties.sections.maxItems, 15);
+  assert.deepEqual(schema.properties.sections.items.required, ["id", "name", "bounds", "layers"]);
+  assert.deepEqual(schema.properties.sections.items.properties.layers.items.required, ["id", "kind", "bounds"]);
+  assert.equal(schema.properties.sections.items.properties.layers.items.properties.kind.enum.includes("text"), true);
+  assert.equal(schema.properties.sections.items.properties.layers.items.properties.kind.enum.includes("image"), true);
+  assert.equal(schema.properties.sections.items.properties.layers.items.properties.kind.enum.includes("scene3d"), true);
+  assert.equal(schema.properties.sections.items.properties.layers.items.properties.asset.properties.source.enum.includes("reference-crop"), true);
 });
 
 test("createHomepageAnalysisPlanAudit reports track coverage and LayerDoc readiness", () => {

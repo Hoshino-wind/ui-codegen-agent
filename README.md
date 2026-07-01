@@ -200,8 +200,9 @@ npm run verify:analysis-plan -- \
 ```
 
 It writes `analysis-plan-audit.json` with section coverage, layer counts, track
-counts, and blockers. The command exits `2` when the JSON is parseable but not
-ready for LayerDoc, and exits `1` for command, schema, or source-canvas errors.
+counts, and blockers, plus `analysis-plan.schema.json` for model, editor, and
+CI handoff. The command exits `2` when the JSON is parseable but not ready for
+LayerDoc, and exits `1` for command, schema, or source-canvas errors.
 
 For end-to-end handoff, the homepage pipeline CLI can consume a confirmed plan
 instead of the deterministic seed scaffold:
