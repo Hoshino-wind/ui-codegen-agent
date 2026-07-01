@@ -1,7 +1,9 @@
 import { validateLayerDoc } from "../layerdoc/validation.js";
 import type { LayerDoc } from "../layerdoc/types.js";
 import type { HomepageAnalysisPlan } from "../importers/homepageAnalysisPlan.js";
+import type { ProjectExportPackage } from "../exporters/projectPackage.js";
 import { createStoredZipArchive } from "../exporters/zipArchive.js";
+import { bytesToBase64 } from "./base64.js";
 import { createEditorWorkspace, type EditorWorkspace } from "./editorWorkspace.js";
 
 export interface LayerDocDownloadArtifact {
@@ -9,6 +11,19 @@ export interface LayerDocDownloadArtifact {
   mimeType: "application/json" | "application/zip" | "text/plain;charset=utf-8";
   contents: string | Uint8Array;
 }
+
+interface JsonProjectExportTextFile {
+  path: string;
+  contents: string;
+}
+
+interface JsonProjectExportBinaryFile {
+  path: string;
+  contentEncoding: "base64";
+  contentsBase64: string;
+}
+
+type JsonProjectExportFile = JsonProjectExportTextFile | JsonProjectExportBinaryFile;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -61,6 +76,17 @@ function parseLayerDocJson(contents: string): LayerDoc {
   return doc;
 }
 
+function projectExportForJson(projectExport: ProjectExportPackage): Omit<ProjectExportPackage, "files"> & { files: JsonProjectExportFile[] } {
+  return {
+    ...projectExport,
+    files: projectExport.files.map((file) =>
+      typeof file.contents === "string"
+        ? { path: file.path, contents: file.contents }
+        : { path: file.path, contentEncoding: "base64", contentsBase64: bytesToBase64(file.contents) }
+    )
+  };
+}
+
 export function createWorkspaceFromLayerDocJson(contents: string): EditorWorkspace {
   return createEditorWorkspace(parseLayerDocJson(contents));
 }
@@ -93,7 +119,7 @@ export function createProjectPackageDownload(workspace: EditorWorkspace): LayerD
   return {
     fileName: "project-package.json",
     mimeType: "application/json",
-    contents: `${JSON.stringify(workspace.projectExport, null, 2)}\n`
+    contents: `${JSON.stringify(projectExportForJson(workspace.projectExport), null, 2)}\n`
   };
 }
 

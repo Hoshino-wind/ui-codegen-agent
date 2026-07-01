@@ -248,6 +248,27 @@ test("createProjectPackageDownload serializes every project package file in one 
   assert.equal(artifact.contents.endsWith("\n"), true);
 });
 
+test("createProjectPackageDownload encodes binary project files as base64 entries", () => {
+  const workspace = createWorkspaceFromLayerDocJson(JSON.stringify(createSampleHomepageLayerDoc()));
+  const referencePng = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x00, 0xff]);
+  const projectExport = {
+    ...workspace.projectExport,
+    manifest: {
+      ...workspace.projectExport.manifest,
+      files: [...workspace.projectExport.manifest.files, "reference.png"]
+    },
+    files: [...workspace.projectExport.files, { path: "reference.png", contents: referencePng }]
+  };
+
+  const artifact = createProjectPackageDownload({ ...workspace, projectExport });
+  const payload = JSON.parse(artifact.contents);
+  const referenceFile = payload.files.find((file) => file.path === "reference.png");
+
+  assert.equal(referenceFile.contentEncoding, "base64");
+  assert.equal(referenceFile.contentsBase64, Buffer.from(referencePng).toString("base64"));
+  assert.equal("contents" in referenceFile, false);
+});
+
 test("createProjectPackageZipDownload serializes the project package as a real ZIP archive", () => {
   const workspace = createWorkspaceFromLayerDocJson(JSON.stringify(createSampleHomepageLayerDoc()));
   const artifact = createProjectPackageZipDownload(workspace);
@@ -267,6 +288,24 @@ test("createProjectPackageZipDownload serializes the project package as a real Z
   assert.equal(zipCentralDirectoryNames(artifact.contents).includes("scripts/verify-analysis-plan.mjs"), true);
   assert.equal(zipCentralDirectoryNames(artifact.contents).includes("scripts/verify-image-manifest.mjs"), true);
   assert.equal(zipCentralDirectoryNames(artifact.contents).includes("src/ProductionHomepage.tsx"), true);
+});
+
+test("createProjectPackageZipDownload preserves binary project files inside the ZIP", () => {
+  const workspace = createWorkspaceFromLayerDocJson(JSON.stringify(createSampleHomepageLayerDoc()));
+  const referencePng = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x00, 0xff]);
+  const projectExport = {
+    ...workspace.projectExport,
+    manifest: {
+      ...workspace.projectExport.manifest,
+      files: [...workspace.projectExport.manifest.files, "reference.png"]
+    },
+    files: [...workspace.projectExport.files, { path: "reference.png", contents: referencePng }]
+  };
+
+  const artifact = createProjectPackageZipDownload({ ...workspace, projectExport });
+
+  assert.equal(zipCentralDirectoryNames(artifact.contents).includes("reference.png"), true);
+  assert.deepEqual([...zipLocalFileData(artifact.contents, "reference.png")], [...referencePng]);
 });
 
 test("createStoredZipArchive preserves binary project files", () => {

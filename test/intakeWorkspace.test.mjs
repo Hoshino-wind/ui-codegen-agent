@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  updateSelectedText
+} from "../dist/app/editorWorkspace.js";
+import {
   addManualAnalysisLayer,
   addHeroAnnotationSet,
   buildWorkspaceFromIntake,
@@ -208,6 +211,44 @@ test("materializeReferenceCropAssets turns uploaded PNG crop plans into data URI
   assert.equal(asset.uri, "data:image/png;base64,Y3JvcA==");
   assert.equal(asset.source, "reference-crop");
   assert.match(workspace.previewHtml, /data:image\/png;base64,Y3JvcA==/);
+});
+
+test("buildWorkspaceFromIntake carries the uploaded PNG into project handoff exports", () => {
+  const referencePng = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x00, 0xff]);
+  const intake = seedHomepageAnnotations(
+    createIntakeWorkspace({
+      uri: "uploaded-homepage.png",
+      dataUri: `data:image/png;base64,${Buffer.from(referencePng).toString("base64")}`,
+      width: 1440,
+      height: 1760
+    })
+  );
+
+  const workspace = buildWorkspaceFromIntake(intake);
+  const referenceFile = workspace.projectExport.files.find((file) => file.path === "reference.png");
+
+  assert.equal(workspace.projectExport.manifest.files.includes("reference.png"), true);
+  assert.equal(referenceFile.contents instanceof Uint8Array, true);
+  assert.deepEqual([...referenceFile.contents], [...referencePng]);
+});
+
+test("editor operations preserve the uploaded PNG reference in project handoff exports", () => {
+  const referencePng = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x00, 0xff]);
+  const intake = seedHomepageAnnotations(
+    createIntakeWorkspace({
+      uri: "uploaded-homepage.png",
+      dataUri: `data:image/png;base64,${Buffer.from(referencePng).toString("base64")}`,
+      width: 1440,
+      height: 1760
+    })
+  );
+  const workspace = buildWorkspaceFromIntake(intake);
+
+  const edited = updateSelectedText(workspace, "Editable structure survives Studio export");
+  const referenceFile = edited.projectExport.files.find((file) => file.path === "reference.png");
+
+  assert.equal(referenceFile.contents instanceof Uint8Array, true);
+  assert.deepEqual([...referenceFile.contents], [...referencePng]);
 });
 
 test("addHeroAnnotationSet keeps generated bounds inside narrower uploaded PNG canvases", () => {

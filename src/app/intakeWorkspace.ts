@@ -14,6 +14,7 @@ import { addHeroAnnotationSetToPlan, seedHomepageAnalysisPlan } from "../importe
 import { createLayerDocFromImageManifest, type ImageAnalysisManifest } from "../importers/imageManifest.js";
 import type { PngIntakeLayerPlan } from "../importers/pngIntake.js";
 import type { LayerKind, Rect } from "../layerdoc/types.js";
+import { base64ToBytes } from "./base64.js";
 import { createEditorWorkspace, selectWorkspaceLayer, type EditorWorkspace } from "./editorWorkspace.js";
 
 export interface SourceImageMetadata {
@@ -87,6 +88,19 @@ function assertImageDataUri(uri: string, layerId: string): void {
   if (!uri.startsWith("data:image/")) {
     throw new Error(`Reference crop resolver for layer "${layerId}" must return an image data URI.`);
   }
+}
+
+function referencePngFromDataUri(dataUri: string | undefined): Uint8Array | undefined {
+  if (!dataUri) {
+    return undefined;
+  }
+
+  const match = /^data:image\/png(?:;[^,]*)?;base64,([A-Za-z0-9+/=\s]+)$/.exec(dataUri);
+  if (!match) {
+    throw new Error("Uploaded PNG reference data must be a base64 PNG data URI.");
+  }
+
+  return base64ToBytes(match[1]);
 }
 
 function hasLayer(plan: HomepageAnalysisPlan, layerId: string): boolean {
@@ -347,7 +361,9 @@ export function buildWorkspaceFromIntake(workspace: IntakeWorkspace): EditorWork
   assertBuildHasLayers(workspace);
   assertBuildCoversEverySection(workspace);
 
-  const nextWorkspace = createEditorWorkspace(createLayerDocFromImageManifest(toManifest(workspace)));
+  const nextWorkspace = createEditorWorkspace(createLayerDocFromImageManifest(toManifest(workspace)), {
+    referencePng: referencePngFromDataUri(workspace.sourceImage.dataUri)
+  });
   if (workspace.selectedLayerId) {
     return selectWorkspaceLayer(nextWorkspace, workspace.selectedLayerId);
   }

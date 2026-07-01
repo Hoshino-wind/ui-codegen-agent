@@ -100,6 +100,9 @@ The repository currently implements the core LayerDoc domain layer:
   manifests, handoff summaries, integration contracts, and rendered root
   `data-verification-*` attributes so rerunning project verification stays
   self-consistent after a screenshot diff.
+- Preserve uploaded PNG references in Studio project exports as `reference.png`
+  so browser-built handoff packages can rerun visual verification like CLI
+  pipeline packages.
 - Run exported project verification in preview-first order so screenshot diff
   state is synchronized before handoff, LayerDoc, contract, and quality-gate
   checks read the package.
