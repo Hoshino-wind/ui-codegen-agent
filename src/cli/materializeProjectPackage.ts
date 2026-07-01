@@ -12,6 +12,7 @@ interface MaterializeProjectPackageCliOptions {
   outputDir: string;
   verifyHandoff: boolean;
   verifyStructure: boolean;
+  verifyQuality: boolean;
 }
 
 const usage = `Usage: layerdoc-materialize-project --input <project-package.json> --out <directory>
@@ -21,6 +22,7 @@ Options:
   --out <directory>              Target directory for the project package.
   --verify-handoff               Run scripts/verify-handoff.mjs after writing files.
   --verify-structure             Run handoff, source, LayerDoc, and contract verifiers.
+  --verify-quality               Run structure verifiers and generated quality gates.
   -h, --help                     Show this help.
 `;
 
@@ -30,6 +32,11 @@ const structureVerificationScripts = [
   "scripts/verify-image-manifest.mjs",
   "scripts/verify-layerdoc.mjs",
   "scripts/verify-contract.mjs"
+];
+
+const qualityVerificationScripts = [
+  ...structureVerificationScripts,
+  "scripts/verify-gates.mjs"
 ];
 
 interface ParsedArgs {
@@ -73,6 +80,12 @@ function parseArgs(args: string[]): ParsedArgs {
       continue;
     }
 
+    if (arg === "--verify-quality") {
+      values.verifyQuality = true;
+      index += 1;
+      continue;
+    }
+
     throw new CliError(`Unknown argument: ${arg}.`, true);
   }
 
@@ -92,7 +105,8 @@ function parseArgs(args: string[]): ParsedArgs {
       inputPath,
       outputDir,
       verifyHandoff: values.verifyHandoff ?? false,
-      verifyStructure: values.verifyStructure ?? false
+      verifyStructure: values.verifyStructure ?? false,
+      verifyQuality: values.verifyQuality ?? false
     }
   };
 }
@@ -126,6 +140,13 @@ function verifyStructure(rootDir: string) {
   };
 }
 
+function verifyQuality(rootDir: string) {
+  return {
+    mode: "quality",
+    results: qualityVerificationScripts.map((scriptPath) => runProjectVerifier(rootDir, scriptPath))
+  };
+}
+
 export function runMaterializeProjectPackageCli(args: string[]): number {
   try {
     const parsed = parseArgs(args);
@@ -143,7 +164,13 @@ export function runMaterializeProjectPackageCli(args: string[]): number {
     const outputDir = resolve(options.outputDir);
     const projectPackage = parseProjectExportPackageJson(readFileSync(inputPath, "utf8"));
     const written = writeProjectExportPackage(projectPackage, outputDir);
-    const verification = options.verifyStructure ? verifyStructure(outputDir) : options.verifyHandoff ? verifyHandoff(outputDir) : undefined;
+    const verification = options.verifyQuality
+      ? verifyQuality(outputDir)
+      : options.verifyStructure
+        ? verifyStructure(outputDir)
+        : options.verifyHandoff
+          ? verifyHandoff(outputDir)
+          : undefined;
 
     process.stdout.write(`${JSON.stringify({
       packageName: projectPackage.manifest.packageName,

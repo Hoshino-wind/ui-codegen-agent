@@ -252,6 +252,17 @@ npm run materialize:project -- \
 Manifest, LayerDoc, and integration contract verifiers. Visual screenshot diff
 still runs from the materialized project with `npm run verify:preview`.
 
+```bash
+npm run materialize:project -- \
+  --input artifacts/project-package.json \
+  --out artifacts/materialized-project \
+  --verify-quality
+```
+
+`--verify-quality` extends the structure chain with `scripts/verify-gates.mjs`,
+so handoff packages that already contain visual evidence can enforce the stored
+score thresholds immediately after materialization.
+
 ## Verification Dimensions
 
 Verifier output must stay split by concern:
