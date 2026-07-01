@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createProblemAreaAnnotations } from "../dist/app/problemAreaOverlay.js";
+import { createProblemAreaAnnotations, createProblemAreaAnnotationsFromReport } from "../dist/app/problemAreaOverlay.js";
 
 test("createProblemAreaAnnotations scales verifier problem areas for the current preview", () => {
   const annotations = createProblemAreaAnnotations(
@@ -79,4 +79,31 @@ test("createProblemAreaAnnotations leaves unmatched problem areas unbound", () =
 
   assert.equal(annotations[0].affectedLayerId, null);
   assert.equal(annotations[0].affectedLayerLabel, null);
+});
+
+test("createProblemAreaAnnotationsFromReport scales report-owned visual problem attribution", () => {
+  const annotations = createProblemAreaAnnotationsFromReport(
+    [
+      {
+        id: "visual-problem-1",
+        bounds: { x: 20, y: 40, width: 4, height: 2 },
+        affectedLayerId: "hero-title",
+        affectedLayerKind: "text",
+        affectedLayerTrack: "component",
+        affectedLayerEditable: true,
+        affectedSectionId: "hero"
+      }
+    ],
+    { scale: 0.5 }
+  );
+
+  assert.deepEqual(annotations, [
+    {
+      id: "visual-problem-1",
+      label: "#1 20,40 4x2",
+      bounds: { x: 10, y: 20, width: 6, height: 6 },
+      affectedLayerId: "hero-title",
+      affectedLayerLabel: "hero-title"
+    }
+  ]);
 });

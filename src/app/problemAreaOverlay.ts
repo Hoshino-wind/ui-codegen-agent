@@ -1,4 +1,5 @@
 import type { LayerNode, Rect } from "../layerdoc/types.js";
+import type { VerificationVisualProblemArea } from "../verifier/report.js";
 
 type ProblemAreaLayer = Pick<LayerNode, "id" | "bounds" | "editable">;
 
@@ -89,4 +90,29 @@ export function createProblemAreaAnnotations(problemAreas: Rect[], options: Prob
 
     return annotation;
   });
+}
+
+/**
+ * Use report-level visual problem attribution as the Studio source of truth.
+ * The verifier owns affected-layer classification; the editor only scales and
+ * renders those already-audited regions for the current preview mode.
+ */
+export function createProblemAreaAnnotationsFromReport(
+  problemAreas: VerificationVisualProblemArea[],
+  options: Omit<ProblemAreaAnnotationOptions, "layers">
+): ProblemAreaAnnotation[] {
+  const minimumDisplaySize = options.minimumDisplaySize ?? 6;
+
+  return problemAreas.map((area, index) => ({
+    id: area.id,
+    label: `#${index + 1} ${area.bounds.x},${area.bounds.y} ${area.bounds.width}x${area.bounds.height}`,
+    bounds: {
+      x: area.bounds.x * options.scale,
+      y: area.bounds.y * options.scale,
+      width: scaledDimension(area.bounds.width, options.scale, minimumDisplaySize),
+      height: scaledDimension(area.bounds.height, options.scale, minimumDisplaySize)
+    },
+    affectedLayerId: area.affectedLayerId,
+    affectedLayerLabel: area.affectedLayerId
+  }));
 }

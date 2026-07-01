@@ -92,6 +92,13 @@ test("app shell links verifier problem rows to affected LayerDoc layers", () => 
   assert.match(source, /Focus layer/);
 });
 
+test("app shell uses report visual problem areas as the verifier source of truth", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /workspace\.report\.visualProblemAreas/);
+  assert.doesNotMatch(source, /createProblemAreaAnnotations\(workspace\.report\.visualDiff\?\.problemAreas/);
+});
+
 test("app shell exposes quality gate status in the verifier surface", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 

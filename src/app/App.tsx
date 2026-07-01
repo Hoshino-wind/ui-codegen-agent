@@ -66,7 +66,7 @@ import { createImageAssetPatchFromFile, readBrowserFileAsDataUrl } from "./image
 import { renderHtmlPreviewSnapshot } from "./htmlPreviewSnapshot.js";
 import { renderLayerDocSnapshot } from "./layerDocSnapshot.js";
 import { createPreviewViewport, type PreviewMode } from "./previewViewport.js";
-import { createProblemAreaAnnotations } from "./problemAreaOverlay.js";
+import { createProblemAreaAnnotationsFromReport } from "./problemAreaOverlay.js";
 import { createSampleHomepageLayerDoc } from "./sampleDocument.js";
 import { runWorkspacePreviewVerification } from "./workspaceVerifier.js";
 import { createWorkflowSummary, type WorkflowSummaryItem } from "./workflowSummary.js";
@@ -301,9 +301,8 @@ function CanvasPreview({
     [workspace.doc.sections]
   );
   const visibleLayers = workspace.doc.layers.filter((layer) => !layer.sectionId || visibleSectionIds.has(layer.sectionId));
-  const problemAreas = createProblemAreaAnnotations(workspace.report.visualDiff?.problemAreas ?? [], {
-    scale: viewport.scale,
-    layers: visibleLayers
+  const problemAreas = createProblemAreaAnnotationsFromReport(workspace.report.visualProblemAreas, {
+    scale: viewport.scale
   });
 
   return (
@@ -1066,12 +1065,8 @@ function VerifierStrip({
   const visualDiff = workspace.report.visualDiff;
   const visualEvidence = workspace.report.evidence.visual;
   const candidateLabel = visualEvidence.kind === "layerdoc-raster" ? "LayerDoc raster fallback" : "HTML preview screenshot";
-  const problemAreas = visualDiff?.problemAreas ?? [];
-  const visibleSectionIds = new Set(workspace.doc.sections.filter((section) => section.visible !== false).map((section) => section.id));
-  const visibleLayers = workspace.doc.layers.filter((layer) => !layer.sectionId || visibleSectionIds.has(layer.sectionId));
-  const problemAreaAnnotations = createProblemAreaAnnotations(problemAreas, {
-    scale: 1,
-    layers: visibleLayers
+  const problemAreaAnnotations = createProblemAreaAnnotationsFromReport(workspace.report.visualProblemAreas, {
+    scale: 1
   });
   const gateResult = evaluateVerificationGates(workspace.report, {}, {
     assetCompliance: workspace.audit.assetCompliance,
@@ -1089,7 +1084,7 @@ function VerifierStrip({
       <div className="verifier-head">
         <div>
           <strong>Verifier</strong>
-          <span>{visualDiff ? `${visualDiff.problemAreas.length} problem areas` : "Awaiting screenshot diff"}</span>
+          <span>{visualDiff ? `${problemAreaAnnotations.length} problem areas` : "Awaiting screenshot diff"}</span>
         </div>
         <button className="secondary-action" type="button" onClick={onDownloadReport}>
           View report
