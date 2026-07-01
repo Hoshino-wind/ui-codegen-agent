@@ -391,6 +391,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     "scripts/verify-image-manifest.mjs",
     "scripts/verify-layerdoc.mjs",
     "scripts/verify-preview.mjs",
+    "scripts/verify-section-candidate.mjs",
     "src/App.tsx",
     "src/index.css",
     "src/main.tsx",
@@ -411,6 +412,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:gates": "node scripts\/verify-gates\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:layerdoc": "node scripts\/verify-layerdoc\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:contract": "node scripts\/verify-contract\.mjs"/);
+  assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:section-candidate": "node scripts\/verify-section-candidate\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"playwright"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"pixelmatch"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"pngjs"/);
@@ -609,6 +611,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
       "npm run verify:image-manifest",
       "npm run verify:layerdoc",
       "npm run verify:contract",
+      "npm run verify:section-candidate",
       "npm run verify:gates"
     ]
   );
@@ -631,6 +634,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "scripts/verify-layerdoc.mjs").contents, /layerdoc\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /preview\.html/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /verification-report\.json/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-section-candidate.mjs").contents, /section-candidate\.schema\.json/);
   assert.match(output.files.find((file) => file.path === "preview.html").contents, /data-layerdoc="0.1.0"/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm install/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run dev/);
@@ -642,6 +646,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:contract/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:layerdoc/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:preview/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:section-candidate/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /manifest reference visual/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /handoff-summary\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /integration-contract\.json/);
@@ -1388,6 +1393,67 @@ test("exported preview verifier script defaults to manifest reference visual", (
   assert.match(result.stdout, /reference\.png/);
   const report = JSON.parse(readFileSync(join(directory, "verification-report.json"), "utf8"));
   assert.equal(report.visualSimilarity, 100);
+});
+
+test("exported section candidate verifier script validates reviewed regeneration output", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-section-candidate-verifier-"));
+  const output = createProjectExportPackage(createRegenerationExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const candidatePath = join(directory, "hero-candidate.json");
+  writeFileSync(candidatePath, `${JSON.stringify({
+    requestId: "regen-hero-1",
+    section: {
+      id: "hero",
+      name: "Hero",
+      bounds: { x: 0, y: 0, width: 1440, height: 860 },
+      layerIds: ["hero-title", "hero-cta"]
+    },
+    layers: [
+      {
+        id: "hero-title",
+        sectionId: "hero",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 120, y: 120, width: 720, height: 96 },
+        content: { text: "Reviewed production hero" }
+      },
+      {
+        id: "hero-cta",
+        sectionId: "hero",
+        kind: "button",
+        track: "component",
+        editable: true,
+        bounds: { x: 120, y: 260, width: 180, height: 48 },
+        content: { text: "Apply candidate" }
+      }
+    ],
+    components: [{ id: "RegeneratedHero", layerIds: ["hero-title", "hero-cta"], exportable: true }]
+  }, null, 2)}\n`);
+
+  const passed = spawnSync(process.execPath, ["scripts/verify-section-candidate.mjs", "--input", candidatePath], {
+    cwd: directory,
+    encoding: "utf8"
+  });
+  assert.equal(passed.status, 0, passed.stderr);
+  assert.match(passed.stdout, /"passed": true/);
+  assert.match(passed.stdout, /"sectionId": "hero"/);
+  assert.match(passed.stdout, /"layerCount": 2/);
+
+  const brokenCandidate = JSON.parse(readFileSync(candidatePath, "utf8"));
+  brokenCandidate.section.id = "missing-section";
+  brokenCandidate.layers[0].sectionId = "missing-section";
+  brokenCandidate.layers[1].sectionId = "missing-section";
+  writeFileSync(candidatePath, `${JSON.stringify(brokenCandidate, null, 2)}\n`);
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-section-candidate.mjs", "--input", candidatePath], {
+    cwd: directory,
+    encoding: "utf8"
+  });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /section_candidate_section_missing/);
+  assert.match(failed.stdout, /missing-section/);
 });
 
 test("exported quality gate script passes and fails from project files", () => {

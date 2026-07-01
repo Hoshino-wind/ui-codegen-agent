@@ -495,6 +495,7 @@ function packageJsonFor(manifest: ProjectExportManifest): string {
       "verify:image-manifest": "node scripts/verify-image-manifest.mjs",
       "verify:layerdoc": "node scripts/verify-layerdoc.mjs",
       "verify:contract": "node scripts/verify-contract.mjs",
+      "verify:section-candidate": "node scripts/verify-section-candidate.mjs",
       "verify:preview": "node scripts/verify-preview.mjs",
       "verify:gates": "node scripts/verify-gates.mjs"
     },
@@ -651,7 +652,7 @@ for (const path of manifestFiles) {
 }
 
 pushIf(packageScripts.verify !== "${PROJECT_VERIFY_CHAIN}", failures, "package_verify_chain_mismatch", "package.json verify script must run the full handoff verification chain.");
-for (const scriptName of ["verify:handoff", "verify:analysis-plan", "verify:image-manifest", "verify:layerdoc", "verify:contract", "verify:preview", "verify:gates"]) {
+for (const scriptName of ["verify:handoff", "verify:analysis-plan", "verify:image-manifest", "verify:layerdoc", "verify:contract", "verify:section-candidate", "verify:preview", "verify:gates"]) {
   pushIf(typeof packageScripts[scriptName] !== "string", failures, "package_verify_script_missing", \`package.json scripts must include \${scriptName}.\`);
 }
 
@@ -790,6 +791,153 @@ if (!hasAnalysisPlan) {
   if (!result.passed) {
     process.exitCode = 1;
   }
+}
+`;
+}
+
+function sectionCandidateVerifierScriptFor(): string {
+  return `import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+function readProjectJson(path) {
+  return JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
+}
+
+function readInputJson(path) {
+  return JSON.parse(readFileSync(resolve(path), "utf8"));
+}
+
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function pushIf(condition, failures, code, message) {
+  if (condition) {
+    failures.push({ code, message });
+  }
+}
+
+function parseArgs(args) {
+  const options = { input: null };
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--input") {
+      options.input = args[index + 1] ?? null;
+      index += 1;
+    } else if (arg.startsWith("--input=")) {
+      options.input = arg.slice("--input=".length);
+    } else {
+      throw new Error("Unknown argument " + arg + ". Usage: node scripts/verify-section-candidate.mjs [--input <candidate.json>]");
+    }
+  }
+  return options;
+}
+
+function idsFrom(items) {
+  return new Set(Array.isArray(items) ? items.map((item) => item?.id).filter(Boolean) : []);
+}
+
+function validateCandidate(candidate, layerDoc, failures) {
+  if (!isRecord(candidate)) {
+    failures.push({ code: "section_candidate_invalid", message: "Section candidate must be an object." });
+    return { sectionId: null, layerCount: 0 };
+  }
+
+  const section = candidate.section;
+  const layers = Array.isArray(candidate.layers) ? candidate.layers : [];
+  if (!isRecord(section)) {
+    failures.push({ code: "section_candidate_section_invalid", message: "Section candidate section must be an object." });
+    return { sectionId: null, layerCount: layers.length };
+  }
+  if (!Array.isArray(candidate.layers)) {
+    failures.push({ code: "section_candidate_layers_invalid", message: "Section candidate layers must be an array." });
+  }
+
+  const sectionId = typeof section.id === "string" ? section.id : null;
+  const layerDocSection = (layerDoc.sections ?? []).find((item) => item.id === sectionId);
+  pushIf(!sectionId, failures, "section_candidate_section_id_missing", "Section candidate section.id must be a string.");
+  pushIf(Boolean(sectionId) && !layerDocSection, failures, "section_candidate_section_missing", "Section candidate section " + sectionId + " does not exist in layerdoc.json.");
+
+  if (candidate.requestId) {
+    const request = (layerDoc.generation?.sectionRequests ?? []).find((item) => item.id === candidate.requestId);
+    pushIf(!request, failures, "section_candidate_request_missing", "Section candidate requestId " + candidate.requestId + " does not exist in layerdoc.json.");
+    pushIf(Boolean(request) && request.sectionId !== sectionId, failures, "section_candidate_request_section_mismatch", "Section candidate requestId does not belong to section " + sectionId + ".");
+  }
+
+  const declaredLayerIds = new Set(Array.isArray(section.layerIds) ? section.layerIds : []);
+  const layerIds = idsFrom(layers);
+  pushIf(declaredLayerIds.size === 0, failures, "section_candidate_layer_ids_missing", "Section candidate section.layerIds must contain at least one layer id.");
+
+  for (const layerId of declaredLayerIds) {
+    pushIf(!layerIds.has(layerId), failures, "section_candidate_layer_missing", "Section candidate section.layerIds references missing layer " + layerId + ".");
+  }
+
+  for (const layer of layers) {
+    pushIf(!declaredLayerIds.has(layer?.id), failures, "section_candidate_layer_unlisted", "Section candidate layer " + (layer?.id ?? "unknown") + " is not listed in section.layerIds.");
+    pushIf(layer?.sectionId !== sectionId, failures, "section_candidate_layer_section_mismatch", "Section candidate layer " + (layer?.id ?? "unknown") + " must point at section " + sectionId + ".");
+  }
+
+  const assetIds = idsFrom(candidate.assets);
+  for (const layer of layers) {
+    if (layer?.track === "asset" || layer?.assetId) {
+      pushIf(!layer.assetId || !assetIds.has(layer.assetId), failures, "section_candidate_asset_missing", "Asset layer " + (layer?.id ?? "unknown") + " must reference an asset included in the candidate.");
+    }
+  }
+
+  const componentIds = idsFrom(candidate.components);
+  for (const component of candidate.components ?? []) {
+    for (const layerId of component.layerIds ?? []) {
+      pushIf(!layerIds.has(layerId), failures, "section_candidate_component_layer_missing", "Component " + component.id + " references missing candidate layer " + layerId + ".");
+    }
+  }
+
+  for (const interaction of candidate.interactions ?? []) {
+    pushIf(!layerIds.has(interaction.layerId), failures, "section_candidate_interaction_layer_missing", "Interaction " + interaction.id + " references missing candidate layer " + interaction.layerId + ".");
+  }
+
+  for (const rule of candidate.responsiveRules ?? []) {
+    const target = rule.target;
+    const targetExists =
+      (target?.type === "section" && target.id === sectionId) ||
+      (target?.type === "layer" && layerIds.has(target.id)) ||
+      (target?.type === "component" && componentIds.has(target.id));
+    pushIf(!targetExists, failures, "section_candidate_responsive_target_missing", "Responsive rule " + rule.id + " targets an object not included in the candidate.");
+  }
+
+  return { sectionId, layerCount: layers.length };
+}
+
+const options = parseArgs(process.argv.slice(2));
+const manifest = readProjectJson("../manifest.json");
+const handoff = readProjectJson("../handoff-summary.json");
+const layerDoc = readProjectJson("../layerdoc.json");
+const schemaPath = manifest.sectionCandidateSchema ?? "${SECTION_CANDIDATE_SCHEMA_FILE}";
+const schema = existsSync(new URL("../" + schemaPath, import.meta.url)) ? readProjectJson("../" + schemaPath) : null;
+const failures = [];
+
+pushIf(schemaPath !== "${SECTION_CANDIDATE_SCHEMA_FILE}", failures, "section_candidate_schema_file_mismatch", "manifest.json sectionCandidateSchema must be ${SECTION_CANDIDATE_SCHEMA_FILE}.");
+pushIf(handoff.sectionRegeneration?.candidateSchemaFile !== schemaPath, failures, "section_candidate_handoff_schema_mismatch", "handoff-summary.json sectionRegeneration.candidateSchemaFile must match manifest.json.");
+pushIf(!schema, failures, "section_candidate_schema_missing", "section-candidate.schema.json must exist.");
+pushIf(schema?.title !== "SectionRegenerationCandidate 0.1.0", failures, "section_candidate_schema_title_invalid", "section-candidate.schema.json title is invalid.");
+pushIf(!Array.isArray(schema?.required) || !schema.required.includes("section") || !schema.required.includes("layers"), failures, "section_candidate_schema_required_invalid", "section-candidate.schema.json must require section and layers.");
+
+let candidateSummary = null;
+if (options.input) {
+  const candidate = readInputJson(options.input);
+  candidateSummary = validateCandidate(candidate, layerDoc, failures);
+}
+
+const result = {
+  passed: failures.length === 0,
+  failures,
+  schemaFile: schemaPath,
+  input: options.input,
+  ...(candidateSummary ?? { sectionId: null, layerCount: null })
+};
+
+process.stdout.write(JSON.stringify(result, null, 2) + "\\n");
+if (!result.passed) {
+  process.exitCode = 1;
 }
 `;
 }
@@ -2588,6 +2736,7 @@ Run locally:
 - \`npm run verify:image-manifest\`
 - \`npm run verify:layerdoc\`
 - \`npm run verify:contract\`
+- \`npm run verify:section-candidate -- --input path/to/section-candidate.json\`
 - \`npm run verify:gates\`
 
 Generated assets:
@@ -2610,6 +2759,7 @@ Verification:
 - Run \`npm run verify:image-manifest\` to confirm the source image decomposition still matches \`manifest.json\`, \`layerdoc.json\`, and \`handoff-summary.json\`.
 - Run \`npm run verify:layerdoc\` after editing \`layerdoc.json\` to catch broken graph references before integration.
 - Run \`npm run verify:contract\` to confirm \`integration-contract.json\` still matches the LayerDoc source, project selectors, preview selectors, section order, layer bounds, layer style, layer copy, assets, responsive CSS, and interaction metadata.
+- Run \`npm run verify:section-candidate -- --input path/to/section-candidate.json\` before applying a reviewed regeneration result to confirm it matches \`${manifest.sectionCandidateSchema}\` and the current LayerDoc section graph.
 - Hidden sections remain editable in \`layerdoc.json\` but are intentionally omitted from rendered project, preview, and responsive CSS contract requirements.
 - Put the original target visual at \`${manifest.referenceVisual.file}\`.
 - Run \`npm run verify:gates\` after preview verification to enforce score thresholds and LayerDoc asset compliance.
@@ -2635,6 +2785,7 @@ function handoffCommands(): ProjectHandoffCommand[] {
     { label: "Verify Image Manifest artifacts", command: "npm run verify:image-manifest" },
     { label: "Verify LayerDoc source", command: "npm run verify:layerdoc" },
     { label: "Verify integration contract", command: "npm run verify:contract" },
+    { label: "Verify section candidate", command: "npm run verify:section-candidate" },
     { label: "Enforce quality gates", command: "npm run verify:gates" }
   ];
 }
@@ -2752,6 +2903,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     "scripts/verify-image-manifest.mjs",
     "scripts/verify-layerdoc.mjs",
     "scripts/verify-preview.mjs",
+    "scripts/verify-section-candidate.mjs",
     "src/App.tsx",
     "src/index.css",
     "src/main.tsx",
@@ -2818,6 +2970,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
       { path: "scripts/verify-image-manifest.mjs", contents: imageManifestVerifierScriptFor() },
       { path: "scripts/verify-layerdoc.mjs", contents: layerDocVerifierScriptFor() },
       { path: "scripts/verify-preview.mjs", contents: previewVerifierScriptFor() },
+      { path: "scripts/verify-section-candidate.mjs", contents: sectionCandidateVerifierScriptFor() },
       { path: "src/App.tsx", contents: appShellFor(options.componentName) },
       { path: "src/index.css", contents: indexCssFor() },
       { path: "src/main.tsx", contents: mainEntryFor() },

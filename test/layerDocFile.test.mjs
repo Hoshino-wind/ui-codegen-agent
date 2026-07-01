@@ -212,6 +212,7 @@ test("createProjectPackageDownload serializes every project package file in one 
       "scripts/verify-image-manifest.mjs",
       "scripts/verify-layerdoc.mjs",
       "scripts/verify-preview.mjs",
+      "scripts/verify-section-candidate.mjs",
       "src/App.tsx",
       "src/index.css",
       "src/main.tsx",
