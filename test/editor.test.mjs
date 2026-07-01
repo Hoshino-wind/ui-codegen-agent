@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  applySectionRegenerationCandidate,
   createLayerDoc,
   moveSection,
   requestSectionRegeneration,
@@ -143,6 +144,137 @@ test("requestSectionRegeneration queues an operator request without mutating the
       requestedAt: "2026-06-30T10:00:00.000Z"
     }
   ]);
+});
+
+test("applySectionRegenerationCandidate replaces one section with a reviewed candidate", () => {
+  const requested = requestSectionRegeneration(
+    createLayerDoc({
+      name: "Regeneration apply",
+      canvas: { width: 800, height: 900 },
+      sections: [
+        { id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 800, height: 400 }, layerIds: ["headline", "old-art"] },
+        { id: "proof", name: "Proof", bounds: { x: 0, y: 400, width: 800, height: 300 }, layerIds: ["metric"] }
+      ],
+      layers: [
+        {
+          id: "headline",
+          sectionId: "hero",
+          kind: "text",
+          track: "component",
+          editable: true,
+          bounds: { x: 40, y: 48, width: 320, height: 48 },
+          content: { text: "Old hero" }
+        },
+        {
+          id: "old-art",
+          sectionId: "hero",
+          kind: "image",
+          track: "asset",
+          editable: true,
+          assetId: "old-hero-asset",
+          bounds: { x: 420, y: 48, width: 240, height: 160 }
+        },
+        {
+          id: "metric",
+          sectionId: "proof",
+          kind: "text",
+          track: "component",
+          editable: true,
+          bounds: { x: 40, y: 448, width: 320, height: 48 },
+          content: { text: "Proof" }
+        }
+      ],
+      assets: [{ id: "old-hero-asset", type: "image", source: "generated", uri: "/old.png" }],
+      components: [
+        { id: "OldHero", layerIds: ["headline"], exportable: true },
+        { id: "ProofMetric", layerIds: ["metric"], exportable: true }
+      ],
+      interactions: [{ id: "headline-click", layerId: "headline", event: "click", action: "old-action" }],
+      responsive: {
+        rules: [
+          {
+            id: "old-hero-mobile",
+            query: "(max-width: 640px)",
+            target: { type: "layer", id: "headline" },
+            changes: { bounds: { x: 24, y: 40, width: 280, height: 60 } }
+          },
+          {
+            id: "proof-mobile",
+            query: "(max-width: 640px)",
+            target: { type: "layer", id: "metric" },
+            changes: { bounds: { x: 24, y: 420, width: 280, height: 48 } }
+          }
+        ]
+      }
+    }),
+    "hero",
+    {
+      prompt: "Regenerate hero as a sharper production story.",
+      requestedAt: "2026-07-01T08:00:00.000Z"
+    }
+  );
+
+  const next = applySectionRegenerationCandidate(requested, "hero", {
+    requestId: "regen-hero-1",
+    section: { id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 800, height: 360 }, layerIds: ["hero-title", "hero-cta", "hero-art"] },
+    layers: [
+      {
+        id: "hero-title",
+        sectionId: "hero",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 56, y: 32, width: 420, height: 72 },
+        content: { text: "Regenerated production hero" }
+      },
+      {
+        id: "hero-cta",
+        sectionId: "hero",
+        kind: "button",
+        track: "component",
+        editable: true,
+        bounds: { x: 56, y: 128, width: 160, height: 48 },
+        content: { text: "Ship it" }
+      },
+      {
+        id: "hero-art",
+        sectionId: "hero",
+        kind: "image",
+        track: "asset",
+        editable: true,
+        assetId: "new-hero-asset",
+        bounds: { x: 480, y: 36, width: 240, height: 160 },
+        content: { alt: "Reviewed hero visual" }
+      }
+    ],
+    assets: [{ id: "new-hero-asset", type: "image", source: "generated", uri: "/new.png" }],
+    components: [{ id: "RegeneratedHero", layerIds: ["hero-title", "hero-cta"], exportable: true }],
+    interactions: [{ id: "hero-cta-click", layerId: "hero-cta", event: "click", action: "open-signup" }],
+    responsiveRules: [
+      {
+        id: "new-hero-mobile",
+        query: "(max-width: 640px)",
+        target: { type: "layer", id: "hero-title" },
+        changes: { bounds: { x: 24, y: 40, width: 280, height: 80 } }
+      }
+    ]
+  });
+
+  assert.equal(requested.layers.some((layer) => layer.id === "hero-title"), false);
+  assert.deepEqual(next.sections.map((section) => [section.id, section.bounds.y, section.bounds.height]), [
+    ["hero", 0, 360],
+    ["proof", 360, 300]
+  ]);
+  assert.deepEqual(next.sections.find((section) => section.id === "hero").layerIds, ["hero-title", "hero-cta", "hero-art"]);
+  assert.equal(next.layers.some((layer) => layer.id === "headline"), false);
+  assert.equal(next.assets.some((asset) => asset.id === "old-hero-asset"), false);
+  assert.equal(next.layers.find((layer) => layer.id === "hero-title").bounds.y, 32);
+  assert.equal(next.layers.find((layer) => layer.id === "metric").bounds.y, 408);
+  assert.equal(next.assets.find((asset) => asset.id === "new-hero-asset").uri, "/new.png");
+  assert.deepEqual(next.components.map((component) => component.id), ["ProofMetric", "RegeneratedHero"]);
+  assert.deepEqual(next.interactions, [{ id: "hero-cta-click", layerId: "hero-cta", event: "click", action: "open-signup" }]);
+  assert.deepEqual(next.responsive.rules.map((rule) => rule.id), ["proof-mobile", "new-hero-mobile"]);
+  assert.equal(next.generation.sectionRequests[0].status, "applied");
 });
 
 test("updateLayerStyle merges controlled visual style without mutating the original LayerDoc", () => {

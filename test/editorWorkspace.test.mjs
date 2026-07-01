@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   applyWorkspaceVisualDiff,
+  applyWorkspaceSectionRegenerationCandidate,
   createEditorWorkspace,
   moveWorkspaceSection,
   requestWorkspaceSectionRegeneration,
@@ -280,6 +281,58 @@ test("requestWorkspaceSectionRegeneration refreshes the project package with a q
   assert.equal(handoffSummary.contract.generationRequests, 1);
   assert.equal(next.previewHtml, workspace.previewHtml);
   assert.equal(next.reactExport.code, workspace.reactExport.code);
+});
+
+test("applyWorkspaceSectionRegenerationCandidate refreshes preview, export, and project package from a reviewed section", () => {
+  const requested = requestWorkspaceSectionRegeneration(createEditorWorkspace(createSampleHomepageLayerDoc()), "hero", "Regenerate the hero.");
+  const next = applyWorkspaceSectionRegenerationCandidate(requested, "hero", {
+    requestId: "regen-hero-1",
+    section: {
+      id: "hero",
+      name: "Hero",
+      bounds: { x: 0, y: 0, width: 1440, height: 340 },
+      layerIds: ["hero-regenerated-title", "hero-regenerated-cta"]
+    },
+    layers: [
+      {
+        id: "hero-regenerated-title",
+        sectionId: "hero",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 96, y: 72, width: 680, height: 80 },
+        content: { text: "Reviewed AI hero section" },
+        style: { fontSize: 58, fontWeight: 860, lineHeight: 64, textColor: "#0f172a" }
+      },
+      {
+        id: "hero-regenerated-cta",
+        sectionId: "hero",
+        kind: "button",
+        track: "component",
+        editable: true,
+        bounds: { x: 96, y: 184, width: 180, height: 52 },
+        content: { text: "Export build" },
+        style: { backgroundColor: "#0f766e", textColor: "#ffffff", borderRadius: 16 }
+      }
+    ],
+    components: [{ id: "RegeneratedHero", layerIds: ["hero-regenerated-title", "hero-regenerated-cta"], exportable: true }],
+    interactions: [{ id: "hero-regenerated-cta-click", layerId: "hero-regenerated-cta", event: "click", action: "export-project" }]
+  });
+  const layerDocFile = JSON.parse(next.projectExport.files.find((file) => file.path === "layerdoc.json").contents);
+  const contract = JSON.parse(next.projectExport.files.find((file) => file.path === "integration-contract.json").contents);
+  const projectComponent = next.projectExport.files.find((file) => file.path === "src/ProductionHomepage.tsx").contents;
+
+  assert.equal(next.selectedLayerId, "hero-regenerated-title");
+  assert.equal(next.doc.layers.some((layer) => layer.id === "hero-title"), false);
+  assert.equal(next.doc.generation.sectionRequests[0].status, "applied");
+  assert.match(next.previewHtml, /Reviewed AI hero section/);
+  assert.match(next.reactExport.code, /hero-regenerated-title/);
+  assert.match(projectComponent, /data-layer-id="hero-regenerated-cta"/);
+  assert.equal(layerDocFile.sections.find((section) => section.id === "hero").bounds.height, 340);
+  assert.equal(layerDocFile.generation.sectionRequests[0].status, "applied");
+  assert.equal(contract.generationRequests[0].status, "applied");
+  assert.equal(contract.layers.some((layer) => layer.id === "hero-title"), false);
+  assert.equal(contract.layers.some((layer) => layer.id === "hero-regenerated-title"), true);
 });
 
 test("updateSelectedBounds patches selected layer geometry and refreshes preview output", () => {

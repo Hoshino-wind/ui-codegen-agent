@@ -80,6 +80,10 @@ The repository currently implements the core LayerDoc domain layer:
   quality attributes in both project and preview surfaces. Hidden sections stay
   editable in `layerdoc.json` without being required in rendered project
   surfaces or responsive CSS contract checks.
+- Apply reviewed section regeneration candidates back into LayerDoc by
+  replacing one stable section id with new layers, assets, components,
+  interactions, and responsive rules, then refreshing preview, React export,
+  verifier state, and project package output from the updated graph.
 - Export a `handoff-summary.json` with the source LayerDoc hash, entry
   component, contract counts, regeneration request count, verifier scores,
   audit status, and verification commands so CI or downstream importers can
@@ -360,7 +364,8 @@ test/           behavior tests for the production chain
 
 The editor should be a controlled AI UI production console, not a Figma clone.
 The MVP edits copy, colors, images, spacing, radius, buttons, section order,
-visibility, preview modes, regeneration requests, export, and verifier runs.
+visibility, preview modes, regeneration requests, reviewed section candidates,
+export, and verifier runs.
 
 Freeform vector editing, multiplayer design collaboration, and plugin
 ecosystems are intentionally out of scope.

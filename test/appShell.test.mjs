@@ -69,6 +69,15 @@ test("app shell exposes project backtest handoff commands", () => {
   assert.match(source, /project\.verification/);
 });
 
+test("app shell exposes reviewed section candidate import for regeneration results", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /Apply Section Candidate/);
+  assert.match(source, /applyWorkspaceSectionRegenerationCandidate/);
+  assert.match(source, /parseSectionRegenerationCandidateJson/);
+  assert.match(source, /accept="application\/json,\.json"/);
+});
+
 test("app shell exposes verifier problem areas in the editor surface", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 

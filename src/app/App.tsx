@@ -22,6 +22,7 @@ import { useMemo, useState } from "react";
 
 import type { LayerNode, LayerStyle, SectionNode } from "../layerdoc/types.js";
 import {
+  applyWorkspaceSectionRegenerationCandidate,
   createEditorWorkspace,
   moveWorkspaceSection,
   requestWorkspaceSectionRegeneration,
@@ -67,6 +68,7 @@ import { renderHtmlPreviewSnapshot } from "./htmlPreviewSnapshot.js";
 import { renderLayerDocSnapshot } from "./layerDocSnapshot.js";
 import { createPreviewViewport, type PreviewMode } from "./previewViewport.js";
 import { createProblemAreaAnnotationsFromReport } from "./problemAreaOverlay.js";
+import { parseSectionRegenerationCandidateJson } from "./sectionCandidateFile.js";
 import { createSampleHomepageLayerDoc } from "./sampleDocument.js";
 import { runWorkspacePreviewVerification } from "./workspaceVerifier.js";
 import { createWorkflowSummary, type WorkflowSummaryItem } from "./workflowSummary.js";
@@ -699,7 +701,15 @@ function Inspector({
   );
 }
 
-function SectionOrder({ workspace, onChange }: { workspace: EditorWorkspace; onChange: (workspace: EditorWorkspace, message?: string) => void }) {
+function SectionOrder({
+  workspace,
+  onCandidateFile,
+  onChange
+}: {
+  workspace: EditorWorkspace;
+  onCandidateFile: (section: SectionNode, file: File) => void;
+  onChange: (workspace: EditorWorkspace, message?: string) => void;
+}) {
   function regenerationPrompt(section: SectionNode): string {
     return `Regenerate the ${section.name} section while preserving its LayerDoc bounds, layer semantics, and project traceability.`;
   }
@@ -745,6 +755,22 @@ function SectionOrder({ workspace, onChange }: { workspace: EditorWorkspace; onC
             >
               <WandSparkles size={13} />
             </button>
+            <label className="section-candidate">
+              <input
+                aria-label={`Apply Section Candidate JSON for ${section.name}`}
+                accept="application/json,.json"
+                className="file-input-hidden"
+                type="file"
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.[0];
+                  if (file) {
+                    onCandidateFile(section, file);
+                    event.currentTarget.value = "";
+                  }
+                }}
+              />
+              <Upload size={13} />
+            </label>
             <span>{section.name}</span>
             {requestCount > 0 ? <small>{requestCount}</small> : null}
           </div>
@@ -1258,6 +1284,19 @@ export function App() {
     }
   }
 
+  async function importSectionCandidateFile(section: SectionNode, file: File) {
+    try {
+      const candidate = parseSectionRegenerationCandidateJson(await file.text());
+      const nextWorkspace = applyWorkspaceSectionRegenerationCandidate(workspace, section.id, candidate);
+      setWorkspace(nextWorkspace);
+      setWorkspaceError(null);
+      setLastAction(`Applied Section Candidate: ${section.name}`);
+    } catch (error) {
+      setWorkspaceError(messageFromError(error));
+      setLastAction("Section candidate import failed");
+    }
+  }
+
   function downloadArtifact(artifact: LayerDocDownloadArtifact) {
     triggerBrowserDownload(artifact);
   }
@@ -1431,7 +1470,11 @@ export function App() {
           uploadError={uploadError}
         />
         <ProjectExportPanel workspace={workspace} onDownload={exportProjectPackage} onDownloadZip={exportProjectZip} />
-        <SectionOrder workspace={workspace} onChange={updateWorkspace} />
+        <SectionOrder
+          workspace={workspace}
+          onCandidateFile={(section, file) => void importSectionCandidateFile(section, file)}
+          onChange={updateWorkspace}
+        />
       </aside>
 
       <section className="studio-main">

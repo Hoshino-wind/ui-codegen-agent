@@ -1,10 +1,31 @@
-import type { AssetNode, InteractionNode, LayerDoc, LayerNode, LayerStyle, Rect, SectionNode } from "../layerdoc/types.js";
+import { validateLayerDoc } from "../layerdoc/validation.js";
+import type {
+  AssetNode,
+  ComponentNode,
+  InteractionNode,
+  LayerDoc,
+  LayerNode,
+  LayerStyle,
+  Rect,
+  ResponsiveRule,
+  SectionNode
+} from "../layerdoc/types.js";
 
 export type LayerBoundsPatch = Partial<Rect>;
 export type ImageAssetPatch = Pick<Partial<AssetNode>, "uri" | "source">;
 export interface SectionRegenerationRequestInput {
   prompt: string;
   requestedAt?: string;
+}
+
+export interface SectionRegenerationCandidateInput {
+  requestId?: string;
+  section: SectionNode;
+  layers: LayerNode[];
+  assets?: AssetNode[];
+  components?: ComponentNode[];
+  interactions?: InteractionNode[];
+  responsiveRules?: ResponsiveRule[];
 }
 
 function cloneLayer(layer: LayerNode): LayerNode {
@@ -24,6 +45,22 @@ function cloneSection(section: SectionNode): SectionNode {
   };
 }
 
+function cloneAsset(asset: AssetNode): AssetNode {
+  return { ...asset, bounds: asset.bounds ? { ...asset.bounds } : undefined };
+}
+
+function cloneComponent(component: ComponentNode): ComponentNode {
+  return { ...component, layerIds: [...component.layerIds] };
+}
+
+function cloneInteraction(interaction: InteractionNode): InteractionNode {
+  return { ...interaction };
+}
+
+function cloneResponsiveRule(rule: ResponsiveRule): ResponsiveRule {
+  return { ...rule, target: { ...rule.target }, changes: { ...rule.changes } };
+}
+
 function cloneDoc(doc: LayerDoc): LayerDoc {
   return {
     ...doc,
@@ -40,12 +77,12 @@ function cloneDoc(doc: LayerDoc): LayerDoc {
     },
     sections: doc.sections.map(cloneSection),
     layers: doc.layers.map(cloneLayer),
-    assets: doc.assets.map((asset) => ({ ...asset, bounds: asset.bounds ? { ...asset.bounds } : undefined })),
-    components: doc.components.map((component) => ({ ...component, layerIds: [...component.layerIds] })),
-    interactions: doc.interactions.map((interaction) => ({ ...interaction })),
+    assets: doc.assets.map(cloneAsset),
+    components: doc.components.map(cloneComponent),
+    interactions: doc.interactions.map(cloneInteraction),
     responsive: {
       breakpoints: { ...doc.responsive.breakpoints },
-      rules: doc.responsive.rules.map((rule) => ({ ...rule, changes: { ...rule.changes } }))
+      rules: doc.responsive.rules.map(cloneResponsiveRule)
     },
     generation: {
       sectionRequests: doc.generation.sectionRequests.map((request) => ({ ...request }))
@@ -105,6 +142,70 @@ function reflowSectionStack(doc: LayerDoc): void {
   }
 
   doc.canvas.height = Math.max(doc.canvas.height, nextY);
+}
+
+function assertCandidateSectionShape(sectionId: string, candidate: SectionRegenerationCandidateInput): void {
+  if (candidate.section.id !== sectionId) {
+    throw new Error(`Regeneration candidate section "${candidate.section.id}" must replace section "${sectionId}".`);
+  }
+
+  const sectionLayerIds = new Set(candidate.section.layerIds);
+  for (const layer of candidate.layers) {
+    if (layer.sectionId !== sectionId) {
+      throw new Error(`Regeneration candidate layer "${layer.id}" must point at section "${sectionId}".`);
+    }
+    if (!sectionLayerIds.has(layer.id)) {
+      throw new Error(`Regeneration candidate layer "${layer.id}" is missing from section "${sectionId}".`);
+    }
+  }
+
+  for (const layerId of sectionLayerIds) {
+    if (!candidate.layers.some((layer) => layer.id === layerId)) {
+      throw new Error(`Regeneration candidate section "${sectionId}" references missing layer "${layerId}".`);
+    }
+  }
+}
+
+function translateCandidateIntoSlot(candidate: SectionRegenerationCandidateInput, targetSection: SectionNode): SectionRegenerationCandidateInput {
+  const deltaY = targetSection.bounds.y - candidate.section.bounds.y;
+  const section = {
+    ...cloneSection(candidate.section),
+    bounds: { ...candidate.section.bounds, y: targetSection.bounds.y }
+  };
+
+  return {
+    ...candidate,
+    section,
+    layers: candidate.layers.map((layer) => ({
+      ...cloneLayer(layer),
+      bounds: { ...layer.bounds, y: layer.bounds.y + deltaY }
+    })),
+    assets: candidate.assets?.map(cloneAsset) ?? [],
+    components: candidate.components?.map(cloneComponent) ?? [],
+    interactions: candidate.interactions?.map(cloneInteraction) ?? [],
+    responsiveRules: candidate.responsiveRules?.map(cloneResponsiveRule) ?? []
+  };
+}
+
+function isTargetedBySectionCandidate(
+  rule: ResponsiveRule,
+  sectionId: string,
+  oldLayerIds: Set<string>,
+  oldComponentIds: Set<string>
+): boolean {
+  return (
+    (rule.target.type === "section" && rule.target.id === sectionId) ||
+    (rule.target.type === "layer" && oldLayerIds.has(rule.target.id)) ||
+    (rule.target.type === "component" && oldComponentIds.has(rule.target.id))
+  );
+}
+
+function assertValidAppliedCandidate(doc: LayerDoc, sectionId: string): void {
+  const validation = validateLayerDoc(doc);
+  if (!validation.valid) {
+    const summary = validation.issues.map((issue) => `${issue.code}:${issue.path}`).join(", ");
+    throw new Error(`Regeneration candidate for section "${sectionId}" produced an invalid LayerDoc: ${summary}`);
+  }
 }
 
 /**
@@ -315,5 +416,75 @@ export function requestSectionRegeneration(doc: LayerDoc, sectionId: string, inp
     status: "requested",
     requestedAt: input.requestedAt ?? new Date().toISOString()
   });
+  return next;
+}
+
+/**
+ * Replace one reviewed page module with an accepted regeneration candidate.
+ * The section id stays stable for project contracts, while the reviewed
+ * candidate owns the new layers, assets, components, interactions, and
+ * responsive rules for that section.
+ */
+export function applySectionRegenerationCandidate(
+  doc: LayerDoc,
+  sectionId: string,
+  candidate: SectionRegenerationCandidateInput
+): LayerDoc {
+  assertCandidateSectionShape(sectionId, candidate);
+
+  const next = cloneDoc(doc);
+  const sectionIndex = next.sections.findIndex((section) => section.id === sectionId);
+  if (sectionIndex === -1) {
+    throw new Error(`Section "${sectionId}" was not found.`);
+  }
+
+  const targetSection = next.sections[sectionIndex];
+  const appliedCandidate = translateCandidateIntoSlot(candidate, targetSection);
+  const oldLayerIds = new Set([
+    ...targetSection.layerIds,
+    ...next.layers.filter((layer) => layer.sectionId === sectionId).map((layer) => layer.id)
+  ]);
+  const oldAssetIds = new Set(next.layers.filter((layer) => oldLayerIds.has(layer.id) && layer.assetId).map((layer) => layer.assetId as string));
+  const oldComponentIds = new Set(
+    next.components.filter((component) => component.layerIds.some((layerId) => oldLayerIds.has(layerId))).map((component) => component.id)
+  );
+
+  next.sections[sectionIndex] = appliedCandidate.section;
+  next.layers = [
+    ...next.layers.filter((layer) => !oldLayerIds.has(layer.id) && layer.sectionId !== sectionId),
+    ...appliedCandidate.layers
+  ];
+
+  const retainedAssetIds = new Set(next.layers.map((layer) => layer.assetId).filter((assetId): assetId is string => Boolean(assetId)));
+  next.assets = [
+    ...next.assets.filter((asset) => !oldAssetIds.has(asset.id) || retainedAssetIds.has(asset.id)),
+    ...(appliedCandidate.assets ?? [])
+  ];
+  next.components = [
+    ...next.components.filter((component) => !oldComponentIds.has(component.id)),
+    ...(appliedCandidate.components ?? [])
+  ];
+  next.interactions = [
+    ...next.interactions.filter((interaction) => !oldLayerIds.has(interaction.layerId)),
+    ...(appliedCandidate.interactions ?? [])
+  ];
+  next.responsive.rules = [
+    ...next.responsive.rules.filter((rule) => !isTargetedBySectionCandidate(rule, sectionId, oldLayerIds, oldComponentIds)),
+    ...(appliedCandidate.responsiveRules ?? [])
+  ];
+
+  if (candidate.requestId) {
+    const request = next.generation.sectionRequests.find((candidateRequest) => candidateRequest.id === candidate.requestId);
+    if (!request) {
+      throw new Error(`Regeneration request "${candidate.requestId}" was not found.`);
+    }
+    if (request.sectionId !== sectionId) {
+      throw new Error(`Regeneration request "${candidate.requestId}" does not belong to section "${sectionId}".`);
+    }
+    request.status = "applied";
+  }
+
+  reflowSectionStack(next);
+  assertValidAppliedCandidate(next, sectionId);
   return next;
 }

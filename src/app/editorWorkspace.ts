@@ -1,4 +1,5 @@
 import {
+  applySectionRegenerationCandidate,
   requestSectionRegeneration,
   setSectionVisibility,
   updateButtonAction,
@@ -12,7 +13,12 @@ import { moveSection } from "../editor/operations.js";
 import { renderHtmlPreview } from "../exporters/htmlPreview.js";
 import { createProjectExportPackage, type ProjectExportPackage } from "../exporters/projectPackage.js";
 import { exportReactTailwind, type ReactTailwindExportResult } from "../exporters/reactTailwind.js";
-import type { ImageAssetPatch, LayerBoundsPatch, SectionRegenerationRequestInput } from "../editor/operations.js";
+import type {
+  ImageAssetPatch,
+  LayerBoundsPatch,
+  SectionRegenerationCandidateInput,
+  SectionRegenerationRequestInput
+} from "../editor/operations.js";
 import { createLayerDocAudit, type LayerDocAudit } from "../layerdoc/audit.js";
 import type { LayerDoc, LayerNode, LayerStyle } from "../layerdoc/types.js";
 import { createVerificationReport, layerDocWithVerificationReport, type VerificationReport, type VerificationVisualEvidence } from "../verifier/report.js";
@@ -39,6 +45,10 @@ function firstEditableLayerId(doc: LayerDoc): string {
     throw new Error("LayerDoc must contain at least one editable layer for the editor workspace.");
   }
   return layer.id;
+}
+
+function firstEditableCandidateLayerId(candidate: SectionRegenerationCandidateInput): string | null {
+  return candidate.layers.find((layer) => layer.editable)?.id ?? null;
 }
 
 function selectedLayerExists(doc: LayerDoc, layerId: string): boolean {
@@ -149,5 +159,17 @@ export function requestWorkspaceSectionRegeneration(
 ): EditorWorkspace {
   const nextDoc = requestSectionRegeneration(workspace.doc, sectionId, { prompt, requestedAt: options.requestedAt });
   const selected = selectedLayerExists(nextDoc, workspace.selectedLayerId) ? workspace.selectedLayerId : firstEditableLayerId(nextDoc);
+  return materialize(nextDoc, selected, createVerificationReport(nextDoc), workspace);
+}
+
+export function applyWorkspaceSectionRegenerationCandidate(
+  workspace: EditorWorkspace,
+  sectionId: string,
+  candidate: SectionRegenerationCandidateInput
+): EditorWorkspace {
+  const nextDoc = applySectionRegenerationCandidate(workspace.doc, sectionId, candidate);
+  const selected = selectedLayerExists(nextDoc, workspace.selectedLayerId)
+    ? workspace.selectedLayerId
+    : (firstEditableCandidateLayerId(candidate) ?? firstEditableLayerId(nextDoc));
   return materialize(nextDoc, selected, createVerificationReport(nextDoc), workspace);
 }

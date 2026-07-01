@@ -1,4 +1,5 @@
 export {
+  applySectionRegenerationCandidate,
   moveSection,
   requestSectionRegeneration,
   setSectionVisibility,
@@ -92,7 +93,12 @@ export type {
   VerificationIssueCode,
   VerificationScores
 } from "./layerdoc/types.js";
-export type { ImageAssetPatch, LayerBoundsPatch, SectionRegenerationRequestInput } from "./editor/operations.js";
+export type {
+  ImageAssetPatch,
+  LayerBoundsPatch,
+  SectionRegenerationCandidateInput,
+  SectionRegenerationRequestInput
+} from "./editor/operations.js";
 export type {
   VerificationEvidence,
   VerificationInput,
