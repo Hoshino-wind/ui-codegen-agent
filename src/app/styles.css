@@ -1704,6 +1704,36 @@ button {
   white-space: nowrap;
 }
 
+.problem-area-layer {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  min-height: 24px;
+  padding: 4px 7px;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #991b1b;
+  font-size: 10px;
+  font-weight: 800;
+  text-align: left;
+}
+
+.problem-area-layer strong {
+  color: #0f172a;
+  font-size: 10px;
+  font-weight: 840;
+}
+
+.problem-area-layer.muted {
+  color: #7f1d1d;
+  justify-content: flex-start;
+  opacity: 0.72;
+}
+
 .problem-area-more {
   min-height: 18px;
 }

@@ -1053,18 +1053,26 @@ function VerifierStrip({
   referenceName,
   verifierError,
   onReferenceFile,
-  onDownloadReport
+  onDownloadReport,
+  onFocusProblemArea
 }: {
   workspace: EditorWorkspace;
   referenceName: string | null;
   verifierError: string | null;
   onReferenceFile: (file: File) => void;
   onDownloadReport: () => void;
+  onFocusProblemArea: (layerId: string) => void;
 }) {
   const visualDiff = workspace.report.visualDiff;
   const visualEvidence = workspace.report.evidence.visual;
   const candidateLabel = visualEvidence.kind === "layerdoc-raster" ? "LayerDoc raster fallback" : "HTML preview screenshot";
   const problemAreas = visualDiff?.problemAreas ?? [];
+  const visibleSectionIds = new Set(workspace.doc.sections.filter((section) => section.visible !== false).map((section) => section.id));
+  const visibleLayers = workspace.doc.layers.filter((layer) => !layer.sectionId || visibleSectionIds.has(layer.sectionId));
+  const problemAreaAnnotations = createProblemAreaAnnotations(problemAreas, {
+    scale: 1,
+    layers: visibleLayers
+  });
   const gateResult = evaluateVerificationGates(workspace.report, {}, {
     assetCompliance: workspace.audit.assetCompliance,
     editableCoverage: workspace.audit.editableCoverage
@@ -1140,17 +1148,30 @@ function VerifierStrip({
           <div className="problem-area-list">
             <div className="problem-area-list-head">
               <span>Problem areas</span>
-              <strong>{problemAreas.length}</strong>
+              <strong>{problemAreaAnnotations.length}</strong>
             </div>
-            {problemAreas.slice(0, 4).map((area, index) => (
-              <div className="problem-area-row" key={`${area.x}-${area.y}-${area.width}-${area.height}-${index}`}>
-                <span>#{index + 1}</span>
-                <strong>
-                  {area.x},{area.y} / {area.width}x{area.height}
-                </strong>
-              </div>
-            ))}
-            {problemAreas.length > 4 ? <div className="problem-area-more">+{problemAreas.length - 4} more</div> : null}
+            {problemAreaAnnotations.slice(0, 4).map((area, index) => {
+              const affectedLayerId = area.affectedLayerId;
+              return (
+                <div className="problem-area-row" key={area.id}>
+                  <span>#{index + 1}</span>
+                  <strong>{area.label.replace(/^#\d+\s/, "")}</strong>
+                  {affectedLayerId ? (
+                    <button
+                      aria-label={`Focus layer ${affectedLayerId} from verifier problem row`}
+                      className="problem-area-layer"
+                      type="button"
+                      onClick={() => onFocusProblemArea(affectedLayerId)}
+                    >
+                      Focus layer <strong>{area.affectedLayerLabel ?? affectedLayerId}</strong>
+                    </button>
+                  ) : (
+                    <small className="problem-area-layer muted">No affected layer</small>
+                  )}
+                </div>
+              );
+            })}
+            {problemAreaAnnotations.length > 4 ? <div className="problem-area-more">+{problemAreaAnnotations.length - 4} more</div> : null}
           </div>
         ) : null}
       </div>
@@ -1456,6 +1477,7 @@ export function App() {
         verifierError={verifierError}
         onReferenceFile={(file) => void importVerifierSnapshot(file)}
         onDownloadReport={downloadVerifierReport}
+        onFocusProblemArea={(layerId) => updateWorkspace(selectWorkspaceLayer(workspace, layerId), `Verifier problem focuses ${layerId}`)}
       />
     </main>
   );

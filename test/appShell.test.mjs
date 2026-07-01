@@ -84,6 +84,14 @@ test("app shell can focus the affected LayerDoc layer from a verifier problem ar
   assert.match(source, /onFocusProblemArea/);
 });
 
+test("app shell links verifier problem rows to affected LayerDoc layers", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /problemAreaAnnotations/);
+  assert.match(source, /problem-area-layer/);
+  assert.match(source, /Focus layer/);
+});
+
 test("app shell exposes quality gate status in the verifier surface", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 
