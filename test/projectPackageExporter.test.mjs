@@ -307,6 +307,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     "package.json",
     "preview.html",
     "quality-gates.json",
+    "scripts/verify-analysis-plan.mjs",
     "scripts/verify-contract.mjs",
     "scripts/verify-gates.mjs",
     "scripts/verify-layerdoc.mjs",
@@ -324,8 +325,9 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"dev": "vite"/);
   assert.match(
     output.files.find((file) => file.path === "package.json").contents,
-    /"verify": "npm run verify:layerdoc && npm run verify:contract && npm run verify:preview && npm run verify:gates"/
+    /"verify": "npm run verify:analysis-plan && npm run verify:layerdoc && npm run verify:contract && npm run verify:preview && npm run verify:gates"/
   );
+  assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:analysis-plan": "node scripts\/verify-analysis-plan\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:preview": "node scripts\/verify-preview\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:gates": "node scripts\/verify-gates\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:layerdoc": "node scripts\/verify-layerdoc\.mjs"/);
@@ -485,6 +487,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
       "npm run dev",
       "npm run build",
       "npm run verify",
+      "npm run verify:analysis-plan",
       "npm run verify:layerdoc",
       "npm run verify:contract",
       "npm run verify:preview",
@@ -492,6 +495,8 @@ test("createProjectExportPackage returns project-ready files derived from one La
     ]
   );
   assert.match(output.files.find((file) => file.path === "scripts/verify-gates.mjs").contents, /verification-report\.json/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-analysis-plan.mjs").contents, /analysis-plan-audit\.json/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-analysis-plan.mjs").contents, /analysis-plan\.schema\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-gates.mjs").contents, /layerdoc-audit\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /integration-contract\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_interaction_metadata_missing/);
@@ -508,6 +513,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm install/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run dev/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:analysis-plan/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:gates/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:contract/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:layerdoc/);
@@ -1104,6 +1110,27 @@ test("exported quality gate script passes and fails from project files", () => {
   const failed = spawnSync(process.execPath, ["scripts/verify-gates.mjs"], { cwd: directory, encoding: "utf8" });
   assert.notEqual(failed.status, 0);
   assert.match(failed.stdout, /visual_similarity 74 is below 85/);
+});
+
+test("exported analysis plan verifier script validates handoff artifacts", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-analysis-plan-"));
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const passed = spawnSync(process.execPath, ["scripts/verify-analysis-plan.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.equal(passed.status, 0, passed.stderr);
+  assert.match(passed.stdout, /"passed": true/);
+
+  const auditPath = join(directory, "analysis-plan-audit.json");
+  const staleAudit = JSON.parse(readFileSync(auditPath, "utf8"));
+  staleAudit.readiness.readyForLayerDoc = false;
+  staleAudit.readiness.blockers = ["Plan needs another layer"];
+  writeFileSync(auditPath, `${JSON.stringify(staleAudit, null, 2)}\n`);
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-analysis-plan.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /analysis_plan_not_ready/);
+  assert.match(failed.stdout, /manifest_analysis_plan_audit_mismatch/);
 });
 
 test("exported quality gate script rejects full-page bitmap audit failures", () => {

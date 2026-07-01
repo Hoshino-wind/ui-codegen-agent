@@ -426,7 +426,8 @@ function packageJsonFor(manifest: ProjectExportManifest): string {
       dev: "vite",
       build: "tsc --noEmit && vite build",
       preview: "vite preview",
-      verify: "npm run verify:layerdoc && npm run verify:contract && npm run verify:preview && npm run verify:gates",
+      verify: "npm run verify:analysis-plan && npm run verify:layerdoc && npm run verify:contract && npm run verify:preview && npm run verify:gates",
+      "verify:analysis-plan": "node scripts/verify-analysis-plan.mjs",
       "verify:layerdoc": "node scripts/verify-layerdoc.mjs",
       "verify:contract": "node scripts/verify-contract.mjs",
       "verify:preview": "node scripts/verify-preview.mjs",
@@ -510,6 +511,75 @@ const result = {
 process.stdout.write(\`\${JSON.stringify(result, null, 2)}\\n\`);
 if (!result.passed) {
   process.exitCode = 1;
+}
+`;
+}
+
+function analysisPlanVerifierScriptFor(): string {
+  return `import { readFileSync } from "node:fs";
+
+function readJson(path) {
+  return JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
+}
+
+function stableJson(value) {
+  return JSON.stringify(value);
+}
+
+function pushIf(condition, failures, code, message) {
+  if (condition) {
+    failures.push({ code, message });
+  }
+}
+
+const manifest = readJson("../manifest.json");
+const handoff = readJson("../handoff-summary.json");
+const layerDoc = readJson("../layerdoc.json");
+const defaultAnalysisPlanSchemaFile = "analysis-plan.schema.json";
+const defaultAnalysisPlanAuditFile = "analysis-plan-audit.json";
+const hasAnalysisPlan = Boolean(manifest.analysisPlan || manifest.analysisPlanAudit || manifest.analysisPlanSchema || manifest.analysisPlanAuditFile);
+const failures = [];
+
+if (!hasAnalysisPlan) {
+  process.stdout.write(\`\${JSON.stringify({ passed: true, skipped: true, reason: "No Analysis Plan metadata is declared in manifest.json." }, null, 2)}\\n\`);
+} else {
+  pushIf(!manifest.analysisPlanSchema, failures, "analysis_plan_schema_missing", "manifest.json must declare analysisPlanSchema.");
+  pushIf(!manifest.analysisPlanAuditFile, failures, "analysis_plan_audit_file_missing", "manifest.json must declare analysisPlanAuditFile.");
+  pushIf(Boolean(manifest.analysisPlanSchema) && manifest.analysisPlanSchema !== defaultAnalysisPlanSchemaFile, failures, "analysis_plan_schema_file_unexpected", \`Analysis Plan schema file must be \${defaultAnalysisPlanSchemaFile}.\`);
+  pushIf(Boolean(manifest.analysisPlanAuditFile) && manifest.analysisPlanAuditFile !== defaultAnalysisPlanAuditFile, failures, "analysis_plan_audit_file_unexpected", \`Analysis Plan audit file must be \${defaultAnalysisPlanAuditFile}.\`);
+
+  const schema = manifest.analysisPlanSchema ? readJson(\`../\${manifest.analysisPlanSchema}\`) : null;
+  const audit = manifest.analysisPlanAuditFile ? readJson(\`../\${manifest.analysisPlanAuditFile}\`) : null;
+
+  pushIf(schema?.title !== "HomepageAnalysisPlan 0.1.0", failures, "analysis_plan_schema_title_invalid", "Analysis Plan schema title must be HomepageAnalysisPlan 0.1.0.");
+  pushIf(schema?.properties?.sections?.minItems !== 8, failures, "analysis_plan_schema_min_sections_invalid", "Analysis Plan schema must require at least 8 homepage sections.");
+  pushIf(schema?.properties?.sections?.maxItems !== 15, failures, "analysis_plan_schema_max_sections_invalid", "Analysis Plan schema must allow no more than 15 homepage sections.");
+  pushIf(audit?.readiness?.readyForLayerDoc !== true, failures, "analysis_plan_not_ready", "Analysis Plan audit is not ready for LayerDoc.");
+  pushIf(Array.isArray(audit?.readiness?.blockers) && audit.readiness.blockers.length > 0, failures, "analysis_plan_blockers_present", "Analysis Plan audit still contains blockers.");
+
+  if (manifest.analysisPlanAudit && stableJson(manifest.analysisPlanAudit) !== stableJson(audit)) {
+    failures.push({ code: "manifest_analysis_plan_audit_mismatch", message: "manifest.json analysisPlanAudit must match analysis-plan-audit.json." });
+  }
+
+  if (layerDoc.metadata?.analysisPlanAudit && stableJson(layerDoc.metadata.analysisPlanAudit) !== stableJson(audit)) {
+    failures.push({ code: "layerdoc_analysis_plan_audit_mismatch", message: "layerdoc.json metadata.analysisPlanAudit must match analysis-plan-audit.json." });
+  }
+
+  const files = handoff.sourceAnalysisPlanFiles ?? {};
+  pushIf(files.schemaFile !== manifest.analysisPlanSchema, failures, "handoff_analysis_plan_schema_mismatch", "handoff-summary.json sourceAnalysisPlanFiles.schemaFile must match manifest.json.");
+  pushIf(files.auditFile !== manifest.analysisPlanAuditFile, failures, "handoff_analysis_plan_audit_mismatch", "handoff-summary.json sourceAnalysisPlanFiles.auditFile must match manifest.json.");
+
+  const result = {
+    passed: failures.length === 0,
+    failures,
+    schemaFile: manifest.analysisPlanSchema,
+    auditFile: manifest.analysisPlanAuditFile,
+    readiness: audit?.readiness ?? null
+  };
+  process.stdout.write(\`\${JSON.stringify(result, null, 2)}\\n\`);
+  if (!result.passed) {
+    process.exitCode = 1;
+  }
 }
 `;
 }
@@ -1979,6 +2049,7 @@ Run locally:
 - \`npm run dev\`
 - \`npm run build\`
 - \`npm run verify\`
+- \`npm run verify:analysis-plan\`
 - \`npm run verify:layerdoc\`
 - \`npm run verify:contract\`
 - \`npm run verify:preview\`
@@ -1994,9 +2065,10 @@ Generated assets:
 - \`manifest.json\`, \`layerdoc.schema.json\`: project package manifest and LayerDoc source contract
 ${manifest.analysisPlanSchema ? `- \`${manifest.analysisPlanSchema}\`: Homepage Analysis Plan source contract\n` : ""}${manifest.analysisPlanAuditFile ? `- \`${manifest.analysisPlanAuditFile}\`: Analysis Plan coverage, track, and readiness audit\n` : ""}- \`${manifest.referenceVisual.file}\`: original target visual expected by preview verification; homepage pipeline exports copy this automatically
 - \`layerdoc-audit.json\`: structure, track, and asset-compliance audit
-- \`verification-report.json\`, \`quality-gates.json\`, \`scripts/verify-layerdoc.mjs\`, \`scripts/verify-contract.mjs\`, \`scripts/verify-preview.mjs\`, \`scripts/verify-gates.mjs\`: executable source, contract, visual, and quality gate handoff
+- \`verification-report.json\`, \`quality-gates.json\`, \`scripts/verify-analysis-plan.mjs\`, \`scripts/verify-layerdoc.mjs\`, \`scripts/verify-contract.mjs\`, \`scripts/verify-preview.mjs\`, \`scripts/verify-gates.mjs\`: executable source, structure, contract, visual, and quality gate handoff
 
 Verification:
+- Run \`npm run verify:analysis-plan\` to confirm Analysis Plan schema and audit artifacts still match \`manifest.json\`, \`layerdoc.json\`, and \`handoff-summary.json\`.
 - Run \`npm run verify:layerdoc\` after editing \`layerdoc.json\` to catch broken graph references before integration.
 - Run \`npm run verify:contract\` to confirm \`integration-contract.json\` still matches the LayerDoc source, project selectors, preview selectors, section order, layer bounds, layer style, layer copy, assets, responsive CSS, and interaction metadata.
 - Hidden sections remain editable in \`layerdoc.json\` but are intentionally omitted from rendered project, preview, and responsive CSS contract requirements.
@@ -2019,6 +2091,7 @@ function handoffCommands(): ProjectHandoffCommand[] {
     { label: "Run the project", command: "npm run dev" },
     { label: "Build the project", command: "npm run build" },
     { label: "Verify full handoff", command: "npm run verify" },
+    { label: "Verify Analysis Plan artifacts", command: "npm run verify:analysis-plan" },
     { label: "Verify LayerDoc source", command: "npm run verify:layerdoc" },
     { label: "Verify integration contract", command: "npm run verify:contract" },
     { label: "Verify visual preview", command: "npm run verify:preview" },
@@ -2118,6 +2191,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     "package.json",
     "preview.html",
     "quality-gates.json",
+    "scripts/verify-analysis-plan.mjs",
     "scripts/verify-contract.mjs",
     "scripts/verify-gates.mjs",
     "scripts/verify-layerdoc.mjs",
@@ -2174,6 +2248,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
       { path: "package.json", contents: packageJsonFor(manifest) },
       { path: "preview.html", contents: renderHtmlPreview(sourceDoc) },
       { path: "quality-gates.json", contents: stableJson(defaultVerificationGates) },
+      { path: "scripts/verify-analysis-plan.mjs", contents: analysisPlanVerifierScriptFor() },
       { path: "scripts/verify-contract.mjs", contents: contractVerifierScriptFor() },
       { path: "scripts/verify-gates.mjs", contents: qualityGateScriptFor() },
       { path: "scripts/verify-layerdoc.mjs", contents: layerDocVerifierScriptFor() },
