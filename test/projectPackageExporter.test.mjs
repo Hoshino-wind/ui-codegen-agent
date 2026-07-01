@@ -14,6 +14,9 @@ import {
   writeProjectExportPackage
 } from "../dist/index.js";
 
+const EXPECTED_VERIFY_CHAIN =
+  "npm run verify:preview && npm run verify:handoff && npm run verify:analysis-plan && npm run verify:image-manifest && npm run verify:layerdoc && npm run verify:contract && npm run verify:gates";
+
 test("project package exporter stays browser-compatible for Studio exports", () => {
   const source = readFileSync(join(process.cwd(), "src", "exporters", "projectPackage.ts"), "utf8");
 
@@ -376,10 +379,8 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.deepEqual(output.manifest.files.sort(), paths);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"scripts"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"dev": "vite"/);
-  assert.match(
-    output.files.find((file) => file.path === "package.json").contents,
-    /"verify": "npm run verify:handoff && npm run verify:analysis-plan && npm run verify:image-manifest && npm run verify:layerdoc && npm run verify:contract && npm run verify:preview && npm run verify:gates"/
-  );
+  const packageJson = JSON.parse(output.files.find((file) => file.path === "package.json").contents);
+  assert.equal(packageJson.scripts.verify, EXPECTED_VERIFY_CHAIN);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:handoff": "node scripts\/verify-handoff\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:analysis-plan": "node scripts\/verify-analysis-plan\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:image-manifest": "node scripts\/verify-image-manifest\.mjs"/);
@@ -546,12 +547,12 @@ test("createProjectExportPackage returns project-ready files derived from one La
       "npm run dev",
       "npm run build",
       "npm run verify",
+      "npm run verify:preview",
       "npm run verify:handoff",
       "npm run verify:analysis-plan",
       "npm run verify:image-manifest",
       "npm run verify:layerdoc",
       "npm run verify:contract",
-      "npm run verify:preview",
       "npm run verify:gates"
     ]
   );

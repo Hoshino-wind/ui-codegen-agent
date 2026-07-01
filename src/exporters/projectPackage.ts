@@ -186,6 +186,9 @@ export interface ProjectExportPackage {
   files: ProjectExportFile[];
 }
 
+const PROJECT_VERIFY_CHAIN =
+  "npm run verify:preview && npm run verify:handoff && npm run verify:analysis-plan && npm run verify:image-manifest && npm run verify:layerdoc && npm run verify:contract && npm run verify:gates";
+
 function toKebabCase(value: string): string {
   return value
     .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
@@ -460,7 +463,7 @@ function packageJsonFor(manifest: ProjectExportManifest): string {
       dev: "vite",
       build: "tsc --noEmit && vite build",
       preview: "vite preview",
-      verify: "npm run verify:handoff && npm run verify:analysis-plan && npm run verify:image-manifest && npm run verify:layerdoc && npm run verify:contract && npm run verify:preview && npm run verify:gates",
+      verify: PROJECT_VERIFY_CHAIN,
       "verify:handoff": "node scripts/verify-handoff.mjs",
       "verify:analysis-plan": "node scripts/verify-analysis-plan.mjs",
       "verify:image-manifest": "node scripts/verify-image-manifest.mjs",
@@ -609,7 +612,7 @@ for (const path of manifestFiles) {
   pushIf(!fileExists(path), failures, "manifest_file_missing", \`manifest.json lists missing file \${path}.\`);
 }
 
-pushIf(packageScripts.verify !== "npm run verify:handoff && npm run verify:analysis-plan && npm run verify:image-manifest && npm run verify:layerdoc && npm run verify:contract && npm run verify:preview && npm run verify:gates", failures, "package_verify_chain_mismatch", "package.json verify script must run the full handoff verification chain.");
+pushIf(packageScripts.verify !== "${PROJECT_VERIFY_CHAIN}", failures, "package_verify_chain_mismatch", "package.json verify script must run the full handoff verification chain.");
 for (const scriptName of ["verify:handoff", "verify:analysis-plan", "verify:image-manifest", "verify:layerdoc", "verify:contract", "verify:preview", "verify:gates"]) {
   pushIf(typeof packageScripts[scriptName] !== "string", failures, "package_verify_script_missing", \`package.json scripts must include \${scriptName}.\`);
 }
@@ -2468,12 +2471,12 @@ Run locally:
 - \`npm run dev\`
 - \`npm run build\`
 - \`npm run verify\`
+- \`npm run verify:preview\`
 - \`npm run verify:handoff\`
 - \`npm run verify:analysis-plan\`
 - \`npm run verify:image-manifest\`
 - \`npm run verify:layerdoc\`
 - \`npm run verify:contract\`
-- \`npm run verify:preview\`
 - \`npm run verify:gates\`
 
 Generated assets:
@@ -2489,14 +2492,14 @@ ${manifest.analysisPlanFile ? `- \`${manifest.analysisPlanFile}\`: confirmed Hom
 - \`verification-report.json\`, \`quality-gates.json\`, \`scripts/verify-handoff.mjs\`, \`scripts/verify-analysis-plan.mjs\`, \`scripts/verify-image-manifest.mjs\`, \`scripts/verify-layerdoc.mjs\`, \`scripts/verify-contract.mjs\`, \`scripts/verify-preview.mjs\`, \`scripts/verify-gates.mjs\`: executable source, structure, contract, visual, and quality gate handoff
 
 Verification:
-- Run \`npm run verify:handoff\` to confirm the project package manifest, file list, commands, scripts, entrypoint, contract summary, quality summary, audit summary, and LayerDoc hash still agree.
+- Run \`npm run verify:preview\` first to use the manifest reference visual, render \`preview.html\`, capture \`verification-artifacts/candidate.png\`, produce \`verification-artifacts/diff.png\`, and sync \`verification-report.json\`, \`layerdoc.json\`, \`manifest.json\`, \`integration-contract.json\`, \`handoff-summary.json\`, and rendered root quality attributes.
+- Run \`npm run verify:handoff\` after preview verification to confirm the project package manifest, file list, commands, scripts, entrypoint, contract summary, quality summary, audit summary, and LayerDoc hash still agree.
 - Run \`npm run verify:analysis-plan\` to confirm Analysis Plan schema and audit artifacts still match \`manifest.json\`, \`layerdoc.json\`, and \`handoff-summary.json\`.
 - Run \`npm run verify:image-manifest\` to confirm the source image decomposition still matches \`manifest.json\`, \`layerdoc.json\`, and \`handoff-summary.json\`.
 - Run \`npm run verify:layerdoc\` after editing \`layerdoc.json\` to catch broken graph references before integration.
 - Run \`npm run verify:contract\` to confirm \`integration-contract.json\` still matches the LayerDoc source, project selectors, preview selectors, section order, layer bounds, layer style, layer copy, assets, responsive CSS, and interaction metadata.
 - Hidden sections remain editable in \`layerdoc.json\` but are intentionally omitted from rendered project, preview, and responsive CSS contract requirements.
 - Put the original target visual at \`${manifest.referenceVisual.file}\`.
-- Run \`npm run verify:preview\` to use the manifest reference visual, render \`preview.html\`, capture \`verification-artifacts/candidate.png\`, produce \`verification-artifacts/diff.png\`, and sync \`verification-report.json\`, \`layerdoc.json\`, \`manifest.json\`, \`integration-contract.json\`, \`handoff-summary.json\`, and rendered root quality attributes.
 - Run \`npm run verify:gates\` after preview verification to enforce score thresholds and LayerDoc asset compliance.
 
 Verifier scores:
@@ -2514,12 +2517,12 @@ function handoffCommands(): ProjectHandoffCommand[] {
     { label: "Run the project", command: "npm run dev" },
     { label: "Build the project", command: "npm run build" },
     { label: "Verify full handoff", command: "npm run verify" },
+    { label: "Verify visual preview", command: "npm run verify:preview" },
     { label: "Verify project handoff", command: "npm run verify:handoff" },
     { label: "Verify Analysis Plan artifacts", command: "npm run verify:analysis-plan" },
     { label: "Verify Image Manifest artifacts", command: "npm run verify:image-manifest" },
     { label: "Verify LayerDoc source", command: "npm run verify:layerdoc" },
     { label: "Verify integration contract", command: "npm run verify:contract" },
-    { label: "Verify visual preview", command: "npm run verify:preview" },
     { label: "Enforce quality gates", command: "npm run verify:gates" }
   ];
 }

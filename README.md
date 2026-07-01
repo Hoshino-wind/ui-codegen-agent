@@ -100,6 +100,9 @@ The repository currently implements the core LayerDoc domain layer:
   manifests, handoff summaries, integration contracts, and rendered root
   `data-verification-*` attributes so rerunning project verification stays
   self-consistent after a screenshot diff.
+- Run exported project verification in preview-first order so screenshot diff
+  state is synchronized before handoff, LayerDoc, contract, and quality-gate
+  checks read the package.
 - Preserve Analysis Plan provenance in `LayerDoc.metadata.analysisPlan` and
   exported project handoff files so downstream consumers can see whether the
   editable structure came from a seeded scaffold, provided plan, or editor
