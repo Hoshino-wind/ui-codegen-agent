@@ -1,5 +1,6 @@
 import type { LayerDoc } from "../layerdoc/types.js";
 import { createHomepageAnalysisPlanJsonSchema, type HomepageAnalysisPlan } from "../importers/homepageAnalysisPlan.js";
+import type { ImageAnalysisManifest } from "../importers/imageManifest.js";
 import { createLayerDocAudit, type LayerDocAudit } from "../layerdoc/audit.js";
 import { createLayerDocJsonSchema } from "../layerdoc/jsonSchema.js";
 import { defaultVerificationGates, type VerificationGates } from "../verifier/gates.js";
@@ -11,6 +12,7 @@ export interface ProjectExportPackageOptions {
   componentName: string;
   packageName?: string;
   analysisPlan?: HomepageAnalysisPlan;
+  imageManifest?: ImageAnalysisManifest;
   report?: VerificationReport;
 }
 
@@ -35,6 +37,7 @@ export interface ProjectExportManifest {
   referenceVisual: ProjectReferenceVisual;
   analysisPlan?: NonNullable<LayerDoc["metadata"]["analysisPlan"]>;
   analysisPlanFile?: string;
+  imageManifestFile?: string;
   analysisPlanAudit?: NonNullable<LayerDoc["metadata"]["analysisPlanAudit"]>;
   analysisPlanSchema?: string;
   analysisPlanAuditFile?: string;
@@ -58,6 +61,7 @@ export interface ProjectHandoffSummary {
     hash: string;
   };
   sourceVisual?: NonNullable<LayerDoc["metadata"]["sourceImage"]>;
+  sourceImageManifestFile?: string;
   sourceAnalysisPlan?: NonNullable<LayerDoc["metadata"]["analysisPlan"]>;
   sourceAnalysisPlanAudit?: NonNullable<LayerDoc["metadata"]["analysisPlanAudit"]>;
   sourceAnalysisPlanFiles?: {
@@ -429,8 +433,9 @@ function packageJsonFor(manifest: ProjectExportManifest): string {
       dev: "vite",
       build: "tsc --noEmit && vite build",
       preview: "vite preview",
-      verify: "npm run verify:analysis-plan && npm run verify:layerdoc && npm run verify:contract && npm run verify:preview && npm run verify:gates",
+      verify: "npm run verify:analysis-plan && npm run verify:image-manifest && npm run verify:layerdoc && npm run verify:contract && npm run verify:preview && npm run verify:gates",
       "verify:analysis-plan": "node scripts/verify-analysis-plan.mjs",
+      "verify:image-manifest": "node scripts/verify-image-manifest.mjs",
       "verify:layerdoc": "node scripts/verify-layerdoc.mjs",
       "verify:contract": "node scripts/verify-contract.mjs",
       "verify:preview": "node scripts/verify-preview.mjs",
@@ -594,6 +599,77 @@ if (!hasAnalysisPlan) {
     schemaFile: manifest.analysisPlanSchema,
     auditFile: manifest.analysisPlanAuditFile,
     readiness: audit?.readiness ?? null
+  };
+  process.stdout.write(\`\${JSON.stringify(result, null, 2)}\\n\`);
+  if (!result.passed) {
+    process.exitCode = 1;
+  }
+}
+`;
+}
+
+function imageManifestVerifierScriptFor(): string {
+  return `import { readFileSync } from "node:fs";
+
+function readJson(path) {
+  return JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
+}
+
+function pushIf(condition, failures, code, message) {
+  if (condition) {
+    failures.push({ code, message });
+  }
+}
+
+function layerCount(sections) {
+  return Array.isArray(sections)
+    ? sections.reduce((total, section) => total + (Array.isArray(section.layers) ? section.layers.length : 0), 0)
+    : 0;
+}
+
+const manifest = readJson("../manifest.json");
+const handoff = readJson("../handoff-summary.json");
+const layerDoc = readJson("../layerdoc.json");
+const defaultImageManifestFile = "image-manifest.json";
+const failures = [];
+
+if (!manifest.imageManifestFile) {
+  process.stdout.write(\`\${JSON.stringify({ passed: true, skipped: true, reason: "No ImageAnalysisManifest file is declared in manifest.json." }, null, 2)}\\n\`);
+} else {
+  pushIf(manifest.imageManifestFile !== defaultImageManifestFile, failures, "image_manifest_file_unexpected", \`Image manifest file must be \${defaultImageManifestFile}.\`);
+  pushIf(!Array.isArray(manifest.files) || !manifest.files.includes(manifest.imageManifestFile), failures, "image_manifest_not_listed", "manifest.json files must include imageManifestFile.");
+  pushIf(handoff.sourceImageManifestFile !== manifest.imageManifestFile, failures, "handoff_image_manifest_file_mismatch", "handoff-summary.json sourceImageManifestFile must match manifest.json imageManifestFile.");
+
+  const imageManifest = readJson(\`../\${manifest.imageManifestFile}\`);
+  const sourceImage = imageManifest.sourceImage ?? {};
+  const layerDocSourceImage = layerDoc.metadata?.sourceImage ?? {};
+  const manifestLayerCount = layerCount(imageManifest.sections);
+  const layerDocSections = Array.isArray(layerDoc.sections) ? layerDoc.sections : [];
+  const layerDocLayers = Array.isArray(layerDoc.layers) ? layerDoc.layers : [];
+  const layerDocSectionIds = new Set(layerDocSections.map((section) => section.id));
+  const layerDocLayerIds = new Set(layerDocLayers.map((layer) => layer.id));
+
+  pushIf(imageManifest.name !== layerDoc.metadata?.name, failures, "image_manifest_name_mismatch", "image-manifest.json name must match layerdoc.json metadata.name.");
+  pushIf(sourceImage.uri !== layerDocSourceImage.uri || sourceImage.width !== layerDocSourceImage.width || sourceImage.height !== layerDocSourceImage.height, failures, "image_manifest_source_mismatch", "image-manifest.json sourceImage must match layerdoc.json metadata.sourceImage.");
+  pushIf(sourceImage.width !== layerDoc.canvas?.width || sourceImage.height !== layerDoc.canvas?.height, failures, "image_manifest_canvas_mismatch", "image-manifest.json sourceImage dimensions must match layerdoc.json canvas.");
+  pushIf(!Array.isArray(imageManifest.sections), failures, "image_manifest_sections_missing", "image-manifest.json sections must be an array.");
+  pushIf(Array.isArray(imageManifest.sections) && imageManifest.sections.length !== layerDocSections.length, failures, "image_manifest_section_count_mismatch", "image-manifest.json section count must match layerdoc.json.");
+  pushIf(manifestLayerCount !== layerDocLayers.length, failures, "image_manifest_layer_count_mismatch", "image-manifest.json layer count must match layerdoc.json.");
+
+  for (const section of Array.isArray(imageManifest.sections) ? imageManifest.sections : []) {
+    pushIf(!layerDocSectionIds.has(section.id), failures, "image_manifest_section_missing", \`Image manifest section \${section.id} is not present in layerdoc.json.\`);
+    for (const layer of Array.isArray(section.layers) ? section.layers : []) {
+      pushIf(!layerDocLayerIds.has(layer.id), failures, "image_manifest_layer_missing", \`Image manifest layer \${layer.id} is not present in layerdoc.json.\`);
+    }
+  }
+
+  const result = {
+    passed: failures.length === 0,
+    failures,
+    imageManifestFile: manifest.imageManifestFile,
+    sourceImage,
+    sectionCount: Array.isArray(imageManifest.sections) ? imageManifest.sections.length : 0,
+    layerCount: manifestLayerCount
   };
   process.stdout.write(\`\${JSON.stringify(result, null, 2)}\\n\`);
   if (!result.passed) {
@@ -2069,6 +2145,7 @@ Run locally:
 - \`npm run build\`
 - \`npm run verify\`
 - \`npm run verify:analysis-plan\`
+- \`npm run verify:image-manifest\`
 - \`npm run verify:layerdoc\`
 - \`npm run verify:contract\`
 - \`npm run verify:preview\`
@@ -2082,12 +2159,13 @@ Generated assets:
 - \`handoff-summary.json\`: machine-readable integration summary for CI, importers, and downstream project handoff
 - \`integration-contract.json\`: stable mapping from visible LayerDoc objects to project files and DOM selectors
 - \`manifest.json\`, \`layerdoc.schema.json\`: project package manifest and LayerDoc source contract
-${manifest.analysisPlanFile ? `- \`${manifest.analysisPlanFile}\`: confirmed Homepage Analysis Plan used before LayerDoc build\n` : ""}${manifest.analysisPlanSchema ? `- \`${manifest.analysisPlanSchema}\`: Homepage Analysis Plan source contract\n` : ""}${manifest.analysisPlanAuditFile ? `- \`${manifest.analysisPlanAuditFile}\`: Analysis Plan coverage, track, and readiness audit\n` : ""}- \`${manifest.referenceVisual.file}\`: original target visual expected by preview verification; homepage pipeline exports copy this automatically
+${manifest.analysisPlanFile ? `- \`${manifest.analysisPlanFile}\`: confirmed Homepage Analysis Plan used before LayerDoc build\n` : ""}${manifest.analysisPlanSchema ? `- \`${manifest.analysisPlanSchema}\`: Homepage Analysis Plan source contract\n` : ""}${manifest.analysisPlanAuditFile ? `- \`${manifest.analysisPlanAuditFile}\`: Analysis Plan coverage, track, and readiness audit\n` : ""}${manifest.imageManifestFile ? `- \`${manifest.imageManifestFile}\`: source image decomposition manifest connecting the visual intake to LayerDoc sections and layers\n` : ""}- \`${manifest.referenceVisual.file}\`: original target visual expected by preview verification; homepage pipeline exports copy this automatically
 - \`layerdoc-audit.json\`: structure, track, and asset-compliance audit
-- \`verification-report.json\`, \`quality-gates.json\`, \`scripts/verify-analysis-plan.mjs\`, \`scripts/verify-layerdoc.mjs\`, \`scripts/verify-contract.mjs\`, \`scripts/verify-preview.mjs\`, \`scripts/verify-gates.mjs\`: executable source, structure, contract, visual, and quality gate handoff
+- \`verification-report.json\`, \`quality-gates.json\`, \`scripts/verify-analysis-plan.mjs\`, \`scripts/verify-image-manifest.mjs\`, \`scripts/verify-layerdoc.mjs\`, \`scripts/verify-contract.mjs\`, \`scripts/verify-preview.mjs\`, \`scripts/verify-gates.mjs\`: executable source, structure, contract, visual, and quality gate handoff
 
 Verification:
 - Run \`npm run verify:analysis-plan\` to confirm Analysis Plan schema and audit artifacts still match \`manifest.json\`, \`layerdoc.json\`, and \`handoff-summary.json\`.
+- Run \`npm run verify:image-manifest\` to confirm the source image decomposition still matches \`manifest.json\`, \`layerdoc.json\`, and \`handoff-summary.json\`.
 - Run \`npm run verify:layerdoc\` after editing \`layerdoc.json\` to catch broken graph references before integration.
 - Run \`npm run verify:contract\` to confirm \`integration-contract.json\` still matches the LayerDoc source, project selectors, preview selectors, section order, layer bounds, layer style, layer copy, assets, responsive CSS, and interaction metadata.
 - Hidden sections remain editable in \`layerdoc.json\` but are intentionally omitted from rendered project, preview, and responsive CSS contract requirements.
@@ -2111,6 +2189,7 @@ function handoffCommands(): ProjectHandoffCommand[] {
     { label: "Build the project", command: "npm run build" },
     { label: "Verify full handoff", command: "npm run verify" },
     { label: "Verify Analysis Plan artifacts", command: "npm run verify:analysis-plan" },
+    { label: "Verify Image Manifest artifacts", command: "npm run verify:image-manifest" },
     { label: "Verify LayerDoc source", command: "npm run verify:layerdoc" },
     { label: "Verify integration contract", command: "npm run verify:contract" },
     { label: "Verify visual preview", command: "npm run verify:preview" },
@@ -2136,6 +2215,7 @@ function createHandoffSummary(
       hash: manifest.layerDocHash
     },
     ...(sourceImage ? { sourceVisual: { ...sourceImage } } : {}),
+    ...(manifest.imageManifestFile ? { sourceImageManifestFile: manifest.imageManifestFile } : {}),
     ...(analysisPlan ? { sourceAnalysisPlan: { ...analysisPlan } } : {}),
     ...(analysisPlanAudit ? { sourceAnalysisPlanAudit: { ...analysisPlanAudit } } : {}),
     ...(manifest.analysisPlanFile || manifest.analysisPlanSchema || manifest.analysisPlanAuditFile
@@ -2196,11 +2276,13 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
   const sourceHash = layerDocHash(sourceDoc);
   const referenceVisual = referenceVisualFor(sourceDoc.metadata.sourceImage);
   const analysisPlanPath = options.analysisPlan ? "analysis-plan.json" : undefined;
+  const imageManifestPath = options.imageManifest ? "image-manifest.json" : undefined;
   const analysisPlanSchemaPath = sourceDoc.metadata.analysisPlan || sourceDoc.metadata.analysisPlanAudit ? "analysis-plan.schema.json" : undefined;
   const analysisPlanAuditPath = sourceDoc.metadata.analysisPlanAudit ? "analysis-plan-audit.json" : undefined;
   const files = [
     "README.md",
     ...(analysisPlanPath ? [analysisPlanPath] : []),
+    ...(imageManifestPath ? [imageManifestPath] : []),
     ...(analysisPlanAuditPath ? [analysisPlanAuditPath] : []),
     ...(analysisPlanSchemaPath ? [analysisPlanSchemaPath] : []),
     "handoff-summary.json",
@@ -2216,6 +2298,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     "scripts/verify-analysis-plan.mjs",
     "scripts/verify-contract.mjs",
     "scripts/verify-gates.mjs",
+    "scripts/verify-image-manifest.mjs",
     "scripts/verify-layerdoc.mjs",
     "scripts/verify-preview.mjs",
     "src/App.tsx",
@@ -2236,6 +2319,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     referenceVisual,
     ...(sourceDoc.metadata.analysisPlan ? { analysisPlan: { ...sourceDoc.metadata.analysisPlan } } : {}),
     ...(analysisPlanPath ? { analysisPlanFile: analysisPlanPath } : {}),
+    ...(imageManifestPath ? { imageManifestFile: imageManifestPath } : {}),
     ...(sourceDoc.metadata.analysisPlanAudit ? { analysisPlanAudit: { ...sourceDoc.metadata.analysisPlanAudit } } : {}),
     ...(analysisPlanSchemaPath ? { analysisPlanSchema: analysisPlanSchemaPath } : {}),
     ...(analysisPlanAuditPath ? { analysisPlanAuditFile: analysisPlanAuditPath } : {}),
@@ -2258,6 +2342,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     files: [
       { path: "README.md", contents: readmeFor(manifest) },
       ...(analysisPlanPath && options.analysisPlan ? [{ path: analysisPlanPath, contents: stableJson(options.analysisPlan) }] : []),
+      ...(imageManifestPath && options.imageManifest ? [{ path: imageManifestPath, contents: stableJson(options.imageManifest) }] : []),
       ...(analysisPlanAuditPath && sourceDoc.metadata.analysisPlanAudit
         ? [{ path: analysisPlanAuditPath, contents: stableJson(sourceDoc.metadata.analysisPlanAudit) }]
         : []),
@@ -2275,6 +2360,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
       { path: "scripts/verify-analysis-plan.mjs", contents: analysisPlanVerifierScriptFor() },
       { path: "scripts/verify-contract.mjs", contents: contractVerifierScriptFor() },
       { path: "scripts/verify-gates.mjs", contents: qualityGateScriptFor() },
+      { path: "scripts/verify-image-manifest.mjs", contents: imageManifestVerifierScriptFor() },
       { path: "scripts/verify-layerdoc.mjs", contents: layerDocVerifierScriptFor() },
       { path: "scripts/verify-preview.mjs", contents: previewVerifierScriptFor() },
       { path: "src/App.tsx", contents: appShellFor(options.componentName) },

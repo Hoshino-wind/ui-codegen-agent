@@ -262,6 +262,7 @@ export async function runHomepagePipelineCli(args: string[]): Promise<number> {
       componentName: options.componentName,
       packageName: options.packageName,
       analysisPlan: intake.analysisPlan,
+      imageManifest: intake.imageManifest,
       report: verification.report
     });
     const writtenProject = writeProjectExportPackage(projectPackage, projectDir);

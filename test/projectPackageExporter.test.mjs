@@ -93,6 +93,35 @@ function createExportDoc() {
   });
 }
 
+function createExportImageManifest() {
+  return {
+    name: "Production Homepage",
+    sourceImage: { uri: "/references/production-homepage.png", width: 1440, height: 900 },
+    canvas: { width: 1440, height: 900, background: "#ffffff" },
+    sections: [
+      {
+        id: "hero",
+        name: "Hero",
+        bounds: { x: 0, y: 0, width: 1440, height: 900 },
+        layers: [
+          {
+            id: "headline",
+            kind: "text",
+            bounds: { x: 120, y: 120, width: 620, height: 96 },
+            text: "LayerDoc first"
+          },
+          {
+            id: "cta",
+            kind: "button",
+            bounds: { x: 120, y: 260, width: 180, height: 48 },
+            text: "Export React"
+          }
+        ]
+      }
+    ]
+  };
+}
+
 function createInteractiveExportDoc() {
   return createLayerDoc({
     name: "Interactive Homepage",
@@ -310,6 +339,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     "scripts/verify-analysis-plan.mjs",
     "scripts/verify-contract.mjs",
     "scripts/verify-gates.mjs",
+    "scripts/verify-image-manifest.mjs",
     "scripts/verify-layerdoc.mjs",
     "scripts/verify-preview.mjs",
     "src/App.tsx",
@@ -325,9 +355,10 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"dev": "vite"/);
   assert.match(
     output.files.find((file) => file.path === "package.json").contents,
-    /"verify": "npm run verify:analysis-plan && npm run verify:layerdoc && npm run verify:contract && npm run verify:preview && npm run verify:gates"/
+    /"verify": "npm run verify:analysis-plan && npm run verify:image-manifest && npm run verify:layerdoc && npm run verify:contract && npm run verify:preview && npm run verify:gates"/
   );
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:analysis-plan": "node scripts\/verify-analysis-plan\.mjs"/);
+  assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:image-manifest": "node scripts\/verify-image-manifest\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:preview": "node scripts\/verify-preview\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:gates": "node scripts\/verify-gates\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:layerdoc": "node scripts\/verify-layerdoc\.mjs"/);
@@ -488,6 +519,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
       "npm run build",
       "npm run verify",
       "npm run verify:analysis-plan",
+      "npm run verify:image-manifest",
       "npm run verify:layerdoc",
       "npm run verify:contract",
       "npm run verify:preview",
@@ -497,6 +529,8 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "scripts/verify-gates.mjs").contents, /verification-report\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-analysis-plan.mjs").contents, /analysis-plan-audit\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-analysis-plan.mjs").contents, /analysis-plan\.schema\.json/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-image-manifest.mjs").contents, /image-manifest\.json/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-image-manifest.mjs").contents, /manifest\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-gates.mjs").contents, /layerdoc-audit\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /integration-contract\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_interaction_metadata_missing/);
@@ -514,6 +548,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run dev/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:analysis-plan/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:image-manifest/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:gates/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:contract/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:layerdoc/);
@@ -1131,6 +1166,38 @@ test("exported analysis plan verifier script validates handoff artifacts", () =>
   assert.notEqual(failed.status, 0);
   assert.match(failed.stdout, /analysis_plan_not_ready/);
   assert.match(failed.stdout, /manifest_analysis_plan_audit_mismatch/);
+});
+
+test("exported image manifest verifier script validates source-to-LayerDoc handoff artifacts", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-image-manifest-"));
+  const output = createProjectExportPackage(createExportDoc(), {
+    componentName: "ProductionHomepage",
+    imageManifest: createExportImageManifest()
+  });
+  writeProjectExportPackage(output, directory);
+
+  assert.equal(output.manifest.imageManifestFile, "image-manifest.json");
+  assert.equal(existsSync(join(directory, "image-manifest.json")), true);
+  const manifest = JSON.parse(readFileSync(join(directory, "manifest.json"), "utf8"));
+  const handoffSummary = JSON.parse(readFileSync(join(directory, "handoff-summary.json"), "utf8"));
+  const imageManifest = JSON.parse(readFileSync(join(directory, "image-manifest.json"), "utf8"));
+  assert.equal(manifest.imageManifestFile, "image-manifest.json");
+  assert.equal(handoffSummary.sourceImageManifestFile, "image-manifest.json");
+  assert.match(readFileSync(join(directory, "README.md"), "utf8"), /image-manifest\.json/);
+  assert.equal(imageManifest.sections.length, 1);
+  assert.equal(imageManifest.sections[0].layers.length, 2);
+
+  const passed = spawnSync(process.execPath, ["scripts/verify-image-manifest.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.equal(passed.status, 0, passed.stderr);
+  assert.match(passed.stdout, /"passed": true/);
+
+  imageManifest.sourceImage.width = 1280;
+  writeFileSync(join(directory, "image-manifest.json"), `${JSON.stringify(imageManifest, null, 2)}\n`);
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-image-manifest.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /image_manifest_source_mismatch/);
+  assert.match(failed.stdout, /image_manifest_canvas_mismatch/);
 });
 
 test("exported quality gate script rejects full-page bitmap audit failures", () => {
