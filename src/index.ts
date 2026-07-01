@@ -18,6 +18,7 @@ export { exportReactTailwind } from "./exporters/reactTailwind.js";
 export { createStoredZipArchive } from "./exporters/zipArchive.js";
 export {
   addAnalysisLayer,
+  createHomepageAnalysisPlanAudit,
   createHomepageAnalysisPlan,
   parseHomepageAnalysisPlanJson,
   toPngIntakeSections,
@@ -130,6 +131,9 @@ export type {
 export type { ReactTailwindExportOptions, ReactTailwindExportResult } from "./exporters/reactTailwind.js";
 export type {
   AnalysisLayerPatch,
+  HomepageAnalysisPlanAudit,
+  HomepageAnalysisPlanSectionAudit,
+  HomepageAnalysisPlanTrackCounts,
   CreateHomepageAnalysisPlanInput,
   HomepageAnalysisPlan
 } from "./importers/homepageAnalysisPlan.js";

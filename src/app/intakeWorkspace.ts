@@ -1,11 +1,13 @@
 import {
   addAnalysisLayer,
   updateAnalysisLayer,
+  createHomepageAnalysisPlanAudit,
   createHomepageAnalysisPlan,
   parseHomepageAnalysisPlanJson,
   toPngIntakeSections,
   validateHomepageAnalysisPlan,
   type AnalysisLayerPatch,
+  type HomepageAnalysisPlanAudit,
   type HomepageAnalysisPlan
 } from "../importers/homepageAnalysisPlan.js";
 import { addHeroAnnotationSetToPlan, seedHomepageAnalysisPlan } from "../importers/homepageSeed.js";
@@ -27,6 +29,7 @@ export interface IntakeWorkspace {
   selectedSectionId: string;
   selectedLayerId: string | null;
   issues: string[];
+  audit: HomepageAnalysisPlanAudit;
   layerCount: number;
   ready: boolean;
 }
@@ -53,6 +56,7 @@ function materialize(
   selectedLayerId: string | null = null
 ): IntakeWorkspace {
   const issues = validateHomepageAnalysisPlan(analysisPlan);
+  const audit = createHomepageAnalysisPlanAudit(analysisPlan);
   const layerId = selectedLayerId && hasLayer(analysisPlan, selectedLayerId) ? selectedLayerId : null;
 
   return {
@@ -61,6 +65,7 @@ function materialize(
     selectedSectionId,
     selectedLayerId: layerId,
     issues,
+    audit,
     layerCount: analysisPlan.sections.reduce((total, section) => total + section.layers.length, 0),
     ready: issues.length === 0
   };

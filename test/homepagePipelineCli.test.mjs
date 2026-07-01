@@ -138,6 +138,13 @@ test("homepage pipeline CLI can build from a provided analysis plan", () => {
   assert.equal(pipelineReport.intake.sourceAnalysisPlanPath, analysisPlanPath);
   assert.equal(pipelineReport.intake.sectionCount, 8);
   assert.equal(pipelineReport.intake.layerCount, 8);
+  assert.equal(pipelineReport.intake.analysisPlanAudit.readiness.readyForLayerDoc, true);
+  assert.deepEqual(pipelineReport.intake.analysisPlanAudit.tracks, {
+    component: 8,
+    asset: 0,
+    approximation: 0,
+    layout: 0
+  });
   assert.deepEqual(layerDoc.metadata.analysisPlan, {
     source: "provided",
     name: "Provided Plan Homepage",

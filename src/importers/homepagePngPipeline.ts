@@ -2,7 +2,14 @@ import { readFileSync } from "node:fs";
 
 import { PNG } from "pngjs";
 
-import { createHomepageAnalysisPlan, toPngIntakeSections, validateHomepageAnalysisPlan, type HomepageAnalysisPlan } from "./homepageAnalysisPlan.js";
+import {
+  createHomepageAnalysisPlan,
+  createHomepageAnalysisPlanAudit,
+  toPngIntakeSections,
+  validateHomepageAnalysisPlan,
+  type HomepageAnalysisPlan,
+  type HomepageAnalysisPlanAudit
+} from "./homepageAnalysisPlan.js";
 import { seedHomepageAnalysisPlan } from "./homepageSeed.js";
 import { createLayerDocFromImageManifest, type ImageAnalysisManifest } from "./imageManifest.js";
 import { createImageManifestFromPng } from "./pngIntake.js";
@@ -21,6 +28,7 @@ export interface HomepagePngPipelineInput {
 
 export interface HomepagePngPipelineResult {
   analysisPlan: HomepageAnalysisPlan;
+  analysisPlanAudit: HomepageAnalysisPlanAudit;
   imageManifest: ImageAnalysisManifest;
   layerDoc: LayerDoc;
 }
@@ -69,6 +77,7 @@ export function createHomepageLayerDocFromPng(input: HomepagePngPipelineInput): 
   });
   const shouldSeed = input.seedAnnotations ?? !input.analysisPlan;
   const analysisPlan = shouldSeed ? seedHomepageAnalysisPlan(scaffold) : scaffold;
+  const analysisPlanAudit = createHomepageAnalysisPlanAudit(analysisPlan);
   const provenanceSource = shouldSeed ? "seeded" : "provided";
   const provenance = analysisPlanProvenance(
     analysisPlan,
@@ -92,6 +101,7 @@ export function createHomepageLayerDocFromPng(input: HomepagePngPipelineInput): 
 
   return {
     analysisPlan,
+    analysisPlanAudit,
     imageManifest,
     layerDoc: createLayerDocFromImageManifest(imageManifest)
   };

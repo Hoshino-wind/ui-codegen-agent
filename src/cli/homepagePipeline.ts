@@ -282,7 +282,8 @@ export async function runHomepagePipelineCli(args: string[]): Promise<number> {
         ...(sourceAnalysisPlanPath ? { sourceAnalysisPlanPath } : {}),
         sectionCount: intake.layerDoc.sections.length,
         layerCount: intake.layerDoc.layers.length,
-        assetCount: intake.layerDoc.assets.length
+        assetCount: intake.layerDoc.assets.length,
+        analysisPlanAudit: intake.analysisPlanAudit
       },
       verification: {
         reportPath: verificationReportPath,

@@ -35,6 +35,15 @@ test("app shell exposes Analysis Plan load action", () => {
   assert.match(source, /createIntakeWorkspaceFromAnalysisPlanJson/);
 });
 
+test("app shell exposes Analysis Plan audit readiness and track counts", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /analysis-audit/);
+  assert.match(source, /intake\.audit\.readiness\.readyForLayerDoc/);
+  assert.match(source, /intake\.audit\.tracks\.component/);
+  assert.match(source, /emptySectionIds/);
+});
+
 test("app shell exposes a project package export action", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 
@@ -174,6 +183,6 @@ test("app shell blocks LayerDoc build until every homepage section has a layer",
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 
   assert.match(source, /emptyAnalysisSectionNames/);
-  assert.match(source, /emptyAnalysisSectionNames\.length === 0/);
+  assert.match(source, /intake\.audit\.readiness\.readyForLayerDoc/);
   assert.match(source, /Add layers to:/);
 });

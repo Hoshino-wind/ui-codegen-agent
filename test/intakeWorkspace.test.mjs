@@ -26,6 +26,17 @@ test("createIntakeWorkspace creates an eight-section analysis plan from source i
   assert.equal(intake.layerCount, 0);
   assert.equal(intake.ready, true);
   assert.deepEqual(intake.issues, []);
+  assert.equal(intake.audit.readiness.readyForLayerDoc, false);
+  assert.deepEqual(intake.audit.coverage.emptySectionIds, [
+    "hero",
+    "proof",
+    "workflow",
+    "features",
+    "editor",
+    "export",
+    "verifier",
+    "final-cta"
+  ]);
 });
 
 test("createIntakeWorkspaceFromAnalysisPlanJson imports a saved plan for the current PNG", () => {
@@ -43,6 +54,8 @@ test("createIntakeWorkspaceFromAnalysisPlanJson imports a saved plan for the cur
   assert.equal(imported.ready, true);
   assert.equal(imported.selectedSectionId, "hero");
   assert.equal(imported.selectedLayerId, "hero-text-1");
+  assert.equal(imported.audit.summary.layers, 1);
+  assert.equal(imported.audit.tracks.component, 1);
 });
 
 test("createIntakeWorkspaceFromAnalysisPlanJson rejects plans for a different PNG canvas", () => {

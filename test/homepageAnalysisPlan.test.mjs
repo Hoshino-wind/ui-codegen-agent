@@ -8,6 +8,7 @@ import { PNG } from "pngjs";
 
 import {
   addAnalysisLayer,
+  createHomepageAnalysisPlanAudit,
   createHomepageAnalysisPlan,
   createImageManifestFromPng,
   parseHomepageAnalysisPlanJson,
@@ -191,6 +192,66 @@ test("parseHomepageAnalysisPlanJson rejects malformed plan sections before intak
     () => parseHomepageAnalysisPlanJson(JSON.stringify(malformedPlan)),
     /Input file is not a Homepage Analysis Plan/
   );
+});
+
+test("createHomepageAnalysisPlanAudit reports track coverage and LayerDoc readiness", () => {
+  const plan = createHomepageAnalysisPlan({
+    name: "Audited homepage",
+    canvas: { width: 160, height: 800 }
+  });
+  const withText = addAnalysisLayer(plan, "hero", {
+    id: "hero-title",
+    kind: "text",
+    bounds: { x: 12, y: 20, width: 80, height: 20 },
+    text: "Audited hero"
+  });
+  const withImage = addAnalysisLayer(withText, "hero", {
+    id: "hero-image",
+    kind: "image",
+    bounds: { x: 96, y: 20, width: 48, height: 52 },
+    alt: "Hero crop",
+    asset: {
+      id: "hero-crop",
+      cropBounds: { x: 96, y: 20, width: 48, height: 52 }
+    }
+  });
+  const incomplete = addAnalysisLayer(withImage, "proof", {
+    id: "proof-chart",
+    kind: "chart",
+    bounds: { x: 12, y: 120, width: 120, height: 64 }
+  });
+
+  const audit = createHomepageAnalysisPlanAudit(incomplete);
+
+  assert.deepEqual(audit.summary, {
+    sections: 8,
+    layers: 3,
+    editableLayers: 3
+  });
+  assert.deepEqual(audit.tracks, {
+    component: 1,
+    asset: 1,
+    approximation: 1,
+    layout: 0
+  });
+  assert.equal(audit.coverage.sectionsWithLayers, 2);
+  assert.deepEqual(audit.coverage.emptySectionIds, ["workflow", "features", "editor", "export", "verifier", "final-cta"]);
+  assert.equal(audit.readiness.readyForLayerDoc, false);
+  assert.deepEqual(audit.readiness.blockers, [
+    "Add at least one layer to each homepage section before building LayerDoc."
+  ]);
+  assert.deepEqual(audit.sectionBreakdown[0], {
+    sectionId: "hero",
+    name: "Hero",
+    layerCount: 2,
+    editableLayerCount: 2,
+    tracks: {
+      component: 1,
+      asset: 1,
+      approximation: 0,
+      layout: 0
+    }
+  });
 });
 
 test("validateHomepageAnalysisPlan reports duplicate ids and out-of-canvas bounds", () => {

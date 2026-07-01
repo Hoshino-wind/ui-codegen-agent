@@ -1,4 +1,5 @@
-import type { Canvas, LayerKind, LayerStyle, Rect } from "../layerdoc/types.js";
+import { classifyLayer } from "../layerdoc/classification.js";
+import type { Canvas, LayerKind, LayerStyle, LayerTrack, Rect } from "../layerdoc/types.js";
 import type { PngIntakeAssetPlan, PngIntakeLayerPlan, PngIntakeSectionPlan } from "./pngIntake.js";
 
 export interface HomepageAnalysisPlan {
@@ -14,6 +15,38 @@ export interface CreateHomepageAnalysisPlanInput {
 }
 
 export type AnalysisLayerPatch = Partial<Omit<PngIntakeLayerPlan, "id" | "kind">>;
+
+export type HomepageAnalysisPlanTrackCounts = Record<LayerTrack, number>;
+
+export interface HomepageAnalysisPlanSectionAudit {
+  sectionId: string;
+  name: string;
+  layerCount: number;
+  editableLayerCount: number;
+  tracks: HomepageAnalysisPlanTrackCounts;
+}
+
+export interface HomepageAnalysisPlanAudit {
+  summary: {
+    sections: number;
+    layers: number;
+    editableLayers: number;
+  };
+  tracks: HomepageAnalysisPlanTrackCounts;
+  coverage: {
+    sectionsWithLayers: number;
+    emptySectionIds: string[];
+  };
+  readiness: {
+    sectionRangeOk: boolean;
+    validPlan: boolean;
+    allSectionsHaveLayers: boolean;
+    readyForLayerDoc: boolean;
+    blockers: string[];
+  };
+  issues: string[];
+  sectionBreakdown: HomepageAnalysisPlanSectionAudit[];
+}
 
 const defaultSectionNames = ["Hero", "Proof", "Workflow", "Features", "Editor", "Export", "Verifier", "Final CTA"];
 const layerKinds: readonly LayerKind[] = [
@@ -36,6 +69,7 @@ const layerKinds: readonly LayerKind[] = [
 ];
 const assetSources: readonly PngIntakeAssetPlan["source"][] = ["reference-crop", "generated", "uploaded", "remote", "project"];
 const assetTypes: readonly PngIntakeAssetPlan["type"][] = ["image", "video", "font", "json", "model", "other"];
+const trackOrder: readonly LayerTrack[] = ["component", "asset", "approximation", "layout"];
 
 function toKebabCase(value: string): string {
   return value
@@ -49,6 +83,27 @@ function assertHomepageRange(sections: readonly PngIntakeSectionPlan[]): void {
   if (sections.length < 8 || sections.length > 15) {
     throw new Error(`Homepage analysis plan expects 8-15 sections, received ${sections.length}.`);
   }
+}
+
+function emptyTrackCounts(): HomepageAnalysisPlanTrackCounts {
+  return {
+    component: 0,
+    asset: 0,
+    approximation: 0,
+    layout: 0
+  };
+}
+
+function countTracks(layers: readonly PngIntakeLayerPlan[]): HomepageAnalysisPlanTrackCounts {
+  const counts = emptyTrackCounts();
+  for (const layer of layers) {
+    counts[classifyLayer(layer)] += 1;
+  }
+  return counts;
+}
+
+function countEditableLayers(layers: readonly PngIntakeLayerPlan[]): number {
+  return layers.filter((layer) => layer.editable !== false).length;
 }
 
 function cloneLayer(layer: PngIntakeLayerPlan): PngIntakeLayerPlan {
@@ -299,6 +354,53 @@ export function updateAnalysisLayer(plan: HomepageAnalysisPlan, layerId: string,
   }
 
   throw new Error(`Layer "${layerId}" was not found.`);
+}
+
+export function createHomepageAnalysisPlanAudit(plan: HomepageAnalysisPlan): HomepageAnalysisPlanAudit {
+  const layers = plan.sections.flatMap((section) => section.layers);
+  const issues = validateHomepageAnalysisPlan(plan);
+  const emptySections = plan.sections.filter((section) => section.layers.length === 0);
+  const allSectionsHaveLayers = emptySections.length === 0;
+  const sectionRangeOk = plan.sections.length >= 8 && plan.sections.length <= 15;
+  const blockers = [
+    ...issues,
+    ...(!allSectionsHaveLayers ? ["Add at least one layer to each homepage section before building LayerDoc."] : [])
+  ];
+
+  return {
+    summary: {
+      sections: plan.sections.length,
+      layers: layers.length,
+      editableLayers: countEditableLayers(layers)
+    },
+    tracks: countTracks(layers),
+    coverage: {
+      sectionsWithLayers: plan.sections.length - emptySections.length,
+      emptySectionIds: emptySections.map((section) => section.id)
+    },
+    readiness: {
+      sectionRangeOk,
+      validPlan: issues.length === 0,
+      allSectionsHaveLayers,
+      readyForLayerDoc: blockers.length === 0,
+      blockers
+    },
+    issues,
+    sectionBreakdown: plan.sections.map((section) => {
+      const tracks = countTracks(section.layers);
+      for (const track of trackOrder) {
+        tracks[track] = tracks[track] ?? 0;
+      }
+
+      return {
+        sectionId: section.id,
+        name: section.name,
+        layerCount: section.layers.length,
+        editableLayerCount: countEditableLayers(section.layers),
+        tracks
+      };
+    })
+  };
 }
 
 export function validateHomepageAnalysisPlan(plan: HomepageAnalysisPlan): string[] {

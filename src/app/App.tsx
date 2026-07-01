@@ -810,8 +810,10 @@ function AnalysisPlanPanel({
   const section = selectedAnalysisSection(intake);
   const layer = selectedAnalysisLayer(intake);
   const cropBounds = layer?.asset?.cropBounds ?? layer?.bounds ?? { x: 0, y: 0, width: 1, height: 1 };
-  const emptyAnalysisSectionNames = intake.analysisPlan.sections.filter((candidate) => candidate.layers.length === 0).map((candidate) => candidate.name);
-  const canBuildLayerDoc = intake.ready && intake.layerCount > 0 && emptyAnalysisSectionNames.length === 0;
+  const sectionNameById = new Map(intake.analysisPlan.sections.map((candidate) => [candidate.id, candidate.name]));
+  const emptySectionIds = intake.audit.coverage.emptySectionIds;
+  const emptyAnalysisSectionNames = emptySectionIds.map((id) => sectionNameById.get(id) ?? id);
+  const canBuildLayerDoc = intake.ready && intake.audit.readiness.readyForLayerDoc;
 
   function addLayer(kind: ManualAnalysisLayerKind) {
     onChange(addManualAnalysisLayer(intake, { kind }));
@@ -884,6 +886,19 @@ function AnalysisPlanPanel({
       <div className="analysis-stats">
         <span>{intake.analysisPlan.sections.length} sections</span>
         <span>{intake.layerCount} layers</span>
+      </div>
+      <div className={`analysis-audit ${intake.audit.readiness.readyForLayerDoc ? "ready" : "blocked"}`}>
+        <div className="analysis-audit-head">
+          <span>Plan readiness</span>
+          <strong>{intake.audit.readiness.readyForLayerDoc ? "LayerDoc ready" : "Needs structure"}</strong>
+        </div>
+        <div className="analysis-audit-tracks" aria-label="Analysis Plan track counts">
+          <span>Component {intake.audit.tracks.component}</span>
+          <span>Asset {intake.audit.tracks.asset}</span>
+          <span>Approx {intake.audit.tracks.approximation}</span>
+          <span>Layout {intake.audit.tracks.layout}</span>
+        </div>
+        <small>{emptySectionIds.length === 0 ? "All sections contain layers" : `${emptySectionIds.length} empty sections`}</small>
       </div>
       <div className="analysis-section-list">
         {intake.analysisPlan.sections.map((section) => (
