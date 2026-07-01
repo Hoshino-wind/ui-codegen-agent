@@ -433,7 +433,8 @@ function packageJsonFor(manifest: ProjectExportManifest): string {
       dev: "vite",
       build: "tsc --noEmit && vite build",
       preview: "vite preview",
-      verify: "npm run verify:analysis-plan && npm run verify:image-manifest && npm run verify:layerdoc && npm run verify:contract && npm run verify:preview && npm run verify:gates",
+      verify: "npm run verify:handoff && npm run verify:analysis-plan && npm run verify:image-manifest && npm run verify:layerdoc && npm run verify:contract && npm run verify:preview && npm run verify:gates",
+      "verify:handoff": "node scripts/verify-handoff.mjs",
       "verify:analysis-plan": "node scripts/verify-analysis-plan.mjs",
       "verify:image-manifest": "node scripts/verify-image-manifest.mjs",
       "verify:layerdoc": "node scripts/verify-layerdoc.mjs",
@@ -514,6 +515,113 @@ const result = {
     componentScore: report.componentScore,
     projectFitScore: report.projectFitScore
   }
+};
+
+process.stdout.write(\`\${JSON.stringify(result, null, 2)}\\n\`);
+if (!result.passed) {
+  process.exitCode = 1;
+}
+`;
+}
+
+function handoffVerifierScriptFor(): string {
+  return `import { createHash } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
+
+function readJson(path) {
+  return JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
+}
+
+function stableJson(value) {
+  return \`\${JSON.stringify(value, null, 2)}\\n\`;
+}
+
+function sha256(value) {
+  return \`sha256:\${createHash("sha256").update(value).digest("hex")}\`;
+}
+
+function pushIf(condition, failures, code, message) {
+  if (condition) {
+    failures.push({ code, message });
+  }
+}
+
+function fileExists(path) {
+  return existsSync(new URL(\`../\${path}\`, import.meta.url));
+}
+
+function npmRunScriptName(command) {
+  const match = /^npm run ([^\\s]+)$/.exec(command ?? "");
+  return match?.[1] ?? null;
+}
+
+const manifest = readJson("../manifest.json");
+const handoff = readJson("../handoff-summary.json");
+const packageJson = readJson("../package.json");
+const contract = readJson("../integration-contract.json");
+const layerDoc = readJson("../layerdoc.json");
+const audit = readJson("../layerdoc-audit.json");
+const report = readJson("../verification-report.json");
+const actualLayerDocHash = sha256(stableJson(layerDoc));
+const failures = [];
+const manifestFiles = Array.isArray(manifest.files) ? manifest.files : [];
+const handoffCommands = Array.isArray(handoff.commands) ? handoff.commands : [];
+const packageScripts = packageJson.scripts ?? {};
+
+pushIf(manifest.source !== "layerdoc", failures, "manifest_source_invalid", "manifest.json source must be layerdoc.");
+pushIf(manifest.handoffSummary !== "handoff-summary.json", failures, "manifest_handoff_file_mismatch", "manifest.json handoffSummary must be handoff-summary.json.");
+pushIf(handoff.source !== "layerdoc", failures, "handoff_source_invalid", "handoff-summary.json source must be layerdoc.");
+pushIf(handoff.positioning !== "AI UI Production System", failures, "handoff_positioning_invalid", "handoff-summary.json positioning must identify the AI UI Production System.");
+pushIf(handoff.sourceOfTruth?.file !== "layerdoc.json", failures, "handoff_source_file_mismatch", "handoff sourceOfTruth.file must be layerdoc.json.");
+pushIf(handoff.sourceOfTruth?.schemaFile !== "layerdoc.schema.json", failures, "handoff_schema_file_mismatch", "handoff sourceOfTruth.schemaFile must be layerdoc.schema.json.");
+pushIf(handoff.sourceOfTruth?.hash !== actualLayerDocHash, failures, "handoff_source_hash_mismatch", "handoff sourceOfTruth.hash must match the current layerdoc.json hash.");
+pushIf(manifest.layerDocHash !== actualLayerDocHash, failures, "manifest_layerdoc_hash_mismatch", "manifest.json layerDocHash must match the current layerdoc.json hash.");
+
+pushIf(!manifestFiles.includes("scripts/verify-handoff.mjs"), failures, "handoff_verifier_not_listed", "manifest.json files must include scripts/verify-handoff.mjs.");
+for (const path of manifestFiles) {
+  pushIf(!fileExists(path), failures, "manifest_file_missing", \`manifest.json lists missing file \${path}.\`);
+}
+
+pushIf(packageScripts.verify !== "npm run verify:handoff && npm run verify:analysis-plan && npm run verify:image-manifest && npm run verify:layerdoc && npm run verify:contract && npm run verify:preview && npm run verify:gates", failures, "package_verify_chain_mismatch", "package.json verify script must run the full handoff verification chain.");
+for (const scriptName of ["verify:handoff", "verify:analysis-plan", "verify:image-manifest", "verify:layerdoc", "verify:contract", "verify:preview", "verify:gates"]) {
+  pushIf(typeof packageScripts[scriptName] !== "string", failures, "package_verify_script_missing", \`package.json scripts must include \${scriptName}.\`);
+}
+
+for (const command of handoffCommands) {
+  const scriptName = npmRunScriptName(command.command);
+  if (scriptName) {
+    pushIf(typeof packageScripts[scriptName] !== "string", failures, "handoff_command_script_missing", \`handoff command \${command.command} does not exist in package.json scripts.\`);
+  }
+}
+
+pushIf(handoff.entrypoint?.component !== manifest.componentName, failures, "handoff_entrypoint_component_mismatch", "handoff entrypoint component must match manifest componentName.");
+pushIf(handoff.entrypoint?.file !== contract.component?.file, failures, "handoff_entrypoint_file_mismatch", "handoff entrypoint file must match integration contract component file.");
+pushIf(handoff.entrypoint?.rootSelector !== contract.component?.rootSelector, failures, "handoff_entrypoint_selector_mismatch", "handoff entrypoint rootSelector must match integration contract.");
+pushIf(handoff.contract?.file !== manifest.integrationContract, failures, "handoff_contract_file_mismatch", "handoff contract.file must match manifest integrationContract.");
+pushIf(handoff.contract?.sections !== (contract.sections?.length ?? 0), failures, "handoff_contract_section_count_mismatch", "handoff section count must match integration contract.");
+pushIf(handoff.contract?.layers !== (contract.layers?.length ?? 0), failures, "handoff_contract_layer_count_mismatch", "handoff layer count must match integration contract.");
+pushIf(handoff.contract?.components !== (contract.components?.length ?? 0), failures, "handoff_contract_component_count_mismatch", "handoff component count must match integration contract.");
+pushIf(handoff.contract?.assets !== (contract.assets ?? []).filter((asset) => Array.isArray(asset.usedByLayerIds) && asset.usedByLayerIds.length > 0).length, failures, "handoff_contract_asset_count_mismatch", "handoff asset count must match integration contract used assets.");
+pushIf(handoff.contract?.interactions !== (contract.interactions?.length ?? 0), failures, "handoff_contract_interaction_count_mismatch", "handoff interaction count must match integration contract.");
+pushIf(handoff.contract?.responsiveRules !== (contract.responsiveRules?.length ?? 0), failures, "handoff_contract_responsive_count_mismatch", "handoff responsive rule count must match integration contract.");
+
+pushIf(handoff.quality?.referenceVisual?.file !== manifest.referenceVisual?.file, failures, "handoff_reference_visual_mismatch", "handoff reference visual must match manifest referenceVisual.");
+pushIf(handoff.quality?.gatesFile !== "quality-gates.json", failures, "handoff_gates_file_mismatch", "handoff quality gatesFile must be quality-gates.json.");
+pushIf(handoff.quality?.scores?.visual_similarity !== report.visualSimilarity, failures, "handoff_visual_score_mismatch", "handoff visual score must match verification-report.json.");
+pushIf(handoff.quality?.scores?.structure_score !== report.structureScore, failures, "handoff_structure_score_mismatch", "handoff structure score must match verification-report.json.");
+pushIf(handoff.quality?.scores?.component_score !== report.componentScore, failures, "handoff_component_score_mismatch", "handoff component score must match verification-report.json.");
+pushIf(handoff.quality?.scores?.project_fit_score !== report.projectFitScore, failures, "handoff_project_fit_score_mismatch", "handoff project fit score must match verification-report.json.");
+
+pushIf(handoff.audit?.file !== "layerdoc-audit.json", failures, "handoff_audit_file_mismatch", "handoff audit.file must be layerdoc-audit.json.");
+pushIf(handoff.audit?.assetCompliancePassed !== audit.assetCompliance?.passed, failures, "handoff_asset_compliance_mismatch", "handoff asset compliance result must match layerdoc-audit.json.");
+pushIf(handoff.audit?.structureValid !== audit.structure?.valid, failures, "handoff_structure_valid_mismatch", "handoff structure validity must match layerdoc-audit.json.");
+
+const result = {
+  passed: failures.length === 0,
+  failures,
+  filesChecked: manifestFiles.length,
+  commandsChecked: handoffCommands.length,
+  layerDocHash: actualLayerDocHash
 };
 
 process.stdout.write(\`\${JSON.stringify(result, null, 2)}\\n\`);
@@ -2144,6 +2252,7 @@ Run locally:
 - \`npm run dev\`
 - \`npm run build\`
 - \`npm run verify\`
+- \`npm run verify:handoff\`
 - \`npm run verify:analysis-plan\`
 - \`npm run verify:image-manifest\`
 - \`npm run verify:layerdoc\`
@@ -2161,9 +2270,10 @@ Generated assets:
 - \`manifest.json\`, \`layerdoc.schema.json\`: project package manifest and LayerDoc source contract
 ${manifest.analysisPlanFile ? `- \`${manifest.analysisPlanFile}\`: confirmed Homepage Analysis Plan used before LayerDoc build\n` : ""}${manifest.analysisPlanSchema ? `- \`${manifest.analysisPlanSchema}\`: Homepage Analysis Plan source contract\n` : ""}${manifest.analysisPlanAuditFile ? `- \`${manifest.analysisPlanAuditFile}\`: Analysis Plan coverage, track, and readiness audit\n` : ""}${manifest.imageManifestFile ? `- \`${manifest.imageManifestFile}\`: source image decomposition manifest connecting the visual intake to LayerDoc sections and layers\n` : ""}- \`${manifest.referenceVisual.file}\`: original target visual expected by preview verification; homepage pipeline exports copy this automatically
 - \`layerdoc-audit.json\`: structure, track, and asset-compliance audit
-- \`verification-report.json\`, \`quality-gates.json\`, \`scripts/verify-analysis-plan.mjs\`, \`scripts/verify-image-manifest.mjs\`, \`scripts/verify-layerdoc.mjs\`, \`scripts/verify-contract.mjs\`, \`scripts/verify-preview.mjs\`, \`scripts/verify-gates.mjs\`: executable source, structure, contract, visual, and quality gate handoff
+- \`verification-report.json\`, \`quality-gates.json\`, \`scripts/verify-handoff.mjs\`, \`scripts/verify-analysis-plan.mjs\`, \`scripts/verify-image-manifest.mjs\`, \`scripts/verify-layerdoc.mjs\`, \`scripts/verify-contract.mjs\`, \`scripts/verify-preview.mjs\`, \`scripts/verify-gates.mjs\`: executable source, structure, contract, visual, and quality gate handoff
 
 Verification:
+- Run \`npm run verify:handoff\` to confirm the project package manifest, file list, commands, scripts, entrypoint, contract summary, quality summary, audit summary, and LayerDoc hash still agree.
 - Run \`npm run verify:analysis-plan\` to confirm Analysis Plan schema and audit artifacts still match \`manifest.json\`, \`layerdoc.json\`, and \`handoff-summary.json\`.
 - Run \`npm run verify:image-manifest\` to confirm the source image decomposition still matches \`manifest.json\`, \`layerdoc.json\`, and \`handoff-summary.json\`.
 - Run \`npm run verify:layerdoc\` after editing \`layerdoc.json\` to catch broken graph references before integration.
@@ -2188,6 +2298,7 @@ function handoffCommands(): ProjectHandoffCommand[] {
     { label: "Run the project", command: "npm run dev" },
     { label: "Build the project", command: "npm run build" },
     { label: "Verify full handoff", command: "npm run verify" },
+    { label: "Verify project handoff", command: "npm run verify:handoff" },
     { label: "Verify Analysis Plan artifacts", command: "npm run verify:analysis-plan" },
     { label: "Verify Image Manifest artifacts", command: "npm run verify:image-manifest" },
     { label: "Verify LayerDoc source", command: "npm run verify:layerdoc" },
@@ -2298,6 +2409,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     "scripts/verify-analysis-plan.mjs",
     "scripts/verify-contract.mjs",
     "scripts/verify-gates.mjs",
+    "scripts/verify-handoff.mjs",
     "scripts/verify-image-manifest.mjs",
     "scripts/verify-layerdoc.mjs",
     "scripts/verify-preview.mjs",
@@ -2360,6 +2472,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
       { path: "scripts/verify-analysis-plan.mjs", contents: analysisPlanVerifierScriptFor() },
       { path: "scripts/verify-contract.mjs", contents: contractVerifierScriptFor() },
       { path: "scripts/verify-gates.mjs", contents: qualityGateScriptFor() },
+      { path: "scripts/verify-handoff.mjs", contents: handoffVerifierScriptFor() },
       { path: "scripts/verify-image-manifest.mjs", contents: imageManifestVerifierScriptFor() },
       { path: "scripts/verify-layerdoc.mjs", contents: layerDocVerifierScriptFor() },
       { path: "scripts/verify-preview.mjs", contents: previewVerifierScriptFor() },

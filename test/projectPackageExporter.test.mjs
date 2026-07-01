@@ -339,6 +339,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     "scripts/verify-analysis-plan.mjs",
     "scripts/verify-contract.mjs",
     "scripts/verify-gates.mjs",
+    "scripts/verify-handoff.mjs",
     "scripts/verify-image-manifest.mjs",
     "scripts/verify-layerdoc.mjs",
     "scripts/verify-preview.mjs",
@@ -355,8 +356,9 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"dev": "vite"/);
   assert.match(
     output.files.find((file) => file.path === "package.json").contents,
-    /"verify": "npm run verify:analysis-plan && npm run verify:image-manifest && npm run verify:layerdoc && npm run verify:contract && npm run verify:preview && npm run verify:gates"/
+    /"verify": "npm run verify:handoff && npm run verify:analysis-plan && npm run verify:image-manifest && npm run verify:layerdoc && npm run verify:contract && npm run verify:preview && npm run verify:gates"/
   );
+  assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:handoff": "node scripts\/verify-handoff\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:analysis-plan": "node scripts\/verify-analysis-plan\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:image-manifest": "node scripts\/verify-image-manifest\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:preview": "node scripts\/verify-preview\.mjs"/);
@@ -518,6 +520,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
       "npm run dev",
       "npm run build",
       "npm run verify",
+      "npm run verify:handoff",
       "npm run verify:analysis-plan",
       "npm run verify:image-manifest",
       "npm run verify:layerdoc",
@@ -527,6 +530,8 @@ test("createProjectExportPackage returns project-ready files derived from one La
     ]
   );
   assert.match(output.files.find((file) => file.path === "scripts/verify-gates.mjs").contents, /verification-report\.json/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-handoff.mjs").contents, /handoff-summary\.json/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-handoff.mjs").contents, /package\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-analysis-plan.mjs").contents, /analysis-plan-audit\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-analysis-plan.mjs").contents, /analysis-plan\.schema\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-image-manifest.mjs").contents, /image-manifest\.json/);
@@ -547,6 +552,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm install/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run dev/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:handoff/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:analysis-plan/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:image-manifest/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:gates/);
@@ -1166,6 +1172,30 @@ test("exported analysis plan verifier script validates handoff artifacts", () =>
   assert.notEqual(failed.status, 0);
   assert.match(failed.stdout, /analysis_plan_not_ready/);
   assert.match(failed.stdout, /manifest_analysis_plan_audit_mismatch/);
+});
+
+test("exported handoff verifier script validates project integration handoff", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-handoff-"));
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const passed = spawnSync(process.execPath, ["scripts/verify-handoff.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.equal(passed.status, 0, passed.stderr);
+  assert.match(passed.stdout, /"passed": true/);
+
+  const handoffPath = join(directory, "handoff-summary.json");
+  const packagePath = join(directory, "package.json");
+  const handoffSummary = JSON.parse(readFileSync(handoffPath, "utf8"));
+  const packageJson = JSON.parse(readFileSync(packagePath, "utf8"));
+  handoffSummary.sourceOfTruth.hash = "sha256:stale";
+  delete packageJson.scripts["verify:contract"];
+  writeFileSync(handoffPath, `${JSON.stringify(handoffSummary, null, 2)}\n`);
+  writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`);
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-handoff.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /handoff_source_hash_mismatch/);
+  assert.match(failed.stdout, /handoff_command_script_missing/);
 });
 
 test("exported image manifest verifier script validates source-to-LayerDoc handoff artifacts", () => {

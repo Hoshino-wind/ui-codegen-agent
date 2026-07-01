@@ -78,6 +78,7 @@ test("export project CLI writes a project package from a LayerDoc file", () => {
     "scripts/verify-analysis-plan.mjs",
     "scripts/verify-contract.mjs",
     "scripts/verify-gates.mjs",
+    "scripts/verify-handoff.mjs",
     "scripts/verify-image-manifest.mjs",
     "scripts/verify-layerdoc.mjs",
     "scripts/verify-preview.mjs",
@@ -94,6 +95,7 @@ test("export project CLI writes a project package from a LayerDoc file", () => {
   assert.equal(existsSync(join(outputDir, "package.json")), true);
   assert.equal(existsSync(join(outputDir, "vite.config.ts")), true);
   assert.equal(existsSync(join(outputDir, "scripts", "verify-contract.mjs")), true);
+  assert.equal(existsSync(join(outputDir, "scripts", "verify-handoff.mjs")), true);
   assert.equal(existsSync(join(outputDir, "scripts", "verify-analysis-plan.mjs")), true);
   assert.equal(existsSync(join(outputDir, "scripts", "verify-image-manifest.mjs")), true);
   assert.equal(existsSync(join(outputDir, "scripts", "verify-gates.mjs")), true);
@@ -109,6 +111,7 @@ test("export project CLI writes a project package from a LayerDoc file", () => {
   assert.match(readFileSync(join(outputDir, "src", "App.tsx"), "utf8"), /<ProductionHomepage \/>/);
   assert.match(readFileSync(join(outputDir, "package.json"), "utf8"), /"name": "production-homepage"/);
   assert.match(readFileSync(join(outputDir, "package.json"), "utf8"), /"verify:contract"/);
+  assert.match(readFileSync(join(outputDir, "package.json"), "utf8"), /"verify:handoff"/);
   assert.match(readFileSync(join(outputDir, "package.json"), "utf8"), /"verify:analysis-plan"/);
   assert.match(readFileSync(join(outputDir, "package.json"), "utf8"), /"verify:image-manifest"/);
   assert.match(readFileSync(join(outputDir, "package.json"), "utf8"), /"verify:preview"/);

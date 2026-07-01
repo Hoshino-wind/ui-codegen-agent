@@ -97,6 +97,7 @@ test("homepage pipeline CLI runs PNG intake, verification, and project export", 
   assert.equal(existsSync(join(outputDir, "project", "image-manifest.json")), true);
   assert.equal(existsSync(join(outputDir, "project", "analysis-plan.schema.json")), true);
   assert.equal(existsSync(join(outputDir, "project", "analysis-plan-audit.json")), true);
+  assert.equal(existsSync(join(outputDir, "project", "scripts", "verify-handoff.mjs")), true);
   assert.equal(existsSync(join(outputDir, "project", "scripts", "verify-image-manifest.mjs")), true);
   assert.equal(existsSync(join(outputDir, "project", "assets", "hero-crop.png")), true);
   assert.equal(existsSync(join(outputDir, "project", "public", "assets", "hero-crop.png")), true);
@@ -133,6 +134,12 @@ test("homepage pipeline CLI runs PNG intake, verification, and project export", 
   });
   assert.equal(analysisPlanVerification.status, 0, analysisPlanVerification.stderr);
   assert.match(analysisPlanVerification.stdout, /"passed": true/);
+  const handoffVerification = spawnSync(process.execPath, ["scripts/verify-handoff.mjs"], {
+    cwd: join(outputDir, "project"),
+    encoding: "utf8"
+  });
+  assert.equal(handoffVerification.status, 0, handoffVerification.stderr);
+  assert.match(handoffVerification.stdout, /"passed": true/);
   const imageManifestVerification = spawnSync(process.execPath, ["scripts/verify-image-manifest.mjs"], {
     cwd: join(outputDir, "project"),
     encoding: "utf8"
