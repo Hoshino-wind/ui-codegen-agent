@@ -84,6 +84,9 @@ The repository currently implements the core LayerDoc domain layer:
   replacing one stable section id with new layers, assets, components,
   interactions, and responsive rules, then refreshing preview, React export,
   verifier state, and project package output from the updated graph.
+- Export `section-candidate.schema.json` with project packages so AI workers
+  and Studio imports share a verifiable contract for reviewed regeneration
+  results.
 - Export a `handoff-summary.json` with the source LayerDoc hash, entry
   component, contract counts, regeneration request count, verifier scores,
   audit status, and verification commands so CI or downstream importers can

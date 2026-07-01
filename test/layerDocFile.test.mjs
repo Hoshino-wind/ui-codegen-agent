@@ -204,6 +204,7 @@ test("createProjectPackageDownload serializes every project package file in one 
       "package.json",
       "preview.html",
       "quality-gates.json",
+      "section-candidate.schema.json",
       "scripts/verify-analysis-plan.mjs",
       "scripts/verify-contract.mjs",
       "scripts/verify-gates.mjs",

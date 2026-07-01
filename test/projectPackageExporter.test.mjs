@@ -353,6 +353,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.manifest.layerDocHash, /^sha256:[a-f0-9]{64}$/);
   assert.equal(output.manifest.integrationContract, "integration-contract.json");
   assert.equal(output.manifest.handoffSummary, "handoff-summary.json");
+  assert.equal(output.manifest.sectionCandidateSchema, "section-candidate.schema.json");
   assert.deepEqual(output.manifest.referenceVisual, {
     file: "reference.png",
     role: "visual_verification_reference",
@@ -382,6 +383,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     "package.json",
     "preview.html",
     "quality-gates.json",
+    "section-candidate.schema.json",
     "scripts/verify-analysis-plan.mjs",
     "scripts/verify-contract.mjs",
     "scripts/verify-gates.mjs",
@@ -525,6 +527,10 @@ test("createProjectExportPackage returns project-ready files derived from one La
   ]);
   assert.match(output.files.find((file) => file.path === "layerdoc-audit.json").contents, /"assetCompliance"/);
   assert.match(output.files.find((file) => file.path === "analysis-plan.schema.json").contents, /"HomepageAnalysisPlan 0.1.0"/);
+  const sectionCandidateSchema = JSON.parse(output.files.find((file) => file.path === "section-candidate.schema.json").contents);
+  assert.equal(sectionCandidateSchema.title, "SectionRegenerationCandidate 0.1.0");
+  assert.deepEqual(sectionCandidateSchema.required, ["section", "layers"]);
+  assert.equal(sectionCandidateSchema.properties.layers.items.properties.track.enum.includes("asset"), true);
   assert.deepEqual(JSON.parse(output.files.find((file) => file.path === "analysis-plan-audit.json").contents), output.manifest.analysisPlanAudit);
   assert.match(output.files.find((file) => file.path === "verification-report.json").contents, /"structureScore": 100/);
   assert.match(output.files.find((file) => file.path === "verification-report.json").contents, /"evidence"/);
@@ -562,6 +568,10 @@ test("createProjectExportPackage returns project-ready files derived from one La
     interactions: 0,
     responsiveRules: 1,
     generationRequests: 0
+  });
+  assert.deepEqual(handoffSummary.sectionRegeneration, {
+    candidateSchemaFile: "section-candidate.schema.json",
+    requestCount: 0
   });
   assert.deepEqual(handoffSummary.quality.scores, {
     visual_similarity: output.manifest.scores.visualSimilarity,
@@ -636,6 +646,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "README.md").contents, /handoff-summary\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /integration-contract\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /layerdoc\.schema\.json/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /section-candidate\.schema\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /visual_evidence:/);
 });
 

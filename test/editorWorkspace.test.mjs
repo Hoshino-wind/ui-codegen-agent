@@ -26,11 +26,12 @@ test("createEditorWorkspace derives preview, export, and verifier output from on
   assert.match(workspace.previewHtml, /data-layer-id="hero-title"/);
   assert.match(workspace.reactExport.code, /export function ProductionHomepage/);
   assert.equal(workspace.projectExport.manifest.componentName, "ProductionHomepage");
-  assert.equal(workspace.projectExport.files.length, 25);
+  assert.equal(workspace.projectExport.files.length, 26);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "handoff-summary.json"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "layerdoc.json"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "integration-contract.json"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "layerdoc.schema.json"), true);
+  assert.equal(workspace.projectExport.files.some((file) => file.path === "section-candidate.schema.json"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "layerdoc-audit.json"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "package.json"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "src/main.tsx"), true);

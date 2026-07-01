@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { parseSectionRegenerationCandidateJson } from "../dist/app/sectionCandidateFile.js";
+import { createSectionRegenerationCandidateJsonSchema } from "../dist/index.js";
 
 test("parseSectionRegenerationCandidateJson imports a reviewed section candidate", () => {
   const candidate = parseSectionRegenerationCandidateJson(JSON.stringify({
@@ -44,4 +45,18 @@ test("parseSectionRegenerationCandidateJson rejects malformed candidate JSON", (
     () => parseSectionRegenerationCandidateJson("not json"),
     /Section candidate JSON is not valid/
   );
+});
+
+test("createSectionRegenerationCandidateJsonSchema publishes the regeneration worker output contract", () => {
+  const schema = createSectionRegenerationCandidateJsonSchema();
+
+  assert.equal(schema.title, "SectionRegenerationCandidate 0.1.0");
+  assert.deepEqual(schema.required, ["section", "layers"]);
+  assert.equal(schema.properties.section.properties.id.minLength, 1);
+  assert.deepEqual(schema.properties.section.properties.layerIds.items, { type: "string", minLength: 1 });
+  assert.deepEqual(schema.properties.layers.items.required, ["id", "kind", "track", "editable", "bounds"]);
+  assert.equal(schema.properties.layers.items.properties.kind.enum.includes("button"), true);
+  assert.equal(schema.properties.layers.items.properties.track.enum.includes("component"), true);
+  assert.equal(schema.properties.assets.items.properties.source.enum.includes("generated"), true);
+  assert.equal(schema.properties.responsiveRules.items.properties.target.properties.type.enum.includes("section"), true);
 });

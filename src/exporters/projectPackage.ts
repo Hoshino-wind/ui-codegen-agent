@@ -1,4 +1,5 @@
 import type { LayerDoc } from "../layerdoc/types.js";
+import { createSectionRegenerationCandidateJsonSchema } from "../editor/sectionCandidateSchema.js";
 import { createHomepageAnalysisPlanJsonSchema, type HomepageAnalysisPlan } from "../importers/homepageAnalysisPlan.js";
 import type { ImageAnalysisManifest } from "../importers/imageManifest.js";
 import { createLayerDocAudit, type LayerDocAudit } from "../layerdoc/audit.js";
@@ -36,6 +37,7 @@ export interface ProjectExportManifest {
   layerDocHash: string;
   integrationContract: string;
   handoffSummary: string;
+  sectionCandidateSchema: string;
   referenceVisual: ProjectReferenceVisual;
   analysisPlan?: NonNullable<LayerDoc["metadata"]["analysisPlan"]>;
   analysisPlanFile?: string;
@@ -92,6 +94,10 @@ export interface ProjectHandoffSummary {
     interactions: number;
     responsiveRules: number;
     generationRequests: number;
+  };
+  sectionRegeneration: {
+    candidateSchemaFile: string;
+    requestCount: number;
   };
   quality: {
     scores: {
@@ -197,6 +203,7 @@ export interface ProjectExportPackage {
 
 const PROJECT_VERIFY_CHAIN =
   "npm run verify:preview && npm run verify:handoff && npm run verify:analysis-plan && npm run verify:image-manifest && npm run verify:layerdoc && npm run verify:contract && npm run verify:gates";
+const SECTION_CANDIDATE_SCHEMA_FILE = "section-candidate.schema.json";
 
 function toKebabCase(value: string): string {
   return value
@@ -629,12 +636,14 @@ const packageScripts = packageJson.scripts ?? {};
 
 pushIf(manifest.source !== "layerdoc", failures, "manifest_source_invalid", "manifest.json source must be layerdoc.");
 pushIf(manifest.handoffSummary !== "handoff-summary.json", failures, "manifest_handoff_file_mismatch", "manifest.json handoffSummary must be handoff-summary.json.");
+pushIf(manifest.sectionCandidateSchema !== "${SECTION_CANDIDATE_SCHEMA_FILE}", failures, "manifest_section_candidate_schema_mismatch", "manifest.json sectionCandidateSchema must be ${SECTION_CANDIDATE_SCHEMA_FILE}.");
 pushIf(handoff.source !== "layerdoc", failures, "handoff_source_invalid", "handoff-summary.json source must be layerdoc.");
 pushIf(handoff.positioning !== "AI UI Production System", failures, "handoff_positioning_invalid", "handoff-summary.json positioning must identify the AI UI Production System.");
 pushIf(handoff.sourceOfTruth?.file !== "layerdoc.json", failures, "handoff_source_file_mismatch", "handoff sourceOfTruth.file must be layerdoc.json.");
 pushIf(handoff.sourceOfTruth?.schemaFile !== "layerdoc.schema.json", failures, "handoff_schema_file_mismatch", "handoff sourceOfTruth.schemaFile must be layerdoc.schema.json.");
 pushIf(handoff.sourceOfTruth?.hash !== actualLayerDocHash, failures, "handoff_source_hash_mismatch", "handoff sourceOfTruth.hash must match the current layerdoc.json hash.");
 pushIf(manifest.layerDocHash !== actualLayerDocHash, failures, "manifest_layerdoc_hash_mismatch", "manifest.json layerDocHash must match the current layerdoc.json hash.");
+pushIf(!fileExists(manifest.sectionCandidateSchema), failures, "section_candidate_schema_missing", "manifest.json sectionCandidateSchema must point at an existing file.");
 
 pushIf(!manifestFiles.includes("scripts/verify-handoff.mjs"), failures, "handoff_verifier_not_listed", "manifest.json files must include scripts/verify-handoff.mjs.");
 for (const path of manifestFiles) {
@@ -664,6 +673,8 @@ pushIf(handoff.contract?.assets !== (contract.assets ?? []).filter((asset) => Ar
 pushIf(handoff.contract?.interactions !== (contract.interactions?.length ?? 0), failures, "handoff_contract_interaction_count_mismatch", "handoff interaction count must match integration contract.");
 pushIf(handoff.contract?.responsiveRules !== (contract.responsiveRules?.length ?? 0), failures, "handoff_contract_responsive_count_mismatch", "handoff responsive rule count must match integration contract.");
 pushIf(handoff.contract?.generationRequests !== (contract.generationRequests?.length ?? 0), failures, "handoff_contract_generation_request_count_mismatch", "handoff generation request count must match integration contract.");
+pushIf(handoff.sectionRegeneration?.candidateSchemaFile !== manifest.sectionCandidateSchema, failures, "handoff_section_candidate_schema_mismatch", "handoff sectionRegeneration.candidateSchemaFile must match manifest sectionCandidateSchema.");
+pushIf(handoff.sectionRegeneration?.requestCount !== (contract.generationRequests?.length ?? 0), failures, "handoff_section_regeneration_count_mismatch", "handoff sectionRegeneration.requestCount must match integration contract.");
 
 pushIf(handoff.quality?.referenceVisual?.file !== manifest.referenceVisual?.file, failures, "handoff_reference_visual_mismatch", "handoff reference visual must match manifest referenceVisual.");
 pushIf(handoff.quality?.gatesFile !== "quality-gates.json", failures, "handoff_gates_file_mismatch", "handoff quality gatesFile must be quality-gates.json.");
@@ -2587,6 +2598,7 @@ Generated assets:
 - \`handoff-summary.json\`: machine-readable integration summary for CI, importers, and downstream project handoff
 - \`integration-contract.json\`: stable mapping from visible LayerDoc objects to project files and DOM selectors
 - \`manifest.json\`, \`layerdoc.schema.json\`: project package manifest and LayerDoc source contract
+- \`${manifest.sectionCandidateSchema}\`: reviewed section regeneration candidate contract for AI workers and Studio imports
 ${manifest.analysisPlanFile ? `- \`${manifest.analysisPlanFile}\`: confirmed Homepage Analysis Plan used before LayerDoc build\n` : ""}${manifest.analysisPlanSchema ? `- \`${manifest.analysisPlanSchema}\`: Homepage Analysis Plan source contract\n` : ""}${manifest.analysisPlanAuditFile ? `- \`${manifest.analysisPlanAuditFile}\`: Analysis Plan coverage, track, and readiness audit\n` : ""}${manifest.imageManifestFile ? `- \`${manifest.imageManifestFile}\`: source image decomposition manifest connecting the visual intake to LayerDoc sections and layers\n` : ""}- \`${manifest.referenceVisual.file}\`: original target visual expected by preview verification; included when the exporter receives \`referencePng\`; homepage pipeline supplies it automatically
 - \`layerdoc-audit.json\`: structure, track, and asset-compliance audit
 - \`verification-report.json\`, \`quality-gates.json\`, \`scripts/verify-handoff.mjs\`, \`scripts/verify-analysis-plan.mjs\`, \`scripts/verify-image-manifest.mjs\`, \`scripts/verify-layerdoc.mjs\`, \`scripts/verify-contract.mjs\`, \`scripts/verify-preview.mjs\`, \`scripts/verify-gates.mjs\`: executable source, structure, contract, visual, and quality gate handoff
@@ -2672,6 +2684,10 @@ function createHandoffSummary(
       responsiveRules: contract.responsiveRules.length,
       generationRequests: contract.generationRequests.length
     },
+    sectionRegeneration: {
+      candidateSchemaFile: manifest.sectionCandidateSchema,
+      requestCount: contract.generationRequests.length
+    },
     quality: {
       scores: {
         visual_similarity: manifest.scores.visualSimilarity,
@@ -2727,6 +2743,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     "package.json",
     "preview.html",
     "quality-gates.json",
+    SECTION_CANDIDATE_SCHEMA_FILE,
     ...(options.referencePng ? [referenceVisual.file] : []),
     "scripts/verify-analysis-plan.mjs",
     "scripts/verify-contract.mjs",
@@ -2750,6 +2767,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     layerDocHash: sourceHash,
     integrationContract: "integration-contract.json",
     handoffSummary: "handoff-summary.json",
+    sectionCandidateSchema: SECTION_CANDIDATE_SCHEMA_FILE,
     referenceVisual,
     ...(sourceDoc.metadata.analysisPlan ? { analysisPlan: { ...sourceDoc.metadata.analysisPlan } } : {}),
     ...(analysisPlanPath ? { analysisPlanFile: analysisPlanPath } : {}),
@@ -2791,6 +2809,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
       { path: "package.json", contents: packageJsonFor(manifest) },
       { path: "preview.html", contents: renderHtmlPreview(sourceDoc) },
       { path: "quality-gates.json", contents: stableJson(defaultVerificationGates) },
+      { path: SECTION_CANDIDATE_SCHEMA_FILE, contents: stableJson(createSectionRegenerationCandidateJsonSchema()) },
       ...(options.referencePng ? [{ path: referenceVisual.file, contents: options.referencePng }] : []),
       { path: "scripts/verify-analysis-plan.mjs", contents: analysisPlanVerifierScriptFor() },
       { path: "scripts/verify-contract.mjs", contents: contractVerifierScriptFor() },

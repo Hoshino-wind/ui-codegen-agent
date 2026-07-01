@@ -82,6 +82,7 @@ test("export project CLI writes a project package from a LayerDoc file", () => {
     "scripts/verify-image-manifest.mjs",
     "scripts/verify-layerdoc.mjs",
     "scripts/verify-preview.mjs",
+    "section-candidate.schema.json",
     "src/App.tsx",
     "src/index.css",
     "src/main.tsx",

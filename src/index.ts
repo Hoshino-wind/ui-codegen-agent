@@ -10,6 +10,7 @@ export {
   updateLayerStyle,
   updateTextLayer
 } from "./editor/operations.js";
+export { createSectionRegenerationCandidateJsonSchema } from "./editor/sectionCandidateSchema.js";
 export { renderHtmlPreview } from "./exporters/htmlPreview.js";
 export {
   createProjectExportPackage
