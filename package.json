@@ -12,6 +12,7 @@
     "intake:png": "node dist/cli/intakePng.js",
     "pipeline:homepage": "node dist/cli/homepagePipeline.js",
     "export:project": "node dist/cli/exportProject.js",
+    "verify:analysis-plan": "node dist/cli/verifyAnalysisPlan.js",
     "verify:layerdoc": "node dist/cli/verifyLayerDoc.js",
     "test": "npm run build:lib && node --test test/*.test.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.app.json"

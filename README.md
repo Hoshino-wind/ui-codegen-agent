@@ -189,6 +189,20 @@ The analysis plan can come from a vision model, a crop workbench, or manual
 review. The PNG intake module deliberately does not invent semantics by itself;
 it only turns confirmed section/layer structure into project assets.
 
+Before LayerDoc build, the standalone verifier can audit that structure without
+running the full homepage pipeline:
+
+```bash
+npm run verify:analysis-plan -- \
+  --input analysis-plan.json \
+  --source references/homepage.png \
+  --out artifacts/analysis-plan-check
+```
+
+It writes `analysis-plan-audit.json` with section coverage, layer counts, track
+counts, and blockers. The command exits `2` when the JSON is parseable but not
+ready for LayerDoc, and exits `1` for command, schema, or source-canvas errors.
+
 For end-to-end handoff, the homepage pipeline CLI can consume a confirmed plan
 instead of the deterministic seed scaffold:
 
