@@ -90,6 +90,33 @@ test("materialize project package CLI writes a runnable project from Studio JSON
   assert.deepEqual([...readFileSync(join(outputDir, "reference.png"))], [...referencePng]);
 });
 
+test("materialize project package CLI can verify the written handoff", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-cli-materialize-verify-"));
+  const inputPath = join(directory, "project-package.json");
+  const outputDir = join(directory, "materialized-project");
+  const projectPackage = createProjectExportPackage(createCliDoc(), {
+    componentName: "ProductionHomepage",
+    packageName: "studio-json-handoff"
+  });
+  writeFileSync(inputPath, `${JSON.stringify(projectPackageJson(projectPackage), null, 2)}\n`);
+
+  const result = spawnSync(process.execPath, [
+    cliPath,
+    "--input",
+    inputPath,
+    "--out",
+    outputDir,
+    "--verify-handoff"
+  ], { cwd: rootDir, encoding: "utf8" });
+
+  assert.equal(result.status, 0, result.stderr);
+  const summary = JSON.parse(result.stdout);
+
+  assert.equal(summary.verification.command, "node scripts/verify-handoff.mjs");
+  assert.equal(summary.verification.status, 0);
+  assert.equal(summary.verification.result.passed, true);
+});
+
 test("materialize project package CLI rejects missing required arguments with usage guidance", () => {
   const result = spawnSync(process.execPath, [cliPath], { cwd: rootDir, encoding: "utf8" });
 

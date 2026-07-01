@@ -244,7 +244,8 @@ directory.
 ```bash
 npm run materialize:project -- \
   --input artifacts/project-package.json \
-  --out artifacts/materialized-project
+  --out artifacts/materialized-project \
+  --verify-handoff
 ```
 
 ## Verification Dimensions
