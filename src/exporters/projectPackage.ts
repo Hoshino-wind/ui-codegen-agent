@@ -53,6 +53,13 @@ export interface ProjectHandoffCommand {
   command: string;
 }
 
+export interface ProjectVisualProblemSummary {
+  total: number;
+  affectedLayerIds: string[];
+  unmapped: number;
+  areas: VerificationReport["visualProblemAreas"];
+}
+
 export interface ProjectHandoffSummary {
   version: "0.1.0";
   positioning: "AI UI Production System";
@@ -94,6 +101,7 @@ export interface ProjectHandoffSummary {
       project_fit_score: number;
     };
     visualEvidence: VerificationReport["evidence"]["visual"];
+    visualProblems: ProjectVisualProblemSummary;
     referenceVisual: ProjectReferenceVisual;
     gatesFile: string;
   };
@@ -200,6 +208,16 @@ function toKebabCase(value: string): string {
 
 function stableJson(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+function visualProblemSummaryFor(report: VerificationReport): ProjectVisualProblemSummary {
+  const areas = report.visualProblemAreas ?? [];
+  return {
+    total: areas.length,
+    affectedLayerIds: Array.from(new Set(areas.map((area) => area.affectedLayerId).filter((layerId): layerId is string => Boolean(layerId)))),
+    unmapped: areas.filter((area) => !area.affectedLayerId).length,
+    areas: areas.map((area) => ({ ...area, bounds: { ...area.bounds } }))
+  };
 }
 
 const sha256RoundConstants = [
@@ -586,6 +604,16 @@ function npmRunScriptName(command) {
   return match?.[1] ?? null;
 }
 
+function visualProblemSummaryFor(report) {
+  const areas = report.visualProblemAreas ?? [];
+  return {
+    total: areas.length,
+    affectedLayerIds: Array.from(new Set(areas.map((area) => area.affectedLayerId).filter(Boolean))),
+    unmapped: areas.filter((area) => !area.affectedLayerId).length,
+    areas
+  };
+}
+
 const manifest = readJson("../manifest.json");
 const handoff = readJson("../handoff-summary.json");
 const packageJson = readJson("../package.json");
@@ -649,6 +677,7 @@ pushIf(handoff.quality?.scores?.structure_score !== report.structureScore, failu
 pushIf(handoff.quality?.scores?.component_score !== report.componentScore, failures, "handoff_component_score_mismatch", "handoff component score must match verification-report.json.");
 pushIf(handoff.quality?.scores?.project_fit_score !== report.projectFitScore, failures, "handoff_project_fit_score_mismatch", "handoff project fit score must match verification-report.json.");
 pushIf(stableJson(handoff.quality?.visualEvidence) !== stableJson(report.evidence?.visual), failures, "handoff_visual_evidence_mismatch", "handoff visual evidence must match verification-report.json.");
+pushIf(stableJson(handoff.quality?.visualProblems) !== stableJson(visualProblemSummaryFor(report)), failures, "handoff_visual_problems_mismatch", "handoff visual problem summary must match verification-report.json.");
 
 pushIf(handoff.audit?.file !== "layerdoc-audit.json", failures, "handoff_audit_file_mismatch", "handoff audit.file must be layerdoc-audit.json.");
 pushIf(handoff.audit?.assetCompliancePassed !== audit.assetCompliance?.passed, failures, "handoff_asset_compliance_mismatch", "handoff asset compliance result must match layerdoc-audit.json.");
@@ -2267,6 +2296,16 @@ function visualProblemAreasFor(layerDoc, visualDiff) {
   });
 }
 
+function visualProblemSummaryFor(report) {
+  const areas = report.visualProblemAreas ?? [];
+  return {
+    total: areas.length,
+    affectedLayerIds: Array.from(new Set(areas.map((area) => area.affectedLayerId).filter(Boolean))),
+    unmapped: areas.filter((area) => !area.affectedLayerId).length,
+    areas
+  };
+}
+
 function comparePngs(referencePath, candidatePath, diffPath, threshold, includeAA) {
   const reference = PNG.sync.read(readFileSync(referencePath));
   const candidate = PNG.sync.read(readFileSync(candidatePath));
@@ -2396,7 +2435,8 @@ handoff.quality = {
     component_score: report.componentScore,
     project_fit_score: report.projectFitScore
   },
-  visualEvidence: report.evidence.visual
+  visualEvidence: report.evidence.visual,
+  visualProblems: visualProblemSummaryFor(report)
 };
 writeJson("../handoff-summary.json", handoff);
 
@@ -2639,6 +2679,7 @@ function createHandoffSummary(
         project_fit_score: manifest.scores.projectFitScore
       },
       visualEvidence: manifest.scores.evidence.visual,
+      visualProblems: visualProblemSummaryFor(manifest.scores),
       referenceVisual: manifest.referenceVisual,
       gatesFile: "quality-gates.json"
     },

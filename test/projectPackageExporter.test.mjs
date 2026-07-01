@@ -551,6 +551,12 @@ test("createProjectExportPackage returns project-ready files derived from one La
     project_fit_score: output.manifest.scores.projectFitScore
   });
   assert.equal(handoffSummary.quality.visualEvidence.kind, "none");
+  assert.deepEqual(handoffSummary.quality.visualProblems, {
+    total: 0,
+    affectedLayerIds: [],
+    unmapped: 0,
+    areas: []
+  });
   assert.deepEqual(handoffSummary.quality.referenceVisual, output.manifest.referenceVisual);
   assert.equal(handoffSummary.audit.file, "layerdoc-audit.json");
   assert.equal(handoffSummary.audit.assetCompliancePassed, true);
@@ -1303,6 +1309,12 @@ test("exported preview verifier script updates the handoff report from candidate
   assert.equal(manifest.scores.evidence.visual.kind, "html-screenshot");
   assert.equal(handoffSummary.quality.scores.visual_similarity, 99.75);
   assert.equal(handoffSummary.quality.visualEvidence.kind, "html-screenshot");
+  assert.deepEqual(handoffSummary.quality.visualProblems, {
+    total: 1,
+    affectedLayerIds: ["headline"],
+    unmapped: 0,
+    areas: report.visualProblemAreas
+  });
   assert.equal(layerDoc.verification.scores.visualSimilarity, 99.75);
   assert.deepEqual(contract.component.verificationAttributes, expectedAttributes);
   assert.deepEqual(contract.preview.verificationAttributes, expectedAttributes);
@@ -1408,6 +1420,7 @@ test("exported handoff verifier script validates project integration handoff", (
   const handoffSummary = JSON.parse(readFileSync(handoffPath, "utf8"));
   const packageJson = JSON.parse(readFileSync(packagePath, "utf8"));
   handoffSummary.sourceOfTruth.hash = "sha256:stale";
+  handoffSummary.quality.visualProblems.total = 99;
   delete packageJson.scripts["verify:contract"];
   writeFileSync(handoffPath, `${JSON.stringify(handoffSummary, null, 2)}\n`);
   writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`);
@@ -1415,6 +1428,7 @@ test("exported handoff verifier script validates project integration handoff", (
   const failed = spawnSync(process.execPath, ["scripts/verify-handoff.mjs"], { cwd: directory, encoding: "utf8" });
   assert.notEqual(failed.status, 0);
   assert.match(failed.stdout, /handoff_source_hash_mismatch/);
+  assert.match(failed.stdout, /handoff_visual_problems_mismatch/);
   assert.match(failed.stdout, /handoff_command_script_missing/);
 });
 
