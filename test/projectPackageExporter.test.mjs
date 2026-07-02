@@ -514,6 +514,17 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.deepEqual(productionManifestSchema.properties.sourceOfTruth.required, ["type", "file", "schemaFile", "hash", "editable"]);
   assert.deepEqual(productionManifestSchema.properties.generated.required, ["react", "preview", "contract", "assets"]);
   assert.equal(productionManifestSchema.properties.quality.properties.scores.required.includes("visual_similarity"), true);
+  assert.equal(productionManifestSchema.properties.quality.required.includes("structureBreakdown"), true);
+  assert.deepEqual(productionManifestSchema.properties.quality.properties.structureBreakdown.required, [
+    "valid",
+    "totalIssueCount",
+    "structuralIssueCount",
+    "trackMismatchCount",
+    "penaltyPerStructuralIssue",
+    "issueCodes",
+    "blockingIssuePaths",
+    "ignoredIssueCodes"
+  ]);
   assert.equal(productionManifestSchema.properties.quality.required.includes("componentBreakdown"), true);
   assert.deepEqual(productionManifestSchema.properties.quality.properties.componentBreakdown.required, [
     "componentLayerCount",
@@ -585,6 +596,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     component_score: output.manifest.scores.componentScore,
     project_fit_score: output.manifest.scores.projectFitScore
   });
+  assert.deepEqual(productionManifest.quality.structureBreakdown, output.manifest.scores.structureBreakdown);
   assert.deepEqual(productionManifest.quality.componentBreakdown, output.manifest.scores.componentBreakdown);
   assert.deepEqual(productionManifest.quality.projectFitBreakdown, output.manifest.scores.projectFitBreakdown);
   assert.deepEqual(productionManifest.runbooks.backtest, {
@@ -821,6 +833,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     component_score: output.manifest.scores.componentScore,
     project_fit_score: output.manifest.scores.projectFitScore
   });
+  assert.deepEqual(handoffSummary.quality.structureBreakdown, output.manifest.scores.structureBreakdown);
   assert.deepEqual(handoffSummary.quality.componentBreakdown, output.manifest.scores.componentBreakdown);
   assert.deepEqual(handoffSummary.quality.projectFitBreakdown, output.manifest.scores.projectFitBreakdown);
   assert.equal(handoffSummary.quality.visualEvidence.kind, "none");

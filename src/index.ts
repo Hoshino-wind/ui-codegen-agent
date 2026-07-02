@@ -112,6 +112,7 @@ export type {
   VerificationInput,
   VerificationProjectFitBreakdown,
   VerificationReport,
+  VerificationStructureBreakdown,
   VerificationVisualEvidence,
   VerificationVisualEvidenceKind,
   VerificationVisualProblemArea

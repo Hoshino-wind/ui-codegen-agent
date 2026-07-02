@@ -185,6 +185,17 @@ test("app shell exposes project fit breakdown in the verifier surface", () => {
   assert.match(cssSource, /\.project-fit-breakdown/);
 });
 
+test("app shell exposes structure score breakdown in the verifier surface", () => {
+  const appSource = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+  const cssSource = readFileSync(join(rootDir, "src", "app", "styles.css"), "utf8");
+
+  assert.match(appSource, /structureBreakdown/);
+  assert.match(appSource, /Structure coverage/);
+  assert.match(appSource, /blocking/);
+  assert.match(appSource, /track notes/);
+  assert.match(cssSource, /\.structure-breakdown/);
+});
+
 test("app shell exposes component coverage breakdown in the verifier surface", () => {
   const appSource = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
   const cssSource = readFileSync(join(rootDir, "src", "app", "styles.css"), "utf8");

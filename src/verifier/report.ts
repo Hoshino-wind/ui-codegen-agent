@@ -39,12 +39,24 @@ export interface VerificationProjectFitBreakdown {
   contributions: ProjectFitScore["contributions"];
 }
 
+export interface VerificationStructureBreakdown {
+  valid: boolean;
+  totalIssueCount: number;
+  structuralIssueCount: number;
+  trackMismatchCount: number;
+  penaltyPerStructuralIssue: number;
+  issueCodes: Record<string, number>;
+  blockingIssuePaths: string[];
+  ignoredIssueCodes: string[];
+}
+
 export interface VerificationReport {
   visualSimilarity: number | null;
   visualDiff: PngSnapshotComparisonResult | null;
   visualProblemAreas: VerificationVisualProblemArea[];
   evidence: VerificationEvidence;
   structureScore: number;
+  structureBreakdown: VerificationStructureBreakdown;
   componentScore: number;
   componentBreakdown: VerificationComponentBreakdown;
   projectFitScore: number;
@@ -80,11 +92,6 @@ function percentage(part: number, whole: number): number {
     return 100;
   }
   return Math.round((part / whole) * 100);
-}
-
-function structureScore(doc: LayerDoc, issues: VerificationIssue[]): number {
-  const structuralIssues = issues.filter((issue) => issue.code !== "track_mismatch");
-  return structuralIssues.length === 0 ? 100 : Math.max(0, 100 - structuralIssues.length * 20);
 }
 
 function visualEvidenceFor(input: VerificationInput): VerificationVisualEvidence {
@@ -185,6 +192,32 @@ function componentBreakdownFor(doc: LayerDoc): VerificationComponentBreakdown {
   };
 }
 
+function structureBreakdownFor(issues: VerificationIssue[]): VerificationStructureBreakdown {
+  const ignoredIssueCodes = ["track_mismatch"];
+  const structuralIssues = issues.filter((issue) => !ignoredIssueCodes.includes(issue.code));
+  const issueCodes = issues.reduce<Record<string, number>>((counts, issue) => {
+    counts[issue.code] = (counts[issue.code] ?? 0) + 1;
+    return counts;
+  }, {});
+
+  return {
+    valid: structuralIssues.length === 0,
+    totalIssueCount: issues.length,
+    structuralIssueCount: structuralIssues.length,
+    trackMismatchCount: issueCodes.track_mismatch ?? 0,
+    penaltyPerStructuralIssue: 20,
+    issueCodes,
+    blockingIssuePaths: structuralIssues.map((issue) => issue.path),
+    ignoredIssueCodes
+  };
+}
+
+function structureScoreFromBreakdown(breakdown: VerificationStructureBreakdown): number {
+  return breakdown.structuralIssueCount === 0
+    ? 100
+    : Math.max(0, 100 - breakdown.structuralIssueCount * breakdown.penaltyPerStructuralIssue);
+}
+
 function projectFitBreakdownFor(projectFit: ProjectFitScore): VerificationProjectFitBreakdown {
   return {
     baseScore: projectFit.baseScore,
@@ -205,6 +238,7 @@ function projectFitBreakdownFor(projectFit: ProjectFitScore): VerificationProjec
 export function createVerificationReport(doc: LayerDoc, input: VerificationInput = {}): VerificationReport {
   const validation = validateLayerDoc(doc);
   const projectFit = scoreProjectFit(doc);
+  const structureBreakdown = structureBreakdownFor(validation.issues);
   const componentBreakdown = componentBreakdownFor(doc);
   const visualSimilarity = input.visualSimilarity ?? input.visualDiff?.visualSimilarity ?? null;
 
@@ -215,7 +249,8 @@ export function createVerificationReport(doc: LayerDoc, input: VerificationInput
     evidence: {
       visual: visualEvidenceFor(input)
     },
-    structureScore: structureScore(doc, validation.issues),
+    structureScore: structureScoreFromBreakdown(structureBreakdown),
+    structureBreakdown,
     componentScore: percentage(componentBreakdown.coveredComponentLayerCount, componentBreakdown.componentLayerCount),
     componentBreakdown,
     projectFitScore: projectFit.projectFitScore,

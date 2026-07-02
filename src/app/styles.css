@@ -1812,6 +1812,74 @@ button {
   color: #166534;
 }
 
+.structure-breakdown {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  background: #f0fdf4;
+}
+
+.structure-breakdown.blocked {
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+.structure-breakdown-head,
+.structure-breakdown-grid {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.structure-breakdown-head {
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.structure-breakdown-head span {
+  color: #166534;
+  font-size: 10px;
+  font-weight: 820;
+}
+
+.structure-breakdown.blocked .structure-breakdown-head span {
+  color: #9a3412;
+}
+
+.structure-breakdown-head strong {
+  color: #14532d;
+  font-size: 12px;
+  font-weight: 820;
+}
+
+.structure-breakdown.blocked .structure-breakdown-head strong {
+  color: #7c2d12;
+}
+
+.structure-breakdown-grid {
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.structure-breakdown-grid span {
+  overflow: hidden;
+  padding: 4px 6px;
+  border-radius: 6px;
+  color: #14532d;
+  background: rgba(255, 255, 255, 0.78);
+  font-size: 10px;
+  font-weight: 740;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.structure-breakdown.blocked .structure-breakdown-grid span {
+  color: #7c2d12;
+}
+
 .project-fit-breakdown {
   display: grid;
   gap: 7px;

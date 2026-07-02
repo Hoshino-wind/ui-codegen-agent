@@ -41,6 +41,16 @@ test("createVerificationReport separates visual, structure, component, and proje
 
   assert.equal(report.visualSimilarity, 87.4);
   assert.equal(report.structureScore, 100);
+  assert.deepEqual(report.structureBreakdown, {
+    valid: true,
+    totalIssueCount: 0,
+    structuralIssueCount: 0,
+    trackMismatchCount: 0,
+    penaltyPerStructuralIssue: 20,
+    issueCodes: {},
+    blockingIssuePaths: [],
+    ignoredIssueCodes: ["track_mismatch"]
+  });
   assert.equal(report.componentScore, 100);
   assert.deepEqual(report.componentBreakdown, {
     componentLayerCount: 2,

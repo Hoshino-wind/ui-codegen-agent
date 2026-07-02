@@ -144,7 +144,8 @@ The repository currently implements the core LayerDoc domain layer:
   visual-only page regions even when the overall layer count looks healthy.
 - Compare reference and candidate PNG screenshots and write a pixel diff image.
 - Produce a verifier report with separate score dimensions and a
-  `componentBreakdown` explaining component-layer coverage plus a
+  `structureBreakdown` explaining structural blockers versus track notes,
+  `componentBreakdown` explaining component-layer coverage, and a
   `projectFitBreakdown` explaining the project integration score from baseline,
   exportable components, editable component layers, asset coverage, and bitmap
   shortcut risk.
@@ -414,12 +415,12 @@ component_score     component grouping and exportability
 project_fit_score   readiness for target project integration
 ```
 
-`component_score` is emitted with `componentBreakdown`, and
-`project_fit_score` is emitted with `projectFitBreakdown`, in
-`verification-report.json`, `handoff-summary.json`, and
-`production-manifest.json`. Downstream CI can see which component-track layers
-are covered by real components and whether project fit was held back by bitmap
-shortcut risk.
+`structure_score` is emitted with `structureBreakdown`, `component_score` is
+emitted with `componentBreakdown`, and `project_fit_score` is emitted with
+`projectFitBreakdown`, in `verification-report.json`, `handoff-summary.json`,
+and `production-manifest.json`. Downstream CI can see which structural issues
+block delivery, which component-track layers are covered by real components,
+and whether project fit was held back by bitmap shortcut risk.
 
 Pixel similarity alone is not enough. A bitmap can look perfect while being a
 poor engineering asset.

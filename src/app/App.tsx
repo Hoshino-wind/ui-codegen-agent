@@ -1251,6 +1251,7 @@ function VerifierStrip({
 }) {
   const visualDiff = workspace.report.visualDiff;
   const visualEvidence = workspace.report.evidence.visual;
+  const structureBreakdown = workspace.report.structureBreakdown;
   const componentBreakdown = workspace.report.componentBreakdown;
   const projectFitBreakdown = workspace.report.projectFitBreakdown;
   const candidateLabel = visualEvidence.kind === "layerdoc-raster" ? "LayerDoc raster fallback" : "HTML preview screenshot";
@@ -1310,6 +1311,16 @@ function VerifierStrip({
           <span>Quality gate</span>
           <strong>{gateResult.passed ? "passed" : "blocked"}</strong>
           {gateResult.failures.length > 0 ? <small>{gateResult.failures.slice(0, 2).join(" / ")}</small> : null}
+        </div>
+        <div className={`structure-breakdown ${structureBreakdown.structuralIssueCount === 0 ? "passed" : "blocked"}`}>
+          <div className="structure-breakdown-head">
+            <span>Structure coverage</span>
+            <strong>{formatScore(workspace.report.structureScore)}</strong>
+          </div>
+          <div className="structure-breakdown-grid">
+            <span>{structureBreakdown.structuralIssueCount} blocking</span>
+            <span>{structureBreakdown.trackMismatchCount} track notes</span>
+          </div>
         </div>
         <div className={`project-fit-breakdown ${projectFitBreakdown.fullPageBitmapRisk ? "blocked" : "passed"}`}>
           <div className="project-fit-head">
