@@ -62,6 +62,25 @@ test("createIntakeWorkspaceFromAnalysisPlanJson imports a saved plan for the cur
   assert.equal(imported.audit.tracks.component, 1);
 });
 
+test("createIntakeWorkspaceFromAnalysisPlanJson carries provided plan URI into LayerDoc and project handoff", () => {
+  const sourceImage = {
+    uri: "/uploads/homepage.png",
+    width: 1440,
+    height: 1760
+  };
+  const original = seedHomepageAnnotations(createIntakeWorkspace(sourceImage));
+
+  const imported = createIntakeWorkspaceFromAnalysisPlanJson(sourceImage, JSON.stringify(original.analysisPlan), "homepage-analysis-plan.json");
+  const workspace = buildWorkspaceFromIntake(imported);
+  const handoffSummary = JSON.parse(workspace.projectExport.files.find((file) => file.path === "handoff-summary.json").contents);
+
+  assert.equal(imported.analysisPlanSource, "provided");
+  assert.equal(imported.analysisPlanUri, "homepage-analysis-plan.json");
+  assert.equal(workspace.doc.metadata.analysisPlan.uri, "homepage-analysis-plan.json");
+  assert.equal(workspace.projectExport.manifest.analysisPlan.uri, "homepage-analysis-plan.json");
+  assert.equal(handoffSummary.sourceAnalysisPlan.uri, "homepage-analysis-plan.json");
+});
+
 test("createIntakeWorkspaceFromAnalysisPlanJson rejects plans for a different PNG canvas", () => {
   const sourceImage = {
     uri: "/uploads/homepage.png",

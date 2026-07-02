@@ -28,6 +28,8 @@ export interface IntakeWorkspace {
   sourceImage: SourceImageMetadata;
   analysisPlan: HomepageAnalysisPlan;
   analysisPlanSource: AnalysisPlanProvenance["source"];
+  /** Filename or external URI for imported structure, preserved through LayerDoc handoff. */
+  analysisPlanUri?: string;
   selectedSectionId: string;
   selectedLayerId: string | null;
   issues: string[];
@@ -56,7 +58,8 @@ function materialize(
   analysisPlan: HomepageAnalysisPlan,
   selectedSectionId: string,
   selectedLayerId: string | null = null,
-  analysisPlanSource: AnalysisPlanProvenance["source"] = "editor"
+  analysisPlanSource: AnalysisPlanProvenance["source"] = "editor",
+  analysisPlanUri?: string
 ): IntakeWorkspace {
   const issues = validateHomepageAnalysisPlan(analysisPlan);
   const audit = createHomepageAnalysisPlanAudit(analysisPlan);
@@ -66,6 +69,7 @@ function materialize(
     sourceImage: { ...sourceImage },
     analysisPlan,
     analysisPlanSource,
+    ...(analysisPlanUri ? { analysisPlanUri } : {}),
     selectedSectionId,
     selectedLayerId: layerId,
     issues,
@@ -237,7 +241,8 @@ function toManifest(intake: IntakeWorkspace): ImageAnalysisManifest {
       source: intake.analysisPlanSource,
       name: intake.analysisPlan.name,
       sectionCount: intake.analysisPlan.sections.length,
-      layerCount: intake.layerCount
+      layerCount: intake.layerCount,
+      ...(intake.analysisPlanUri ? { uri: intake.analysisPlanUri } : {})
     },
     analysisPlanAudit: intake.audit,
     canvas: {
@@ -271,17 +276,17 @@ export function createIntakeWorkspace(sourceImage: SourceImageMetadata): IntakeW
   return materialize(sourceImage, analysisPlan, "hero", null, "manual");
 }
 
-export function createIntakeWorkspaceFromAnalysisPlanJson(sourceImage: SourceImageMetadata, contents: string): IntakeWorkspace {
+export function createIntakeWorkspaceFromAnalysisPlanJson(sourceImage: SourceImageMetadata, contents: string, analysisPlanUri?: string): IntakeWorkspace {
   const analysisPlan = parseHomepageAnalysisPlanJson(contents);
   assertPlanCanvasMatchesSource(analysisPlan, sourceImage);
   const firstSection = analysisPlan.sections[0];
 
-  return materialize(sourceImage, analysisPlan, firstSection?.id ?? "hero", firstSection?.layers[0]?.id ?? null, "provided");
+  return materialize(sourceImage, analysisPlan, firstSection?.id ?? "hero", firstSection?.layers[0]?.id ?? null, "provided", analysisPlanUri);
 }
 
 export function selectIntakeSection(workspace: IntakeWorkspace, sectionId: string): IntakeWorkspace {
   const section = sectionById(workspace.analysisPlan, sectionId);
-  return materialize(workspace.sourceImage, workspace.analysisPlan, sectionId, section.layers[0]?.id ?? null, workspace.analysisPlanSource);
+  return materialize(workspace.sourceImage, workspace.analysisPlan, sectionId, section.layers[0]?.id ?? null, workspace.analysisPlanSource, workspace.analysisPlanUri);
 }
 
 export function selectIntakeLayer(workspace: IntakeWorkspace, layerId: string): IntakeWorkspace {
@@ -290,7 +295,7 @@ export function selectIntakeLayer(workspace: IntakeWorkspace, layerId: string): 
     throw new Error(`Layer "${layerId}" was not found.`);
   }
 
-  return materialize(workspace.sourceImage, workspace.analysisPlan, sectionId, layerId, workspace.analysisPlanSource);
+  return materialize(workspace.sourceImage, workspace.analysisPlan, sectionId, layerId, workspace.analysisPlanSource, workspace.analysisPlanUri);
 }
 
 export function addManualAnalysisLayer(workspace: IntakeWorkspace, input: AddManualAnalysisLayerInput): IntakeWorkspace {
@@ -298,7 +303,7 @@ export function addManualAnalysisLayer(workspace: IntakeWorkspace, input: AddMan
   const layer = createManualLayer(workspace.analysisPlan, sectionId, input.kind);
   const plan = addAnalysisLayer(workspace.analysisPlan, sectionId, layer);
 
-  return materialize(workspace.sourceImage, plan, sectionId, layer.id, workspace.analysisPlanSource);
+  return materialize(workspace.sourceImage, plan, sectionId, layer.id, workspace.analysisPlanSource, workspace.analysisPlanUri);
 }
 
 export function updateManualAnalysisLayer(workspace: IntakeWorkspace, layerId: string, patch: AnalysisLayerPatch): IntakeWorkspace {
@@ -308,20 +313,20 @@ export function updateManualAnalysisLayer(workspace: IntakeWorkspace, layerId: s
   }
 
   const plan = updateAnalysisLayer(workspace.analysisPlan, layerId, patch);
-  return materialize(workspace.sourceImage, plan, sectionId, layerId, workspace.analysisPlanSource);
+  return materialize(workspace.sourceImage, plan, sectionId, layerId, workspace.analysisPlanSource, workspace.analysisPlanUri);
 }
 
 export function addHeroAnnotationSet(workspace: IntakeWorkspace): IntakeWorkspace {
-  return materialize(workspace.sourceImage, addHeroAnnotationSetToPlan(workspace.analysisPlan), "hero", "hero-title", "editor");
+  return materialize(workspace.sourceImage, addHeroAnnotationSetToPlan(workspace.analysisPlan), "hero", "hero-title", "editor", workspace.analysisPlanUri);
 }
 
 export function runMockVisionDecomposition(workspace: IntakeWorkspace): IntakeWorkspace {
   // Deterministic stand-in for the future image-to-structure model boundary.
-  return materialize(workspace.sourceImage, seedHomepageAnalysisPlan(workspace.analysisPlan), "hero", "hero-title", "mock-vision");
+  return materialize(workspace.sourceImage, seedHomepageAnalysisPlan(workspace.analysisPlan), "hero", "hero-title", "mock-vision", workspace.analysisPlanUri);
 }
 
 export function seedHomepageAnnotations(workspace: IntakeWorkspace): IntakeWorkspace {
-  return materialize(workspace.sourceImage, seedHomepageAnalysisPlan(workspace.analysisPlan), "hero", "hero-title", "editor");
+  return materialize(workspace.sourceImage, seedHomepageAnalysisPlan(workspace.analysisPlan), "hero", "hero-title", "editor", workspace.analysisPlanUri);
 }
 
 export async function materializeReferenceCropAssets(workspace: IntakeWorkspace, resolveCrop: ReferenceCropAssetResolver): Promise<IntakeWorkspace> {
@@ -358,7 +363,7 @@ export async function materializeReferenceCropAssets(workspace: IntakeWorkspace,
     }
   }
 
-  return materialize(workspace.sourceImage, plan, workspace.selectedSectionId, workspace.selectedLayerId, workspace.analysisPlanSource);
+  return materialize(workspace.sourceImage, plan, workspace.selectedSectionId, workspace.selectedLayerId, workspace.analysisPlanSource, workspace.analysisPlanUri);
 }
 
 export function buildWorkspaceFromIntake(workspace: IntakeWorkspace): EditorWorkspace {

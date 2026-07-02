@@ -33,6 +33,7 @@ test("app shell exposes Analysis Plan load action", () => {
 
   assert.match(source, /Load Analysis Plan/);
   assert.match(source, /createIntakeWorkspaceFromAnalysisPlanJson/);
+  assert.match(source, /createIntakeWorkspaceFromAnalysisPlanJson\(intake\.sourceImage, await file\.text\(\), file\.name\)/);
 });
 
 test("app shell exposes an Analysis Task handoff before Analysis Plan editing", () => {
@@ -58,6 +59,7 @@ test("app shell exposes Analysis Plan provenance in the intake console", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 
   assert.match(source, /analysisPlanSource/);
+  assert.match(source, /analysisPlanUri/);
   assert.match(source, /Source/);
 });
 

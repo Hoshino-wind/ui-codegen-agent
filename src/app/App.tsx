@@ -1071,6 +1071,7 @@ function AnalysisPlanPanel({
         <span>{intake.analysisPlan.sections.length} sections</span>
         <span>{intake.layerCount} layers</span>
         <span>Source {analysisPlanSourceLabel(intake.analysisPlanSource)}</span>
+        {intake.analysisPlanUri ? <span>Plan {intake.analysisPlanUri}</span> : null}
       </div>
       <div className={`analysis-audit ${intake.audit.readiness.readyForLayerDoc ? "ready" : "blocked"}`}>
         <div className="analysis-audit-head">
@@ -1411,7 +1412,7 @@ export function App() {
 
   async function importAnalysisPlanFile(file: File) {
     try {
-      const nextIntake = createIntakeWorkspaceFromAnalysisPlanJson(intake.sourceImage, await file.text());
+      const nextIntake = createIntakeWorkspaceFromAnalysisPlanJson(intake.sourceImage, await file.text(), file.name);
       setIntake(nextIntake);
       setUploadError(null);
       setLastAction(`Loaded Analysis Plan: ${file.name}`);

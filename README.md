@@ -275,6 +275,10 @@ The resulting `pipeline-report.json` records whether the structure came from a
 provided plan or from the seeded MVP scaffold. Studio-built LayerDocs also
 record whether their intake structure came from manual edits, imported plans,
 editor helpers, or the deterministic Mock Vision decomposition boundary.
+When Studio imports an Analysis Plan JSON file, the uploaded filename is carried
+into `LayerDoc.metadata.analysisPlan.uri`, exported manifests, and
+`handoff-summary.json` so downstream consumers can trace the exact structure
+artifact used before LayerDoc build.
 
 For MVP backtests, add `--verify-project` so the exported project runs its own
 preview diff, handoff, source, LayerDoc, integration-contract, and gate checks:
