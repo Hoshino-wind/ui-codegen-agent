@@ -173,8 +173,8 @@ interface VerifierSnapshot {
   image: ImageDataSnapshot;
 }
 
-async function readBrowserImageSnapshot(file: File): Promise<ImageDataSnapshot> {
-  const bitmap = await createImageBitmap(file);
+async function readBrowserBlobSnapshot(blob: Blob): Promise<ImageDataSnapshot> {
+  const bitmap = await createImageBitmap(blob);
 
   try {
     const canvas = document.createElement("canvas");
@@ -195,6 +195,31 @@ async function readBrowserImageSnapshot(file: File): Promise<ImageDataSnapshot> 
   } finally {
     bitmap.close();
   }
+}
+
+async function readBrowserImageSnapshot(file: File): Promise<ImageDataSnapshot> {
+  return readBrowserBlobSnapshot(file);
+}
+
+async function readBrowserPngBytesSnapshot(referencePng: Uint8Array): Promise<ImageDataSnapshot> {
+  if (referencePng.length === 0) {
+    throw new Error("LayerDoc source PNG is empty.");
+  }
+
+  const stableBytes = new Uint8Array(referencePng);
+  const stableBuffer = stableBytes.buffer.slice(stableBytes.byteOffset, stableBytes.byteOffset + stableBytes.byteLength);
+  return readBrowserBlobSnapshot(new Blob([stableBuffer], { type: "image/png" }));
+}
+
+async function createLayerDocSourceVerifierSnapshot(workspace: EditorWorkspace): Promise<VerifierSnapshot | null> {
+  if (!workspace.referencePng) {
+    return null;
+  }
+
+  return {
+    fileName: "LayerDoc source PNG",
+    image: await readBrowserPngBytesSnapshot(workspace.referencePng)
+  };
 }
 
 async function createVerifierSnapshot(file: File): Promise<VerifierSnapshot> {
@@ -1457,7 +1482,9 @@ export function App() {
   }
 
   async function runVerifierReport() {
-    if (!verifierReference) {
+    const referenceSnapshot = verifierReference ?? (await createLayerDocSourceVerifierSnapshot(workspace));
+
+    if (!referenceSnapshot) {
       setVerifierError("Load a reference PNG before running screenshot diff.");
       setLastAction("Verifier needs a reference PNG");
       return;
@@ -1466,7 +1493,7 @@ export function App() {
     try {
       setLastAction("Rendering HTML preview screenshot for verifier");
       const nextWorkspace = await runWorkspacePreviewVerification(workspace, {
-        reference: verifierReference.image,
+        reference: referenceSnapshot.image,
         visualEvidence: verificationVisualEvidence.htmlScreenshot,
         renderCandidate: ({ previewHtml, canvas }) => renderHtmlPreviewSnapshot({ html: previewHtml, canvas })
       });
@@ -1478,7 +1505,7 @@ export function App() {
       try {
         setLastAction("HTML screenshot unavailable; rendering LayerDoc raster fallback");
         const nextWorkspace = await runWorkspacePreviewVerification(workspace, {
-          reference: verifierReference.image,
+          reference: referenceSnapshot.image,
           visualEvidence: verificationVisualEvidence.layerDocRaster,
           renderCandidate: ({ doc }) => renderLayerDocSnapshot(doc)
         });
@@ -1629,7 +1656,7 @@ export function App() {
       <Inspector workspace={workspace} onChange={(next) => updateWorkspace(next)} />
       <VerifierStrip
         workspace={workspace}
-        referenceName={verifierReference?.fileName ?? null}
+        referenceName={verifierReference?.fileName ?? (workspace.referencePng ? "LayerDoc source PNG" : null)}
         verifierError={verifierError}
         onReferenceFile={(file) => void importVerifierSnapshot(file)}
         onDownloadReport={downloadVerifierReport}

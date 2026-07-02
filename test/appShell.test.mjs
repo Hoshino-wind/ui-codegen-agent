@@ -190,6 +190,16 @@ test("app shell exposes a PNG reference overlay for pixel alignment", () => {
   assert.match(cssSource, /\.reference-overlay-image/);
 });
 
+test("app shell reuses the LayerDoc source PNG as the verifier reference", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /readBrowserPngBytesSnapshot/);
+  assert.match(source, /workspace\.referencePng/);
+  assert.match(source, /verifierReference \?\?/);
+  assert.match(source, /LayerDoc source PNG/);
+  assert.match(source, /referenceName=\{verifierReference\?\.fileName \?\? \(workspace\.referencePng \? "LayerDoc source PNG" : null\)\}/);
+});
+
 test("app shell exposes controlled button action editing", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 
