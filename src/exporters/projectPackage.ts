@@ -37,6 +37,7 @@ export interface ProjectExportManifest {
   layerDocHash: string;
   integrationContract: string;
   handoffSummary: string;
+  assetIndex: string;
   sectionCandidateSchema: string;
   referenceVisual: ProjectReferenceVisual;
   analysisPlan?: NonNullable<LayerDoc["metadata"]["analysisPlan"]>;
@@ -95,6 +96,9 @@ export interface ProjectHandoffSummary {
     responsiveRules: number;
     generationRequests: number;
     generationApplications: number;
+  };
+  assetIndex: ProjectAssetIndexSummary & {
+    file: string;
   };
   sectionRegeneration: {
     candidateSchemaFile: string;
@@ -207,6 +211,38 @@ export interface ProjectIntegrationContract {
   }>;
 }
 
+export interface ProjectAssetIndexSummary {
+  total: number;
+  used: number;
+  visibleInProject: number;
+  bySource: Record<string, number>;
+  byType: Record<string, number>;
+}
+
+export interface ProjectAssetIndex {
+  version: "0.1.0";
+  source: "layerdoc";
+  layerDoc: {
+    file: string;
+    hash: string;
+  };
+  summary: ProjectAssetIndexSummary;
+  assets: Array<{
+    id: string;
+    type: string;
+    source: string;
+    uri: string | null;
+    bounds: NonNullable<LayerDoc["assets"][number]["bounds"]> | null;
+    usedByLayerIds: string[];
+    visibleUsedByLayerIds: string[];
+    sectionIds: string[];
+    visibleSectionIds: string[];
+    componentIds: string[];
+    visibleInProject: boolean;
+    layerSelectors: string[];
+  }>;
+}
+
 export type ProjectQualityGates = VerificationGates;
 
 export interface ProjectExportPackage {
@@ -216,6 +252,7 @@ export interface ProjectExportPackage {
 
 const PROJECT_VERIFY_CHAIN =
   "npm run verify:preview && npm run verify:handoff && npm run verify:analysis-plan && npm run verify:image-manifest && npm run verify:layerdoc && npm run verify:contract && npm run verify:gates";
+const ASSET_INDEX_FILE = "asset-index.json";
 const SECTION_CANDIDATE_SCHEMA_FILE = "section-candidate.schema.json";
 
 function toKebabCase(value: string): string {
@@ -503,6 +540,65 @@ function createIntegrationContract(doc: LayerDoc, componentName: string, compone
   };
 }
 
+function uniqueStrings(values: Array<string | null | undefined>): string[] {
+  return Array.from(new Set(values.filter((value): value is string => typeof value === "string" && value.length > 0)));
+}
+
+function incrementCount(record: Record<string, number>, key: string): Record<string, number> {
+  return {
+    ...record,
+    [key]: (record[key] ?? 0) + 1
+  };
+}
+
+function createAssetIndex(doc: LayerDoc, contract: ProjectIntegrationContract, sourceHash: string): ProjectAssetIndex {
+  const layersById = new Map(doc.layers.map((layer) => [layer.id, layer]));
+  const visibleLayerIdsByAssetId = new Map(contract.assets.map((asset) => [asset.id, asset.usedByLayerIds]));
+  const assets = doc.assets.map((asset) => {
+    const usedByLayerIds = doc.layers.filter((layer) => layer.assetId === asset.id).map((layer) => layer.id);
+    const visibleUsedByLayerIds = visibleLayerIdsByAssetId.get(asset.id) ?? [];
+    const sectionIds = uniqueStrings(usedByLayerIds.map((layerId) => layersById.get(layerId)?.sectionId));
+    const visibleSectionIds = uniqueStrings(visibleUsedByLayerIds.map((layerId) => layersById.get(layerId)?.sectionId));
+    const componentIds = uniqueStrings(
+      doc.components
+        .filter((component) => component.layerIds.some((layerId) => usedByLayerIds.includes(layerId)))
+        .map((component) => component.id)
+    );
+
+    return {
+      id: asset.id,
+      type: asset.type,
+      source: asset.source,
+      uri: asset.uri ?? null,
+      bounds: asset.bounds ? { ...asset.bounds } : null,
+      usedByLayerIds,
+      visibleUsedByLayerIds,
+      sectionIds,
+      visibleSectionIds,
+      componentIds,
+      visibleInProject: visibleUsedByLayerIds.length > 0,
+      layerSelectors: visibleUsedByLayerIds.map((layerId) => selectorFor("data-layer-id", layerId))
+    };
+  });
+
+  return {
+    version: "0.1.0",
+    source: "layerdoc",
+    layerDoc: {
+      file: "layerdoc.json",
+      hash: sourceHash
+    },
+    summary: {
+      total: assets.length,
+      used: assets.filter((asset) => asset.usedByLayerIds.length > 0).length,
+      visibleInProject: assets.filter((asset) => asset.visibleInProject).length,
+      bySource: doc.assets.reduce<Record<string, number>>((counts, asset) => incrementCount(counts, asset.source), {}),
+      byType: doc.assets.reduce<Record<string, number>>((counts, asset) => incrementCount(counts, asset.type), {})
+    },
+    assets
+  };
+}
+
 function packageJsonFor(manifest: ProjectExportManifest): string {
   return stableJson({
     name: manifest.packageName,
@@ -648,6 +744,71 @@ function visualProblemSummaryFor(report) {
   };
 }
 
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function selectorFor(attribute, value) {
+  return "[" + attribute + "=\\"" + String(value).replace(/\\\\/g, "\\\\\\\\").replace(/"/g, "\\\\\\"") + "\\"]";
+}
+
+function uniqueStrings(values) {
+  return Array.from(new Set(values.filter((value) => typeof value === "string" && value.length > 0)));
+}
+
+function incrementCount(record, key) {
+  return {
+    ...record,
+    [key]: (record[key] ?? 0) + 1
+  };
+}
+
+function expectedAssetIndexFrom(layerDoc, contract, manifest) {
+  const layers = asArray(layerDoc.layers);
+  const assets = asArray(layerDoc.assets);
+  const components = asArray(layerDoc.components);
+  const layersById = new Map(layers.map((layer) => [layer.id, layer]));
+  const visibleLayerIdsByAssetId = new Map(asArray(contract.assets).map((asset) => [asset.id, asArray(asset.usedByLayerIds)]));
+  const indexedAssets = assets.map((asset) => {
+    const usedByLayerIds = layers.filter((layer) => layer.assetId === asset.id).map((layer) => layer.id);
+    const visibleUsedByLayerIds = visibleLayerIdsByAssetId.get(asset.id) ?? [];
+    const sectionIds = uniqueStrings(usedByLayerIds.map((layerId) => layersById.get(layerId)?.sectionId));
+    const visibleSectionIds = uniqueStrings(visibleUsedByLayerIds.map((layerId) => layersById.get(layerId)?.sectionId));
+    const componentIds = uniqueStrings(components.filter((component) => asArray(component.layerIds).some((layerId) => usedByLayerIds.includes(layerId))).map((component) => component.id));
+    return {
+      id: asset.id,
+      type: asset.type,
+      source: asset.source,
+      uri: asset.uri ?? null,
+      bounds: asset.bounds ? { ...asset.bounds } : null,
+      usedByLayerIds,
+      visibleUsedByLayerIds,
+      sectionIds,
+      visibleSectionIds,
+      componentIds,
+      visibleInProject: visibleUsedByLayerIds.length > 0,
+      layerSelectors: visibleUsedByLayerIds.map((layerId) => selectorFor("data-layer-id", layerId))
+    };
+  });
+
+  return {
+    version: "0.1.0",
+    source: "layerdoc",
+    layerDoc: {
+      file: "layerdoc.json",
+      hash: manifest.layerDocHash
+    },
+    summary: {
+      total: indexedAssets.length,
+      used: indexedAssets.filter((asset) => asset.usedByLayerIds.length > 0).length,
+      visibleInProject: indexedAssets.filter((asset) => asset.visibleInProject).length,
+      bySource: assets.reduce((counts, asset) => incrementCount(counts, asset.source), {}),
+      byType: assets.reduce((counts, asset) => incrementCount(counts, asset.type), {})
+    },
+    assets: indexedAssets
+  };
+}
+
 const manifest = readJson("../manifest.json");
 const handoff = readJson("../handoff-summary.json");
 const packageJson = readJson("../package.json");
@@ -655,6 +816,13 @@ const contract = readJson("../integration-contract.json");
 const layerDoc = readJson("../layerdoc.json");
 const audit = readJson("../layerdoc-audit.json");
 const report = readJson("../verification-report.json");
+const assetIndexPath = manifest.assetIndex ?? "${ASSET_INDEX_FILE}";
+const assetIndex = fileExists(assetIndexPath) ? readJson("../" + assetIndexPath) : null;
+const expectedAssetIndex = expectedAssetIndexFrom(layerDoc, contract, manifest);
+const expectedAssetIndexSummary = {
+  file: assetIndexPath,
+  ...expectedAssetIndex.summary
+};
 const actualLayerDocHash = sha256(stableJson(layerDoc));
 const failures = [];
 const manifestFiles = Array.isArray(manifest.files) ? manifest.files : [];
@@ -663,6 +831,7 @@ const packageScripts = packageJson.scripts ?? {};
 
 pushIf(manifest.source !== "layerdoc", failures, "manifest_source_invalid", "manifest.json source must be layerdoc.");
 pushIf(manifest.handoffSummary !== "handoff-summary.json", failures, "manifest_handoff_file_mismatch", "manifest.json handoffSummary must be handoff-summary.json.");
+pushIf(manifest.assetIndex !== "${ASSET_INDEX_FILE}", failures, "manifest_asset_index_mismatch", "manifest.json assetIndex must be ${ASSET_INDEX_FILE}.");
 pushIf(manifest.sectionCandidateSchema !== "${SECTION_CANDIDATE_SCHEMA_FILE}", failures, "manifest_section_candidate_schema_mismatch", "manifest.json sectionCandidateSchema must be ${SECTION_CANDIDATE_SCHEMA_FILE}.");
 pushIf(handoff.source !== "layerdoc", failures, "handoff_source_invalid", "handoff-summary.json source must be layerdoc.");
 pushIf(handoff.positioning !== "AI UI Production System", failures, "handoff_positioning_invalid", "handoff-summary.json positioning must identify the AI UI Production System.");
@@ -670,6 +839,8 @@ pushIf(handoff.sourceOfTruth?.file !== "layerdoc.json", failures, "handoff_sourc
 pushIf(handoff.sourceOfTruth?.schemaFile !== "layerdoc.schema.json", failures, "handoff_schema_file_mismatch", "handoff sourceOfTruth.schemaFile must be layerdoc.schema.json.");
 pushIf(handoff.sourceOfTruth?.hash !== actualLayerDocHash, failures, "handoff_source_hash_mismatch", "handoff sourceOfTruth.hash must match the current layerdoc.json hash.");
 pushIf(manifest.layerDocHash !== actualLayerDocHash, failures, "manifest_layerdoc_hash_mismatch", "manifest.json layerDocHash must match the current layerdoc.json hash.");
+pushIf(!manifestFiles.includes("${ASSET_INDEX_FILE}"), failures, "asset_index_not_listed", "manifest.json files must include ${ASSET_INDEX_FILE}.");
+pushIf(!fileExists(assetIndexPath), failures, "asset_index_missing", "manifest.json assetIndex must point at an existing file.");
 pushIf(!fileExists(manifest.sectionCandidateSchema), failures, "section_candidate_schema_missing", "manifest.json sectionCandidateSchema must point at an existing file.");
 
 pushIf(!manifestFiles.includes("scripts/verify-handoff.mjs"), failures, "handoff_verifier_not_listed", "manifest.json files must include scripts/verify-handoff.mjs.");
@@ -704,6 +875,8 @@ pushIf(handoff.contract?.generationApplications !== (contract.generationApplicat
 pushIf(handoff.sectionRegeneration?.candidateSchemaFile !== manifest.sectionCandidateSchema, failures, "handoff_section_candidate_schema_mismatch", "handoff sectionRegeneration.candidateSchemaFile must match manifest sectionCandidateSchema.");
 pushIf(handoff.sectionRegeneration?.requestCount !== (contract.generationRequests?.length ?? 0), failures, "handoff_section_regeneration_count_mismatch", "handoff sectionRegeneration.requestCount must match integration contract.");
 pushIf(handoff.sectionRegeneration?.applicationCount !== (contract.generationApplications?.length ?? 0), failures, "handoff_section_application_count_mismatch", "handoff sectionRegeneration.applicationCount must match integration contract.");
+pushIf(stableJson(assetIndex) !== stableJson(expectedAssetIndex), failures, "asset_index_mismatch", "asset-index.json does not match LayerDoc and integration-contract assets. Expected " + stableJson(expectedAssetIndex) + " Received " + stableJson(assetIndex));
+pushIf(stableJson(handoff.assetIndex) !== stableJson(expectedAssetIndexSummary), failures, "handoff_asset_index_mismatch", "handoff-summary.json assetIndex must summarize asset-index.json.");
 
 pushIf(handoff.quality?.referenceVisual?.file !== manifest.referenceVisual?.file, failures, "handoff_reference_visual_mismatch", "handoff reference visual must match manifest referenceVisual.");
 pushIf(handoff.quality?.gatesFile !== "quality-gates.json", failures, "handoff_gates_file_mismatch", "handoff quality gatesFile must be quality-gates.json.");
@@ -1934,6 +2107,59 @@ function createIntegrationContract(doc, componentName, componentFile, sourceHash
   };
 }
 
+function uniqueStrings(values) {
+  return Array.from(new Set(values.filter((value) => typeof value === "string" && value.length > 0)));
+}
+
+function incrementCount(record, key) {
+  return {
+    ...record,
+    [key]: (record[key] ?? 0) + 1
+  };
+}
+
+function createAssetIndex(doc, contract, sourceHash) {
+  const layers = asArray(doc.layers);
+  const assets = asArray(doc.assets);
+  const components = asArray(doc.components);
+  const layersById = new Map(layers.map((layer) => [layer.id, layer]));
+  const visibleLayerIdsByAssetId = new Map(asArray(contract.assets).map((asset) => [asset.id, asArray(asset.usedByLayerIds)]));
+  const indexedAssets = assets.map((asset) => {
+    const usedByLayerIds = layers.filter((layer) => layer.assetId === asset.id).map((layer) => layer.id);
+    const visibleUsedByLayerIds = visibleLayerIdsByAssetId.get(asset.id) ?? [];
+    const sectionIds = uniqueStrings(usedByLayerIds.map((layerId) => layersById.get(layerId)?.sectionId));
+    const visibleSectionIds = uniqueStrings(visibleUsedByLayerIds.map((layerId) => layersById.get(layerId)?.sectionId));
+    const componentIds = uniqueStrings(components.filter((component) => asArray(component.layerIds).some((layerId) => usedByLayerIds.includes(layerId))).map((component) => component.id));
+    return {
+      id: asset.id,
+      type: asset.type,
+      source: asset.source,
+      uri: asset.uri ?? null,
+      bounds: asset.bounds ? { ...asset.bounds } : null,
+      usedByLayerIds,
+      visibleUsedByLayerIds,
+      sectionIds,
+      visibleSectionIds,
+      componentIds,
+      visibleInProject: visibleUsedByLayerIds.length > 0,
+      layerSelectors: visibleUsedByLayerIds.map((layerId) => selectorFor("data-layer-id", layerId))
+    };
+  });
+  return {
+    version: "0.1.0",
+    source: "layerdoc",
+    layerDoc: { file: "layerdoc.json", hash: sourceHash },
+    summary: {
+      total: indexedAssets.length,
+      used: indexedAssets.filter((asset) => asset.usedByLayerIds.length > 0).length,
+      visibleInProject: indexedAssets.filter((asset) => asset.visibleInProject).length,
+      bySource: assets.reduce((counts, asset) => incrementCount(counts, asset.source), {}),
+      byType: assets.reduce((counts, asset) => incrementCount(counts, asset.type), {})
+    },
+    assets: indexedAssets
+  };
+}
+
 function visualProblemSummaryFor(report) {
   const areas = asArray(report.visualProblemAreas);
   return {
@@ -1944,7 +2170,7 @@ function visualProblemSummaryFor(report) {
   };
 }
 
-function updateHandoffSummary(handoff, manifest, contract, audit, report) {
+function updateHandoffSummary(handoff, manifest, contract, audit, report, assetIndex) {
   return {
     ...handoff,
     sourceOfTruth: { file: "layerdoc.json", schemaFile: "layerdoc.schema.json", hash: manifest.layerDocHash },
@@ -1963,6 +2189,10 @@ function updateHandoffSummary(handoff, manifest, contract, audit, report) {
       responsiveRules: contract.responsiveRules.length,
       generationRequests: contract.generationRequests.length,
       generationApplications: contract.generationApplications.length
+    },
+    assetIndex: {
+      file: manifest.assetIndex ?? "${ASSET_INDEX_FILE}",
+      ...assetIndex.summary
     },
     sectionRegeneration: {
       candidateSchemaFile: manifest.sectionCandidateSchema,
@@ -2014,13 +2244,15 @@ manifest.scores = report;
 manifest.audit = audit;
 
 const contract = createIntegrationContract(nextLayerDoc, componentName, componentFile, nextHash);
-const nextHandoff = updateHandoffSummary(handoff, manifest, contract, audit, report);
+const assetIndex = createAssetIndex(nextLayerDoc, contract, nextHash);
+const nextHandoff = updateHandoffSummary(handoff, manifest, contract, audit, report, assetIndex);
 
 writeProjectJson("../layerdoc.json", nextLayerDoc);
 writeProjectJson("../verification-report.json", report);
 writeProjectJson("../layerdoc-audit.json", audit);
 writeProjectJson("../manifest.json", manifest);
 writeProjectJson("../integration-contract.json", contract);
+writeProjectJson("../" + (manifest.assetIndex ?? "${ASSET_INDEX_FILE}"), assetIndex);
 writeProjectJson("../handoff-summary.json", nextHandoff);
 writeProjectText("../preview.html", renderHtmlPreview(nextLayerDoc));
 writeProjectText("../src/" + componentFile, exportReactTailwind(nextLayerDoc, componentName));
@@ -2041,6 +2273,7 @@ process.stdout.write(JSON.stringify({
     "layerdoc-audit.json",
     "manifest.json",
     "integration-contract.json",
+    manifest.assetIndex ?? "${ASSET_INDEX_FILE}",
     "handoff-summary.json",
     "preview.html",
     "src/" + componentFile
@@ -3980,6 +4213,14 @@ manifest.scores = report;
 manifest.layerDocHash = layerDocHash;
 writeJson("../manifest.json", manifest);
 
+const assetIndexPath = manifest.assetIndex ?? "${ASSET_INDEX_FILE}";
+const assetIndex = readJson("../" + assetIndexPath);
+assetIndex.layerDoc = {
+  file: "layerdoc.json",
+  hash: layerDocHash
+};
+writeJson("../" + assetIndexPath, assetIndex);
+
 contract.layerDoc = {
   ...(contract.layerDoc ?? {}),
   hash: layerDocHash
@@ -4002,6 +4243,10 @@ writeText(\`../\${previewPath}\`, syncRootAttributes(readText(\`../\${previewPat
 handoff.sourceOfTruth = {
   ...(handoff.sourceOfTruth ?? {}),
   hash: layerDocHash
+};
+handoff.assetIndex = {
+  file: assetIndexPath,
+  ...(assetIndex.summary ?? {})
 };
 handoff.quality = {
   ...(handoff.quality ?? {}),
@@ -4164,6 +4409,7 @@ Generated assets:
 - \`preview.html\`: deterministic HTML verification preview
 - \`handoff-summary.json\`: machine-readable integration summary for CI, importers, and downstream project handoff
 - \`integration-contract.json\`: stable mapping from visible LayerDoc objects to project files and DOM selectors
+- \`${manifest.assetIndex}\`: machine-readable asset inventory with source, usage, visible-project, section, component, and selector mapping
 - \`manifest.json\`, \`layerdoc.schema.json\`: project package manifest and LayerDoc source contract
 - \`${manifest.sectionCandidateSchema}\`: reviewed section regeneration candidate contract for AI workers and Studio imports
 ${manifest.analysisPlanFile ? `- \`${manifest.analysisPlanFile}\`: confirmed Homepage Analysis Plan used before LayerDoc build\n` : ""}${manifest.analysisPlanSchema ? `- \`${manifest.analysisPlanSchema}\`: Homepage Analysis Plan source contract\n` : ""}${manifest.analysisPlanAuditFile ? `- \`${manifest.analysisPlanAuditFile}\`: Analysis Plan coverage, track, and readiness audit\n` : ""}${manifest.imageManifestFile ? `- \`${manifest.imageManifestFile}\`: source image decomposition manifest connecting the visual intake to LayerDoc sections and layers\n` : ""}- \`${manifest.referenceVisual.file}\`: original target visual expected by preview verification; included when the exporter receives \`referencePng\`; homepage pipeline supplies it automatically
@@ -4216,6 +4462,7 @@ function handoffCommands(): ProjectHandoffCommand[] {
 function createHandoffSummary(
   manifest: ProjectExportManifest,
   contract: ProjectIntegrationContract,
+  assetIndex: ProjectAssetIndex,
   audit: LayerDocAudit,
   sourceImage: LayerDoc["metadata"]["sourceImage"],
   analysisPlan: LayerDoc["metadata"]["analysisPlan"],
@@ -4258,6 +4505,10 @@ function createHandoffSummary(
       responsiveRules: contract.responsiveRules.length,
       generationRequests: contract.generationRequests.length,
       generationApplications: contract.generationApplications.length
+    },
+    assetIndex: {
+      file: manifest.assetIndex,
+      ...assetIndex.summary
     },
     sectionRegeneration: {
       candidateSchemaFile: manifest.sectionCandidateSchema,
@@ -4309,6 +4560,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     ...(imageManifestPath ? [imageManifestPath] : []),
     ...(analysisPlanAuditPath ? [analysisPlanAuditPath] : []),
     ...(analysisPlanSchemaPath ? [analysisPlanSchemaPath] : []),
+    ASSET_INDEX_FILE,
     "handoff-summary.json",
     "index.html",
     "integration-contract.json",
@@ -4346,6 +4598,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     layerDocHash: sourceHash,
     integrationContract: "integration-contract.json",
     handoffSummary: "handoff-summary.json",
+    assetIndex: ASSET_INDEX_FILE,
     sectionCandidateSchema: SECTION_CANDIDATE_SCHEMA_FILE,
     referenceVisual,
     ...(sourceDoc.metadata.analysisPlan ? { analysisPlan: { ...sourceDoc.metadata.analysisPlan } } : {}),
@@ -4359,9 +4612,11 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     audit
   };
   const integrationContract = createIntegrationContract(sourceDoc, options.componentName, reactExport.fileName, sourceHash);
+  const assetIndex = createAssetIndex(sourceDoc, integrationContract, sourceHash);
   const handoffSummary = createHandoffSummary(
     manifest,
     integrationContract,
+    assetIndex,
     audit,
     sourceDoc.metadata.sourceImage,
     sourceDoc.metadata.analysisPlan,
@@ -4378,6 +4633,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
         ? [{ path: analysisPlanAuditPath, contents: stableJson(sourceDoc.metadata.analysisPlanAudit) }]
         : []),
       ...(analysisPlanSchemaPath ? [{ path: analysisPlanSchemaPath, contents: stableJson(createHomepageAnalysisPlanJsonSchema()) }] : []),
+      { path: ASSET_INDEX_FILE, contents: stableJson(assetIndex) },
       { path: "handoff-summary.json", contents: stableJson(handoffSummary) },
       { path: "index.html", contents: indexHtmlFor(options.componentName) },
       { path: "integration-contract.json", contents: stableJson(integrationContract) },

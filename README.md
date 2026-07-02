@@ -108,6 +108,10 @@ The repository currently implements the core LayerDoc domain layer:
   component, contract counts, regeneration request/application counts, verifier
   scores, audit status, and verification commands so CI or downstream importers
   can consume the package without scraping README text.
+- Export an `asset-index.json` that inventories LayerDoc assets by source/type,
+  usage, visible-project inclusion, section/component ownership, and DOM
+  selectors so downstream project importers can wire media without reverse
+  engineering `layerdoc.json` or rendered HTML.
 - Verify that exported integration contracts still match the LayerDoc source, generated project selectors, preview selectors, section order, layer bounds, layer style, layer copy, asset URIs, responsive CSS, and interaction metadata.
 - Enforce Studio and exported quality gates against verifier scores, LayerDoc
   asset-compliance audit results, and visible-section editable coverage,

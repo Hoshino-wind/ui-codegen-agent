@@ -253,6 +253,7 @@ test("createProjectPackageDownload serializes every project package file in one 
     payload.files.map((file) => file.path).sort(),
     [
       "README.md",
+      "asset-index.json",
       "handoff-summary.json",
       "index.html",
       "integration-contract.json",
@@ -283,6 +284,8 @@ test("createProjectPackageDownload serializes every project package file in one 
       "vite.config.ts"
     ].sort()
   );
+  assert.equal(payload.manifest.assetIndex, "asset-index.json");
+  assert.match(payload.files.find((file) => file.path === "asset-index.json").contents, /"source": "layerdoc"/);
   assert.match(
     payload.files.find((file) => file.path === "handoff-summary.json").contents,
     /"source": "layerdoc"/

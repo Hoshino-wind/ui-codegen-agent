@@ -65,6 +65,7 @@ test("export project CLI writes a project package from a LayerDoc file", () => {
   assert.equal(summary.rootDir, outputDir);
   assert.deepEqual(summary.files.sort(), [
     "README.md",
+    "asset-index.json",
     "handoff-summary.json",
     "index.html",
     "integration-contract.json",
@@ -105,6 +106,7 @@ test("export project CLI writes a project package from a LayerDoc file", () => {
   assert.equal(existsSync(join(outputDir, "scripts", "verify-gates.mjs")), true);
   assert.equal(existsSync(join(outputDir, "scripts", "verify-layerdoc.mjs")), true);
   assert.equal(existsSync(join(outputDir, "scripts", "verify-preview.mjs")), true);
+  assert.equal(existsSync(join(outputDir, "asset-index.json")), true);
   assert.equal(existsSync(join(outputDir, "handoff-summary.json")), true);
   assert.equal(existsSync(join(outputDir, "integration-contract.json")), true);
   assert.equal(existsSync(join(outputDir, "layerdoc-audit.json")), true);
