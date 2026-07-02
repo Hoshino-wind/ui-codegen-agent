@@ -39,6 +39,7 @@ export interface ProjectExportManifest {
   integrationContract: string;
   handoffSummary: string;
   backtestRunbook: string;
+  ciWorkflow: string;
   productionManifest: string;
   productionManifestSchema: string;
   assetIndex: string;
@@ -106,6 +107,11 @@ export interface ProjectHandoffSummary {
   assetIndex: ProjectAssetIndexSummary & {
     file: string;
   };
+  ciWorkflow: {
+    file: string;
+    kind: ProjectCiWorkflow["kind"];
+    command: "npm run ci";
+  };
   sectionRegeneration: {
     candidateSchemaFile: string;
     requestCount: number;
@@ -145,6 +151,7 @@ export interface ProjectBacktestRunbook {
     backtestReport: "backtest-report.json";
     pipelineReport: "pipeline-report.json";
     productionManifest: string;
+    ciWorkflow: string;
     handoffSummary: string;
     verificationReport: "verification-report.json";
   };
@@ -157,6 +164,30 @@ export interface ProjectBacktestRunbook {
     source: string;
     commands: ProjectHandoffCommand[];
   };
+}
+
+export interface ProjectCiWorkflow {
+  version: "0.1.0";
+  kind: "project_ci_workflow";
+  positioning: "AI UI Production System";
+  packageName: string;
+  componentName: string;
+  sourceOfTruth: ProjectHandoffSummary["sourceOfTruth"];
+  entrypoint: {
+    productionManifest: string;
+    handoffSummary: string;
+    integrationContract: string;
+    verificationReport: "verification-report.json";
+    qualityGates: "quality-gates.json";
+  };
+  requiredCommands: string[];
+  phases: Array<{
+    id: string;
+    label: string;
+    command: string;
+    required: boolean;
+    artifacts: string[];
+  }>;
 }
 
 export interface ProjectIntegrationContract {
@@ -353,6 +384,11 @@ export interface ProjectProductionManifest {
       file: string;
       kind: ProjectBacktestRunbook["kind"];
     };
+    ci: {
+      file: string;
+      kind: ProjectCiWorkflow["kind"];
+      command: "npm run ci";
+    };
   };
   integrationSteps: Array<{
     id: string;
@@ -363,10 +399,12 @@ export interface ProjectProductionManifest {
 }
 
 const PROJECT_VERIFY_CHAIN =
-  "npm run verify:preview && npm run verify:production-manifest && npm run verify:handoff && npm run verify:analysis-plan && npm run verify:image-manifest && npm run verify:layerdoc && npm run verify:contract && npm run verify:gates";
+  "npm run verify:preview && npm run verify:production-manifest && npm run verify:ci-workflow && npm run verify:handoff && npm run verify:analysis-plan && npm run verify:image-manifest && npm run verify:layerdoc && npm run verify:contract && npm run verify:gates";
+const PROJECT_CI_COMMAND = "npm run verify && npm run build";
 const ANALYSIS_TASK_FILE = "analysis-task.json";
 const ASSET_INDEX_FILE = "asset-index.json";
 const BACKTEST_RUNBOOK_FILE = "backtest-runbook.json";
+const CI_WORKFLOW_FILE = "ci-workflow.json";
 const SECTION_CANDIDATE_SCHEMA_FILE = "section-candidate.schema.json";
 const PRODUCTION_MANIFEST_FILE = "production-manifest.json";
 const PRODUCTION_MANIFEST_SCHEMA_FILE = "production-manifest.schema.json";
@@ -725,8 +763,10 @@ function packageJsonFor(manifest: ProjectExportManifest): string {
       dev: "vite",
       build: "tsc --noEmit && vite build",
       preview: "vite preview",
+      ci: PROJECT_CI_COMMAND,
       verify: PROJECT_VERIFY_CHAIN,
       "verify:handoff": "node scripts/verify-handoff.mjs",
+      "verify:ci-workflow": "node scripts/verify-ci-workflow.mjs",
       "verify:analysis-plan": "node scripts/verify-analysis-plan.mjs",
       "verify:image-manifest": "node scripts/verify-image-manifest.mjs",
       "verify:layerdoc": "node scripts/verify-layerdoc.mjs",
@@ -896,7 +936,7 @@ function createProductionManifestJsonSchema(): Record<string, unknown> {
       runbooks: {
         type: "object",
         additionalProperties: false,
-        required: ["backtest"],
+        required: ["backtest", "ci"],
         properties: {
           backtest: {
             type: "object",
@@ -905,6 +945,16 @@ function createProductionManifestJsonSchema(): Record<string, unknown> {
             properties: {
               file: { const: BACKTEST_RUNBOOK_FILE },
               kind: { const: "studio_backtest_runbook" }
+            }
+          },
+          ci: {
+            type: "object",
+            additionalProperties: false,
+            required: ["file", "kind", "command"],
+            properties: {
+              file: { const: CI_WORKFLOW_FILE },
+              kind: { const: "project_ci_workflow" },
+              command: { const: "npm run ci" }
             }
           }
         }
@@ -1101,6 +1151,8 @@ const assetIndexPath = manifest.assetIndex ?? "${ASSET_INDEX_FILE}";
 const assetIndex = fileExists(assetIndexPath) ? readJson("../" + assetIndexPath) : null;
 const backtestRunbookPath = manifest.backtestRunbook ?? "${BACKTEST_RUNBOOK_FILE}";
 const backtestRunbook = fileExists(backtestRunbookPath) ? readJson("../" + backtestRunbookPath) : null;
+const ciWorkflowPath = manifest.ciWorkflow ?? "${CI_WORKFLOW_FILE}";
+const ciWorkflow = fileExists(ciWorkflowPath) ? readJson("../" + ciWorkflowPath) : null;
 const productionManifestPath = manifest.productionManifest ?? "${PRODUCTION_MANIFEST_FILE}";
 const productionManifest = fileExists(productionManifestPath) ? readJson("../" + productionManifestPath) : null;
 const productionManifestSchemaPath = manifest.productionManifestSchema ?? "${PRODUCTION_MANIFEST_SCHEMA_FILE}";
@@ -1187,6 +1239,11 @@ const expectedProductionManifest = {
     backtest: {
       file: backtestRunbookPath,
       kind: "studio_backtest_runbook"
+    },
+    ci: {
+      file: ciWorkflowPath,
+      kind: "project_ci_workflow",
+      command: "npm run ci"
     }
   },
   integrationSteps: [
@@ -1213,6 +1270,7 @@ const expectedBacktestRunbook = {
     backtestReport: "backtest-report.json",
     pipelineReport: "pipeline-report.json",
     productionManifest: manifest.productionManifest,
+    ciWorkflow: manifest.ciWorkflow,
     handoffSummary: manifest.handoffSummary,
     verificationReport: "verification-report.json"
   },
@@ -1238,11 +1296,33 @@ const expectedBacktestRunbook = {
     commands: handoffCommands
   }
 };
+const expectedCiWorkflow = {
+  version: "0.1.0",
+  kind: "project_ci_workflow",
+  positioning: "AI UI Production System",
+  packageName: manifest.packageName,
+  componentName: manifest.componentName,
+  sourceOfTruth: {
+    file: "layerdoc.json",
+    schemaFile: "layerdoc.schema.json",
+    hash: actualLayerDocHash
+  },
+  entrypoint: {
+    productionManifest: manifest.productionManifest,
+    handoffSummary: manifest.handoffSummary,
+    integrationContract: manifest.integrationContract,
+    verificationReport: "verification-report.json",
+    qualityGates: "quality-gates.json"
+  },
+  requiredCommands: ${stableJson(ciRequiredCommands())},
+  phases: ${stableJson(ciWorkflowPhases())}
+};
 const failures = [];
 
 pushIf(manifest.source !== "layerdoc", failures, "manifest_source_invalid", "manifest.json source must be layerdoc.");
 pushIf(manifest.handoffSummary !== "handoff-summary.json", failures, "manifest_handoff_file_mismatch", "manifest.json handoffSummary must be handoff-summary.json.");
 pushIf(manifest.backtestRunbook !== "${BACKTEST_RUNBOOK_FILE}", failures, "manifest_backtest_runbook_mismatch", "manifest.json backtestRunbook must be ${BACKTEST_RUNBOOK_FILE}.");
+pushIf(manifest.ciWorkflow !== "${CI_WORKFLOW_FILE}", failures, "manifest_ci_workflow_mismatch", "manifest.json ciWorkflow must be ${CI_WORKFLOW_FILE}.");
 pushIf(manifest.assetIndex !== "${ASSET_INDEX_FILE}", failures, "manifest_asset_index_mismatch", "manifest.json assetIndex must be ${ASSET_INDEX_FILE}.");
 pushIf(manifest.productionManifest !== "${PRODUCTION_MANIFEST_FILE}", failures, "manifest_production_manifest_mismatch", "manifest.json productionManifest must be ${PRODUCTION_MANIFEST_FILE}.");
 pushIf(manifest.productionManifestSchema !== "${PRODUCTION_MANIFEST_SCHEMA_FILE}", failures, "manifest_production_manifest_schema_mismatch", "manifest.json productionManifestSchema must be ${PRODUCTION_MANIFEST_SCHEMA_FILE}.");
@@ -1255,21 +1335,25 @@ pushIf(handoff.sourceOfTruth?.hash !== actualLayerDocHash, failures, "handoff_so
 pushIf(manifest.layerDocHash !== actualLayerDocHash, failures, "manifest_layerdoc_hash_mismatch", "manifest.json layerDocHash must match the current layerdoc.json hash.");
 pushIf(!manifestFiles.includes("${ASSET_INDEX_FILE}"), failures, "asset_index_not_listed", "manifest.json files must include ${ASSET_INDEX_FILE}.");
 pushIf(!manifestFiles.includes("${BACKTEST_RUNBOOK_FILE}"), failures, "backtest_runbook_not_listed", "manifest.json files must include ${BACKTEST_RUNBOOK_FILE}.");
+pushIf(!manifestFiles.includes("${CI_WORKFLOW_FILE}"), failures, "ci_workflow_not_listed", "manifest.json files must include ${CI_WORKFLOW_FILE}.");
 pushIf(!manifestFiles.includes("${PRODUCTION_MANIFEST_FILE}"), failures, "production_manifest_not_listed", "manifest.json files must include ${PRODUCTION_MANIFEST_FILE}.");
 pushIf(!manifestFiles.includes("${PRODUCTION_MANIFEST_SCHEMA_FILE}"), failures, "production_manifest_schema_not_listed", "manifest.json files must include ${PRODUCTION_MANIFEST_SCHEMA_FILE}.");
 pushIf(!fileExists(assetIndexPath), failures, "asset_index_missing", "manifest.json assetIndex must point at an existing file.");
 pushIf(!fileExists(backtestRunbookPath), failures, "backtest_runbook_missing", "manifest.json backtestRunbook must point at an existing file.");
+pushIf(!fileExists(ciWorkflowPath), failures, "ci_workflow_missing", "manifest.json ciWorkflow must point at an existing file.");
 pushIf(!fileExists(productionManifestPath), failures, "production_manifest_missing", "manifest.json productionManifest must point at an existing file.");
 pushIf(!fileExists(productionManifestSchemaPath), failures, "production_manifest_schema_missing", "manifest.json productionManifestSchema must point at an existing file.");
 pushIf(!fileExists(manifest.sectionCandidateSchema), failures, "section_candidate_schema_missing", "manifest.json sectionCandidateSchema must point at an existing file.");
 
 pushIf(!manifestFiles.includes("scripts/verify-handoff.mjs"), failures, "handoff_verifier_not_listed", "manifest.json files must include scripts/verify-handoff.mjs.");
+pushIf(!manifestFiles.includes("scripts/verify-ci-workflow.mjs"), failures, "ci_workflow_verifier_not_listed", "manifest.json files must include scripts/verify-ci-workflow.mjs.");
 for (const path of manifestFiles) {
   pushIf(!fileExists(path), failures, "manifest_file_missing", \`manifest.json lists missing file \${path}.\`);
 }
 
 pushIf(packageScripts.verify !== "${PROJECT_VERIFY_CHAIN}", failures, "package_verify_chain_mismatch", "package.json verify script must run the full handoff verification chain.");
-for (const scriptName of ["verify:handoff", "verify:analysis-plan", "verify:image-manifest", "verify:layerdoc", "verify:contract", "apply:section-candidate", "verify:section-candidate", "verify:section-application", "verify:preview", "verify:production-manifest", "verify:gates"]) {
+pushIf(packageScripts.ci !== "${PROJECT_CI_COMMAND}", failures, "package_ci_script_mismatch", "package.json ci script must run full verification and build.");
+for (const scriptName of ["verify:handoff", "verify:ci-workflow", "verify:analysis-plan", "verify:image-manifest", "verify:layerdoc", "verify:contract", "apply:section-candidate", "verify:section-candidate", "verify:section-application", "verify:preview", "verify:production-manifest", "verify:gates"]) {
   pushIf(typeof packageScripts[scriptName] !== "string", failures, "package_verify_script_missing", \`package.json scripts must include \${scriptName}.\`);
 }
 
@@ -1297,6 +1381,8 @@ pushIf(handoff.sectionRegeneration?.requestCount !== (contract.generationRequest
 pushIf(handoff.sectionRegeneration?.applicationCount !== (contract.generationApplications?.length ?? 0), failures, "handoff_section_application_count_mismatch", "handoff sectionRegeneration.applicationCount must match integration contract.");
 pushIf(stableJson(assetIndex) !== stableJson(expectedAssetIndex), failures, "asset_index_mismatch", "asset-index.json does not match LayerDoc and integration-contract assets. Expected " + stableJson(expectedAssetIndex) + " Received " + stableJson(assetIndex));
 pushIf(stableJson(handoff.assetIndex) !== stableJson(expectedAssetIndexSummary), failures, "handoff_asset_index_mismatch", "handoff-summary.json assetIndex must summarize asset-index.json.");
+pushIf(stableJson(handoff.ciWorkflow) !== stableJson({ file: ciWorkflowPath, kind: "project_ci_workflow", command: "npm run ci" }), failures, "handoff_ci_workflow_mismatch", "handoff-summary.json ciWorkflow must match manifest.json.");
+pushIf(stableJson(ciWorkflow) !== stableJson(expectedCiWorkflow), failures, "ci_workflow_mismatch", "ci-workflow.json must match manifest.json, handoff-summary.json, package scripts, and current LayerDoc hash. Expected " + stableJson(expectedCiWorkflow) + " Received " + stableJson(ciWorkflow));
 pushIf(stableJson(backtestRunbook) !== stableJson(expectedBacktestRunbook), failures, "backtest_runbook_mismatch", "backtest-runbook.json must match manifest.json, handoff-summary.json, and current LayerDoc hash. Expected " + stableJson(expectedBacktestRunbook) + " Received " + stableJson(backtestRunbook));
 pushIf(stableJson(productionManifest) !== stableJson(expectedProductionManifest), failures, "production_manifest_mismatch", "production-manifest.json must match LayerDoc, integration contract, asset index, quality report, and handoff metadata. Expected " + stableJson(expectedProductionManifest) + " Received " + stableJson(productionManifest));
 pushIf(stableJson(productionManifestSchema) !== stableJson(expectedProductionManifestSchema), failures, "production_manifest_schema_mismatch", "production-manifest.schema.json must match the exported ProjectProductionManifest contract. Expected " + stableJson(expectedProductionManifestSchema) + " Received " + stableJson(productionManifestSchema));
@@ -1449,6 +1535,11 @@ const expectedProductionManifest = {
     backtest: {
       file: manifest.backtestRunbook ?? "${BACKTEST_RUNBOOK_FILE}",
       kind: "studio_backtest_runbook"
+    },
+    ci: {
+      file: manifest.ciWorkflow ?? "${CI_WORKFLOW_FILE}",
+      kind: "project_ci_workflow",
+      command: "npm run ci"
     }
   },
   integrationSteps: [
@@ -1472,6 +1563,85 @@ const result = {
   failures,
   productionManifestPath,
   productionManifestSchemaPath,
+  layerDocHash
+};
+
+process.stdout.write(\`\${JSON.stringify(result, null, 2)}\\n\`);
+if (!result.passed) {
+  process.exitCode = 1;
+}
+`;
+}
+
+function ciWorkflowVerifierScriptFor(): string {
+  return `import { createHash } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
+
+function readJson(path) {
+  return JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
+}
+
+function stableJson(value) {
+  return \`\${JSON.stringify(value, null, 2)}\\n\`;
+}
+
+function sha256(value) {
+  return \`sha256:\${createHash("sha256").update(value).digest("hex")}\`;
+}
+
+function pushIf(condition, failures, code, message) {
+  if (condition) {
+    failures.push({ code, message });
+  }
+}
+
+function fileExists(path) {
+  return existsSync(new URL(\`../\${path}\`, import.meta.url));
+}
+
+const manifest = readJson("../manifest.json");
+const packageJson = readJson("../package.json");
+const layerDoc = readJson("../layerdoc.json");
+const handoff = readJson("../handoff-summary.json");
+const productionManifest = readJson("../production-manifest.json");
+const ciWorkflowPath = manifest.ciWorkflow ?? "${CI_WORKFLOW_FILE}";
+const ciWorkflow = fileExists(ciWorkflowPath) ? readJson("../" + ciWorkflowPath) : null;
+const layerDocHash = sha256(stableJson(layerDoc));
+const expectedCiWorkflow = {
+  version: "0.1.0",
+  kind: "project_ci_workflow",
+  positioning: "AI UI Production System",
+  packageName: manifest.packageName,
+  componentName: manifest.componentName,
+  sourceOfTruth: {
+    file: "layerdoc.json",
+    schemaFile: "layerdoc.schema.json",
+    hash: layerDocHash
+  },
+  entrypoint: {
+    productionManifest: manifest.productionManifest,
+    handoffSummary: manifest.handoffSummary,
+    integrationContract: manifest.integrationContract,
+    verificationReport: "verification-report.json",
+    qualityGates: "quality-gates.json"
+  },
+  requiredCommands: ${stableJson(ciRequiredCommands())},
+  phases: ${stableJson(ciWorkflowPhases())}
+};
+
+const failures = [];
+pushIf(manifest.ciWorkflow !== "${CI_WORKFLOW_FILE}", failures, "manifest_ci_workflow_mismatch", "manifest.json ciWorkflow must be ${CI_WORKFLOW_FILE}.");
+pushIf(!fileExists(ciWorkflowPath), failures, "ci_workflow_missing", "ci workflow file is missing: " + ciWorkflowPath);
+pushIf(packageJson.scripts?.ci !== "${PROJECT_CI_COMMAND}", failures, "package_ci_script_mismatch", "package.json ci script must run full verification and build.");
+pushIf(packageJson.scripts?.["verify:ci-workflow"] !== "node scripts/verify-ci-workflow.mjs", failures, "package_ci_verifier_script_mismatch", "package.json must expose verify:ci-workflow.");
+pushIf(handoff.ciWorkflow?.file !== ciWorkflowPath || handoff.ciWorkflow?.kind !== "project_ci_workflow" || handoff.ciWorkflow?.command !== "npm run ci", failures, "handoff_ci_workflow_mismatch", "handoff-summary.json ciWorkflow must point at ci-workflow.json and npm run ci.");
+pushIf(productionManifest.runbooks?.ci?.file !== ciWorkflowPath || productionManifest.runbooks?.ci?.kind !== "project_ci_workflow" || productionManifest.runbooks?.ci?.command !== "npm run ci", failures, "production_manifest_ci_workflow_mismatch", "production-manifest.json runbooks.ci must point at ci-workflow.json and npm run ci.");
+pushIf(stableJson(ciWorkflow) !== stableJson(expectedCiWorkflow), failures, "ci_workflow_mismatch", "ci-workflow.json must match manifest.json, package scripts, production manifest, handoff summary, and current LayerDoc hash. Expected " + stableJson(expectedCiWorkflow) + " Received " + stableJson(ciWorkflow));
+
+const result = {
+  passed: failures.length === 0,
+  failures,
+  ciWorkflowPath,
   layerDocHash
 };
 
@@ -2885,6 +3055,7 @@ function updateBacktestRunbook(runbook, manifest, handoff) {
       backtestReport: "backtest-report.json",
       pipelineReport: "pipeline-report.json",
       productionManifest: manifest.productionManifest,
+      ciWorkflow: manifest.ciWorkflow,
       handoffSummary: manifest.handoffSummary,
       verificationReport: "verification-report.json"
     },
@@ -2912,6 +3083,27 @@ function updateBacktestRunbook(runbook, manifest, handoff) {
   };
 }
 
+function updateCiWorkflow(workflow, manifest, handoff) {
+  return {
+    ...(workflow ?? {}),
+    version: "0.1.0",
+    kind: "project_ci_workflow",
+    positioning: "AI UI Production System",
+    packageName: manifest.packageName,
+    componentName: manifest.componentName,
+    sourceOfTruth: { ...handoff.sourceOfTruth },
+    entrypoint: {
+      productionManifest: manifest.productionManifest,
+      handoffSummary: manifest.handoffSummary,
+      integrationContract: manifest.integrationContract,
+      verificationReport: "verification-report.json",
+      qualityGates: "quality-gates.json"
+    },
+    requiredCommands: ${stableJson(ciRequiredCommands())},
+    phases: ${stableJson(ciWorkflowPhases())}
+  };
+}
+
 const options = parseArgs(process.argv.slice(2));
 const candidate = readInputJson(options.input);
 const currentLayerDoc = readProjectJson("../layerdoc.json");
@@ -2919,6 +3111,8 @@ const manifest = readProjectJson("../manifest.json");
 const handoff = readProjectJson("../handoff-summary.json");
 const backtestRunbookPath = manifest.backtestRunbook ?? "${BACKTEST_RUNBOOK_FILE}";
 const backtestRunbook = readProjectJson("../" + backtestRunbookPath);
+const ciWorkflowPath = manifest.ciWorkflow ?? "${CI_WORKFLOW_FILE}";
+const ciWorkflow = readProjectJson("../" + ciWorkflowPath);
 const productionManifestPath = manifest.productionManifest ?? "${PRODUCTION_MANIFEST_FILE}";
 const productionManifest = readProjectJson("../" + productionManifestPath);
 const candidateFailures = validateCandidate(candidate, options.sectionId, currentLayerDoc);
@@ -2943,6 +3137,7 @@ const assetIndex = createAssetIndex(nextLayerDoc, contract, nextHash);
 const nextHandoff = updateHandoffSummary(handoff, manifest, contract, audit, report, assetIndex);
 const nextProductionManifest = updateProductionManifest(productionManifest, manifest, contract, report, assetIndex, nextHandoff);
 const nextBacktestRunbook = updateBacktestRunbook(backtestRunbook, manifest, nextHandoff);
+const nextCiWorkflow = updateCiWorkflow(ciWorkflow, manifest, nextHandoff);
 
 writeProjectJson("../layerdoc.json", nextLayerDoc);
 writeProjectJson("../verification-report.json", report);
@@ -2951,6 +3146,7 @@ writeProjectJson("../manifest.json", manifest);
 writeProjectJson("../integration-contract.json", contract);
 writeProjectJson("../" + (manifest.assetIndex ?? "${ASSET_INDEX_FILE}"), assetIndex);
 writeProjectJson("../" + backtestRunbookPath, nextBacktestRunbook);
+writeProjectJson("../" + ciWorkflowPath, nextCiWorkflow);
 writeProjectJson("../handoff-summary.json", nextHandoff);
 writeProjectJson("../" + productionManifestPath, nextProductionManifest);
 writeProjectText("../preview.html", renderHtmlPreview(nextLayerDoc));
@@ -2974,6 +3170,7 @@ process.stdout.write(JSON.stringify({
     "integration-contract.json",
     manifest.assetIndex ?? "${ASSET_INDEX_FILE}",
     backtestRunbookPath,
+    ciWorkflowPath,
     "handoff-summary.json",
     productionManifestPath,
     "preview.html",
@@ -4828,6 +5025,7 @@ function updateBacktestRunbook(runbook, manifest, handoff) {
       backtestReport: "backtest-report.json",
       pipelineReport: "pipeline-report.json",
       productionManifest: manifest.productionManifest,
+      ciWorkflow: manifest.ciWorkflow,
       handoffSummary: manifest.handoffSummary,
       verificationReport: "verification-report.json"
     },
@@ -4852,6 +5050,27 @@ function updateBacktestRunbook(runbook, manifest, handoff) {
       source: manifest.handoffSummary,
       commands: Array.isArray(handoff.commands) ? handoff.commands : []
     }
+  };
+}
+
+function updateCiWorkflow(workflow, manifest, handoff) {
+  return {
+    ...(workflow ?? {}),
+    version: "0.1.0",
+    kind: "project_ci_workflow",
+    positioning: "AI UI Production System",
+    packageName: manifest.packageName,
+    componentName: manifest.componentName,
+    sourceOfTruth: { ...handoff.sourceOfTruth },
+    entrypoint: {
+      productionManifest: manifest.productionManifest,
+      handoffSummary: manifest.handoffSummary,
+      integrationContract: manifest.integrationContract,
+      verificationReport: "verification-report.json",
+      qualityGates: "quality-gates.json"
+    },
+    requiredCommands: ${stableJson(ciRequiredCommands())},
+    phases: ${stableJson(ciWorkflowPhases())}
   };
 }
 
@@ -4920,6 +5139,8 @@ const visualDiff = comparePngs(referencePath, candidatePath, diffPath, options.t
 const handoff = readJson("../handoff-summary.json");
 const backtestRunbookPath = manifest.backtestRunbook ?? "${BACKTEST_RUNBOOK_FILE}";
 const backtestRunbook = readJson("../" + backtestRunbookPath);
+const ciWorkflowPath = manifest.ciWorkflow ?? "${CI_WORKFLOW_FILE}";
+const ciWorkflow = readJson("../" + ciWorkflowPath);
 const productionManifest = readJson("../" + productionManifestPath);
 const layerDoc = readJson("../layerdoc.json");
 const contract = readJson("../integration-contract.json");
@@ -5006,6 +5227,7 @@ handoff.quality = {
 };
 writeJson("../handoff-summary.json", handoff);
 writeJson("../" + backtestRunbookPath, updateBacktestRunbook(backtestRunbook, manifest, handoff));
+writeJson("../" + ciWorkflowPath, updateCiWorkflow(ciWorkflow, manifest, handoff));
 
 productionManifest.sourceOfTruth = {
   ...(productionManifest.sourceOfTruth ?? {}),
@@ -5044,6 +5266,7 @@ process.stdout.write(\`\${JSON.stringify({
   reportPath: "verification-report.json",
   manifestPath: "manifest.json",
   productionManifestPath,
+  ciWorkflowPath,
   handoffSummaryPath: "handoff-summary.json",
   layerDocPath: "layerdoc.json",
   contractPath: "integration-contract.json",
@@ -5170,9 +5393,11 @@ Run locally:
 - \`npm install\`
 - \`npm run dev\`
 - \`npm run build\`
+- \`npm run ci\`
 - \`npm run verify\`
 - \`npm run verify:preview\`
 - \`npm run verify:production-manifest\`
+- \`npm run verify:ci-workflow\`
 - \`npm run verify:handoff\`
 - \`npm run verify:analysis-plan\`
 - \`npm run verify:image-manifest\`
@@ -5191,6 +5416,7 @@ Generated assets:
 - \`${manifest.productionManifest}\`: recommended integration entrypoint for downstream projects, tying LayerDoc, generated React, preview, contract, assets, quality gates, and regeneration commands together
 - \`${manifest.productionManifestSchema}\`: JSON Schema for validating the production manifest before project ingestion
 - \`${manifest.backtestRunbook}\`: machine-readable runbook for rerunning the homepage backtest, project materialization, and project-local verification commands
+- \`${manifest.ciWorkflow}\`: machine-readable CI workflow for installing, verifying preview/structure/gates, and building the generated project
 - \`handoff-summary.json\`: machine-readable integration summary for CI, importers, and downstream project handoff
 - \`integration-contract.json\`: stable mapping from visible LayerDoc objects to project files and DOM selectors
 - \`${manifest.assetIndex}\`: machine-readable asset inventory with source, usage, visible-project, section, component, and selector mapping
@@ -5198,11 +5424,13 @@ Generated assets:
 - \`${manifest.sectionCandidateSchema}\`: reviewed section regeneration candidate contract for AI workers and Studio imports
 ${manifest.analysisTaskFile ? `- \`${manifest.analysisTaskFile}\`: source PNG decomposition task given to the vision/manual analysis step\n` : ""}${manifest.analysisPlanFile ? `- \`${manifest.analysisPlanFile}\`: confirmed Homepage Analysis Plan used before LayerDoc build\n` : ""}${manifest.analysisPlanSchema ? `- \`${manifest.analysisPlanSchema}\`: Homepage Analysis Plan source contract\n` : ""}${manifest.analysisPlanAuditFile ? `- \`${manifest.analysisPlanAuditFile}\`: Analysis Plan coverage, track, and readiness audit\n` : ""}${manifest.imageManifestFile ? `- \`${manifest.imageManifestFile}\`: source image decomposition manifest connecting the visual intake to LayerDoc sections and layers\n` : ""}- \`${manifest.referenceVisual.file}\`: original target visual expected by preview verification; included when the exporter receives \`referencePng\`; homepage pipeline supplies it automatically
 - \`layerdoc-audit.json\`: structure, track, and asset-compliance audit
-- \`verification-report.json\`, \`quality-gates.json\`, \`scripts/verify-handoff.mjs\`, \`scripts/verify-production-manifest.mjs\`, \`scripts/verify-analysis-plan.mjs\`, \`scripts/verify-image-manifest.mjs\`, \`scripts/verify-layerdoc.mjs\`, \`scripts/verify-contract.mjs\`, \`scripts/verify-preview.mjs\`, \`scripts/verify-gates.mjs\`: executable source, structure, contract, visual, and quality gate handoff
+- \`verification-report.json\`, \`quality-gates.json\`, \`scripts/verify-handoff.mjs\`, \`scripts/verify-production-manifest.mjs\`, \`scripts/verify-ci-workflow.mjs\`, \`scripts/verify-analysis-plan.mjs\`, \`scripts/verify-image-manifest.mjs\`, \`scripts/verify-layerdoc.mjs\`, \`scripts/verify-contract.mjs\`, \`scripts/verify-preview.mjs\`, \`scripts/verify-gates.mjs\`: executable source, structure, contract, visual, and quality gate handoff
 
 Verification:
-- Run \`npm run verify:preview\` first to use the manifest reference visual, render \`preview.html\`, capture \`verification-artifacts/candidate.png\`, produce \`verification-artifacts/diff.png\`, and sync \`verification-report.json\`, \`layerdoc.json\`, \`manifest.json\`, \`integration-contract.json\`, \`${manifest.productionManifest}\`, \`handoff-summary.json\`, and rendered root quality attributes.
+- Run \`npm run ci\` in downstream CI to execute full project verification and the generated React build.
+- Run \`npm run verify:preview\` first to use the manifest reference visual, render \`preview.html\`, capture \`verification-artifacts/candidate.png\`, produce \`verification-artifacts/diff.png\`, and sync \`verification-report.json\`, \`layerdoc.json\`, \`manifest.json\`, \`integration-contract.json\`, \`${manifest.productionManifest}\`, \`${manifest.ciWorkflow}\`, \`handoff-summary.json\`, and rendered root quality attributes.
 - Run \`npm run verify:production-manifest\` when a downstream importer only needs to validate the project integration entrypoint and its schema before ingesting generated UI.
+- Run \`npm run verify:ci-workflow\` when a downstream CI system needs to validate the machine-readable automation contract before running it.
 - Run \`npm run verify:handoff\` after preview verification to confirm the project package manifest, file list, commands, scripts, entrypoint, production manifest, backtest runbook, contract summary, quality summary, audit summary, and LayerDoc hash still agree.
 - Run \`npm run verify:analysis-plan\` to confirm Analysis Plan schema and audit artifacts still match \`manifest.json\`, \`layerdoc.json\`, and \`handoff-summary.json\`.
 - Run \`npm run verify:image-manifest\` to confirm the source image decomposition still matches \`manifest.json\`, \`layerdoc.json\`, and \`handoff-summary.json\`.
@@ -5230,9 +5458,11 @@ function handoffCommands(): ProjectHandoffCommand[] {
     { label: "Install dependencies", command: "npm install" },
     { label: "Run the project", command: "npm run dev" },
     { label: "Build the project", command: "npm run build" },
+    { label: "Run CI workflow", command: "npm run ci" },
     { label: "Verify full handoff", command: "npm run verify" },
     { label: "Verify visual preview", command: "npm run verify:preview" },
     { label: "Verify production manifest", command: "npm run verify:production-manifest" },
+    { label: "Verify CI workflow", command: "npm run verify:ci-workflow" },
     { label: "Verify project handoff", command: "npm run verify:handoff" },
     { label: "Verify Analysis Plan artifacts", command: "npm run verify:analysis-plan" },
     { label: "Verify Image Manifest artifacts", command: "npm run verify:image-manifest" },
@@ -5243,6 +5473,92 @@ function handoffCommands(): ProjectHandoffCommand[] {
     { label: "Verify section application", command: "npm run verify:section-application" },
     { label: "Enforce quality gates", command: "npm run verify:gates" }
   ];
+}
+
+function ciRequiredCommands(): string[] {
+  return [
+    "npm install",
+    "npm run ci",
+    "npm run build",
+    "npm run verify",
+    "npm run verify:preview",
+    "npm run verify:production-manifest",
+    "npm run verify:ci-workflow",
+    "npm run verify:handoff",
+    "npm run verify:analysis-plan",
+    "npm run verify:image-manifest",
+    "npm run verify:layerdoc",
+    "npm run verify:contract",
+    "npm run verify:gates"
+  ];
+}
+
+function ciWorkflowPhases(): ProjectCiWorkflow["phases"] {
+  return [
+    {
+      id: "install",
+      label: "Install project package dependencies",
+      command: "npm install",
+      required: true,
+      artifacts: ["package.json"]
+    },
+    {
+      id: "verify-preview",
+      label: "Capture preview screenshot diff and sync quality evidence",
+      command: "npm run verify:preview",
+      required: true,
+      artifacts: ["preview.html", "verification-report.json", "verification-artifacts/candidate.png", "verification-artifacts/diff.png"]
+    },
+    {
+      id: "verify-structure",
+      label: "Verify production manifest, CI handoff, LayerDoc, and integration contract",
+      command:
+        "npm run verify:production-manifest && npm run verify:ci-workflow && npm run verify:handoff && npm run verify:analysis-plan && npm run verify:image-manifest && npm run verify:layerdoc && npm run verify:contract",
+      required: true,
+      artifacts: [
+        PRODUCTION_MANIFEST_FILE,
+        CI_WORKFLOW_FILE,
+        "handoff-summary.json",
+        "layerdoc.json",
+        "integration-contract.json",
+        ASSET_INDEX_FILE
+      ]
+    },
+    {
+      id: "verify-gates",
+      label: "Enforce score thresholds and LayerDoc asset compliance",
+      command: "npm run verify:gates",
+      required: true,
+      artifacts: ["quality-gates.json", "verification-report.json", "layerdoc-audit.json"]
+    },
+    {
+      id: "build",
+      label: "Build the generated React/Tailwind project",
+      command: "npm run build",
+      required: true,
+      artifacts: ["app-dist"]
+    }
+  ];
+}
+
+function createCiWorkflow(manifest: ProjectExportManifest, handoff: ProjectHandoffSummary): ProjectCiWorkflow {
+  return {
+    version: "0.1.0",
+    kind: "project_ci_workflow",
+    positioning: "AI UI Production System",
+    packageName: manifest.packageName,
+    componentName: manifest.componentName,
+    sourceOfTruth: { ...handoff.sourceOfTruth },
+    entrypoint: {
+      productionManifest: manifest.productionManifest,
+      handoffSummary: manifest.handoffSummary,
+      integrationContract: manifest.integrationContract,
+      verificationReport: "verification-report.json",
+      qualityGates: "quality-gates.json"
+    },
+    requiredCommands: ciRequiredCommands(),
+    phases: ciWorkflowPhases()
+  };
 }
 
 function createHandoffSummary(
@@ -5297,6 +5613,11 @@ function createHandoffSummary(
       file: manifest.assetIndex,
       ...assetIndex.summary
     },
+    ciWorkflow: {
+      file: manifest.ciWorkflow,
+      kind: "project_ci_workflow",
+      command: "npm run ci"
+    },
     sectionRegeneration: {
       candidateSchemaFile: manifest.sectionCandidateSchema,
       requestCount: contract.generationRequests.length,
@@ -5340,6 +5661,7 @@ function createBacktestRunbook(manifest: ProjectExportManifest, handoff: Project
       backtestReport: "backtest-report.json",
       pipelineReport: "pipeline-report.json",
       productionManifest: manifest.productionManifest,
+      ciWorkflow: manifest.ciWorkflow,
       handoffSummary: manifest.handoffSummary,
       verificationReport: "verification-report.json"
     },
@@ -5443,6 +5765,11 @@ function createProductionManifest(
       backtest: {
         file: manifest.backtestRunbook,
         kind: "studio_backtest_runbook"
+      },
+      ci: {
+        file: manifest.ciWorkflow,
+        kind: "project_ci_workflow",
+        command: "npm run ci"
       }
     },
     integrationSteps: [
@@ -5484,6 +5811,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     ...(analysisPlanSchemaPath ? [analysisPlanSchemaPath] : []),
     ASSET_INDEX_FILE,
     BACKTEST_RUNBOOK_FILE,
+    CI_WORKFLOW_FILE,
     "handoff-summary.json",
     "index.html",
     "integration-contract.json",
@@ -5500,6 +5828,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     ...(options.referencePng ? [referenceVisual.file] : []),
     "scripts/apply-section-candidate.mjs",
     "scripts/verify-analysis-plan.mjs",
+    "scripts/verify-ci-workflow.mjs",
     "scripts/verify-contract.mjs",
     "scripts/verify-gates.mjs",
     "scripts/verify-handoff.mjs",
@@ -5525,6 +5854,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     integrationContract: "integration-contract.json",
     handoffSummary: "handoff-summary.json",
     backtestRunbook: BACKTEST_RUNBOOK_FILE,
+    ciWorkflow: CI_WORKFLOW_FILE,
     productionManifest: PRODUCTION_MANIFEST_FILE,
     productionManifestSchema: PRODUCTION_MANIFEST_SCHEMA_FILE,
     assetIndex: ASSET_INDEX_FILE,
@@ -5553,6 +5883,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     sourceDoc.metadata.analysisPlanAudit
   );
   const backtestRunbook = createBacktestRunbook(manifest, handoffSummary);
+  const ciWorkflow = createCiWorkflow(manifest, handoffSummary);
   const productionManifest = createProductionManifest(manifest, integrationContract, assetIndex, handoffSummary);
   const analysisTask =
     analysisTaskPath && sourceDoc.metadata.sourceImage
@@ -5576,6 +5907,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
       ...(analysisPlanSchemaPath ? [{ path: analysisPlanSchemaPath, contents: stableJson(createHomepageAnalysisPlanJsonSchema()) }] : []),
       { path: ASSET_INDEX_FILE, contents: stableJson(assetIndex) },
       { path: BACKTEST_RUNBOOK_FILE, contents: stableJson(backtestRunbook) },
+      { path: CI_WORKFLOW_FILE, contents: stableJson(ciWorkflow) },
       { path: "handoff-summary.json", contents: stableJson(handoffSummary) },
       { path: "index.html", contents: indexHtmlFor(options.componentName) },
       { path: "integration-contract.json", contents: stableJson(integrationContract) },
@@ -5592,6 +5924,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
       ...(options.referencePng ? [{ path: referenceVisual.file, contents: options.referencePng }] : []),
       { path: "scripts/apply-section-candidate.mjs", contents: sectionCandidateApplyScriptFor() },
       { path: "scripts/verify-analysis-plan.mjs", contents: analysisPlanVerifierScriptFor() },
+      { path: "scripts/verify-ci-workflow.mjs", contents: ciWorkflowVerifierScriptFor() },
       { path: "scripts/verify-contract.mjs", contents: contractVerifierScriptFor() },
       { path: "scripts/verify-gates.mjs", contents: qualityGateScriptFor() },
       { path: "scripts/verify-handoff.mjs", contents: handoffVerifierScriptFor() },

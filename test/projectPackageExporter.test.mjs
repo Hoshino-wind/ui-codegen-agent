@@ -16,7 +16,7 @@ import {
 } from "../dist/index.js";
 
 const EXPECTED_VERIFY_CHAIN =
-  "npm run verify:preview && npm run verify:production-manifest && npm run verify:handoff && npm run verify:analysis-plan && npm run verify:image-manifest && npm run verify:layerdoc && npm run verify:contract && npm run verify:gates";
+  "npm run verify:preview && npm run verify:production-manifest && npm run verify:ci-workflow && npm run verify:handoff && npm run verify:analysis-plan && npm run verify:image-manifest && npm run verify:layerdoc && npm run verify:contract && npm run verify:gates";
 
 test("project package exporter stays browser-compatible for Studio exports", () => {
   const source = readFileSync(join(process.cwd(), "src", "exporters", "projectPackage.ts"), "utf8");
@@ -390,6 +390,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.equal(output.manifest.integrationContract, "integration-contract.json");
   assert.equal(output.manifest.handoffSummary, "handoff-summary.json");
   assert.equal(output.manifest.backtestRunbook, "backtest-runbook.json");
+  assert.equal(output.manifest.ciWorkflow, "ci-workflow.json");
   assert.equal(output.manifest.productionManifest, "production-manifest.json");
   assert.equal(output.manifest.productionManifestSchema, "production-manifest.schema.json");
   assert.equal(output.manifest.sectionCandidateSchema, "section-candidate.schema.json");
@@ -417,6 +418,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     "analysis-plan.schema.json",
     "asset-index.json",
     "backtest-runbook.json",
+    "ci-workflow.json",
     "handoff-summary.json",
     "index.html",
     "integration-contract.json",
@@ -432,6 +434,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     "section-candidate.schema.json",
     "scripts/verify-analysis-plan.mjs",
     "scripts/apply-section-candidate.mjs",
+    "scripts/verify-ci-workflow.mjs",
     "scripts/verify-contract.mjs",
     "scripts/verify-gates.mjs",
     "scripts/verify-handoff.mjs",
@@ -455,6 +458,8 @@ test("createProjectExportPackage returns project-ready files derived from one La
   const packageJson = JSON.parse(output.files.find((file) => file.path === "package.json").contents);
   assert.equal(packageJson.scripts.verify, EXPECTED_VERIFY_CHAIN);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:handoff": "node scripts\/verify-handoff\.mjs"/);
+  assert.match(output.files.find((file) => file.path === "package.json").contents, /"ci": "npm run verify && npm run build"/);
+  assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:ci-workflow": "node scripts\/verify-ci-workflow\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:analysis-plan": "node scripts\/verify-analysis-plan\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:image-manifest": "node scripts\/verify-image-manifest\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:preview": "node scripts\/verify-preview\.mjs"/);
@@ -481,6 +486,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   const productionManifestSchema = JSON.parse(output.files.find((file) => file.path === "production-manifest.schema.json").contents);
   const analysisTask = JSON.parse(output.files.find((file) => file.path === "analysis-task.json").contents);
   const backtestRunbook = JSON.parse(output.files.find((file) => file.path === "backtest-runbook.json").contents);
+  const ciWorkflow = JSON.parse(output.files.find((file) => file.path === "ci-workflow.json").contents);
   const assetIndex = JSON.parse(output.files.find((file) => file.path === "asset-index.json").contents);
   const exportedLayerDoc = JSON.parse(output.files.find((file) => file.path === "layerdoc.json").contents);
   assert.deepEqual(manifest.referenceVisual, output.manifest.referenceVisual);
@@ -490,6 +496,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.equal(manifest.productionManifest, output.manifest.productionManifest);
   assert.equal(manifest.productionManifestSchema, output.manifest.productionManifestSchema);
   assert.equal(manifest.backtestRunbook, output.manifest.backtestRunbook);
+  assert.equal(manifest.ciWorkflow, output.manifest.ciWorkflow);
   assert.equal(manifest.assetIndex, output.manifest.assetIndex);
   assert.equal(productionManifestSchema.title, "ProjectProductionManifest 0.1.0");
   assert.deepEqual(productionManifestSchema.required, [
@@ -507,7 +514,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.deepEqual(productionManifestSchema.properties.sourceOfTruth.required, ["type", "file", "schemaFile", "hash", "editable"]);
   assert.deepEqual(productionManifestSchema.properties.generated.required, ["react", "preview", "contract", "assets"]);
   assert.equal(productionManifestSchema.properties.quality.properties.scores.required.includes("visual_similarity"), true);
-  assert.deepEqual(productionManifestSchema.properties.runbooks.required, ["backtest"]);
+  assert.deepEqual(productionManifestSchema.properties.runbooks.required, ["backtest", "ci"]);
   assert.equal(productionManifestSchema.properties.integrationSteps.items.required.includes("command"), true);
   assert.equal(productionManifest.role, "project_integration_manifest");
   assert.deepEqual(productionManifest.sourceOfTruth, {
@@ -564,6 +571,35 @@ test("createProjectExportPackage returns project-ready files derived from one La
     file: "backtest-runbook.json",
     kind: "studio_backtest_runbook"
   });
+  assert.deepEqual(productionManifest.runbooks.ci, {
+    file: "ci-workflow.json",
+    kind: "project_ci_workflow",
+    command: "npm run ci"
+  });
+  assert.equal(ciWorkflow.version, "0.1.0");
+  assert.equal(ciWorkflow.kind, "project_ci_workflow");
+  assert.equal(ciWorkflow.packageName, output.manifest.packageName);
+  assert.equal(ciWorkflow.componentName, output.manifest.componentName);
+  assert.deepEqual(ciWorkflow.sourceOfTruth, {
+    file: "layerdoc.json",
+    schemaFile: "layerdoc.schema.json",
+    hash: output.manifest.layerDocHash
+  });
+  assert.deepEqual(ciWorkflow.entrypoint, {
+    productionManifest: "production-manifest.json",
+    handoffSummary: "handoff-summary.json",
+    integrationContract: "integration-contract.json",
+    verificationReport: "verification-report.json",
+    qualityGates: "quality-gates.json"
+  });
+  assert.equal(ciWorkflow.requiredCommands.includes("npm run verify:preview"), true);
+  assert.equal(ciWorkflow.requiredCommands.includes("npm run verify:production-manifest"), true);
+  assert.equal(ciWorkflow.requiredCommands.includes("npm run verify:ci-workflow"), true);
+  assert.equal(ciWorkflow.requiredCommands.includes("npm run verify:gates"), true);
+  assert.deepEqual(ciWorkflow.phases.map((phase) => phase.id), ["install", "verify-preview", "verify-structure", "verify-gates", "build"]);
+  assert.match(ciWorkflow.phases.find((phase) => phase.id === "verify-structure").command, /npm run verify:handoff/);
+  assert.doesNotMatch(ciWorkflow.phases.find((phase) => phase.id === "verify-structure").command, /npm run verify:preview/);
+  assert.equal(ciWorkflow.phases.find((phase) => phase.id === "verify-gates").artifacts.includes("quality-gates.json"), true);
   assert.equal(backtestRunbook.version, "0.1.0");
   assert.equal(backtestRunbook.kind, "studio_backtest_runbook");
   assert.equal(backtestRunbook.packageName, output.manifest.packageName);
@@ -574,12 +610,14 @@ test("createProjectExportPackage returns project-ready files derived from one La
     hash: output.manifest.layerDocHash
   });
   assert.equal(backtestRunbook.artifacts.productionManifest, "production-manifest.json");
+  assert.equal(backtestRunbook.artifacts.ciWorkflow, "ci-workflow.json");
   assert.equal(backtestRunbook.artifacts.handoffSummary, "handoff-summary.json");
   assert.equal(backtestRunbook.artifacts.projectPackage, "project-package.json");
   assert.equal(backtestRunbook.commands.some((entry) => entry.command === "npm run backtest:homepage -- --out artifacts/homepage-backtest --component ProductionHomepage"), true);
   assert.equal(backtestRunbook.commands.some((entry) => /npm run pipeline:homepage --/.test(entry.command) && /--verify-project/.test(entry.command)), true);
   assert.equal(backtestRunbook.commands.some((entry) => /npm run materialize:project --/.test(entry.command) && /--verify-preview/.test(entry.command)), true);
   assert.equal(backtestRunbook.projectVerification.commands.some((entry) => entry.command === "npm run verify:production-manifest"), true);
+  assert.equal(backtestRunbook.projectVerification.commands.some((entry) => entry.command === "npm run verify:ci-workflow"), true);
   assert.equal(backtestRunbook.projectVerification.commands.some((entry) => entry.command === "npm run verify:preview"), true);
   assert.deepEqual(productionManifest.integrationSteps.map((step) => step.command), [
     "npm install",
@@ -747,6 +785,11 @@ test("createProjectExportPackage returns project-ready files derived from one La
     bySource: {},
     byType: {}
   });
+  assert.deepEqual(handoffSummary.ciWorkflow, {
+    file: "ci-workflow.json",
+    kind: "project_ci_workflow",
+    command: "npm run ci"
+  });
   assert.deepEqual(handoffSummary.sectionRegeneration, {
     candidateSchemaFile: "section-candidate.schema.json",
     requestCount: 0,
@@ -781,9 +824,11 @@ test("createProjectExportPackage returns project-ready files derived from one La
       "npm install",
       "npm run dev",
       "npm run build",
+      "npm run ci",
       "npm run verify",
       "npm run verify:preview",
       "npm run verify:production-manifest",
+      "npm run verify:ci-workflow",
       "npm run verify:handoff",
       "npm run verify:analysis-plan",
       "npm run verify:image-manifest",
@@ -796,8 +841,10 @@ test("createProjectExportPackage returns project-ready files derived from one La
     ]
   );
   assert.match(output.files.find((file) => file.path === "scripts/verify-gates.mjs").contents, /verification-report\.json/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-ci-workflow.mjs").contents, /ci-workflow\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-handoff.mjs").contents, /handoff-summary\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-handoff.mjs").contents, /backtest-runbook\.json/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-handoff.mjs").contents, /ci-workflow\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-handoff.mjs").contents, /asset-index\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-handoff.mjs").contents, /package\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-analysis-plan.mjs").contents, /analysis-plan-audit\.json/);
@@ -834,6 +881,8 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:layerdoc/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:preview/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:production-manifest/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:ci-workflow/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /ci-workflow\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:section-candidate/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:section-application/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /manifest reference visual/);
@@ -1015,6 +1064,27 @@ test("exported production manifest verifier validates the integration entrypoint
   assert.notEqual(failed.status, 0);
   assert.match(failed.stdout, /production_manifest_mismatch/);
   assert.match(failed.stdout, /project_fit_score/);
+});
+
+test("exported CI workflow verifier validates project automation handoff independently", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-ci-workflow-"));
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const passed = spawnSync(process.execPath, ["scripts/verify-ci-workflow.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.equal(passed.status, 0, passed.stderr || passed.stdout);
+  assert.match(passed.stdout, /"passed": true/);
+  assert.match(passed.stdout, /"ciWorkflowPath": "ci-workflow\.json"/);
+
+  const ciWorkflowPath = join(directory, "ci-workflow.json");
+  const ciWorkflow = JSON.parse(readFileSync(ciWorkflowPath, "utf8"));
+  ciWorkflow.phases.find((phase) => phase.id === "verify-gates").command = "npm run test";
+  writeFileSync(ciWorkflowPath, `${JSON.stringify(ciWorkflow, null, 2)}\n`);
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-ci-workflow.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /ci_workflow_mismatch/);
+  assert.match(failed.stdout, /npm run verify:gates/);
 });
 
 test("createProjectExportPackage can include the visual reference PNG as a binary file", () => {

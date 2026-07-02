@@ -67,6 +67,7 @@ test("export project CLI writes a project package from a LayerDoc file", () => {
     "README.md",
     "asset-index.json",
     "backtest-runbook.json",
+    "ci-workflow.json",
     "handoff-summary.json",
     "index.html",
     "integration-contract.json",
@@ -81,6 +82,7 @@ test("export project CLI writes a project package from a LayerDoc file", () => {
     "quality-gates.json",
     "scripts/apply-section-candidate.mjs",
     "scripts/verify-analysis-plan.mjs",
+    "scripts/verify-ci-workflow.mjs",
     "scripts/verify-contract.mjs",
     "scripts/verify-gates.mjs",
     "scripts/verify-handoff.mjs",
@@ -105,6 +107,7 @@ test("export project CLI writes a project package from a LayerDoc file", () => {
   assert.equal(existsSync(join(outputDir, "vite.config.ts")), true);
   assert.equal(existsSync(join(outputDir, "scripts", "verify-contract.mjs")), true);
   assert.equal(existsSync(join(outputDir, "scripts", "verify-handoff.mjs")), true);
+  assert.equal(existsSync(join(outputDir, "scripts", "verify-ci-workflow.mjs")), true);
   assert.equal(existsSync(join(outputDir, "scripts", "verify-analysis-plan.mjs")), true);
   assert.equal(existsSync(join(outputDir, "scripts", "verify-image-manifest.mjs")), true);
   assert.equal(existsSync(join(outputDir, "scripts", "verify-gates.mjs")), true);
@@ -113,6 +116,7 @@ test("export project CLI writes a project package from a LayerDoc file", () => {
   assert.equal(existsSync(join(outputDir, "scripts", "verify-production-manifest.mjs")), true);
   assert.equal(existsSync(join(outputDir, "asset-index.json")), true);
   assert.equal(existsSync(join(outputDir, "backtest-runbook.json")), true);
+  assert.equal(existsSync(join(outputDir, "ci-workflow.json")), true);
   assert.equal(existsSync(join(outputDir, "handoff-summary.json")), true);
   assert.equal(existsSync(join(outputDir, "production-manifest.json")), true);
   assert.equal(existsSync(join(outputDir, "production-manifest.schema.json")), true);
@@ -126,6 +130,8 @@ test("export project CLI writes a project package from a LayerDoc file", () => {
   assert.match(readFileSync(join(outputDir, "package.json"), "utf8"), /"name": "production-homepage"/);
   assert.match(readFileSync(join(outputDir, "package.json"), "utf8"), /"verify:contract"/);
   assert.match(readFileSync(join(outputDir, "package.json"), "utf8"), /"verify:handoff"/);
+  assert.match(readFileSync(join(outputDir, "package.json"), "utf8"), /"verify:ci-workflow"/);
+  assert.match(readFileSync(join(outputDir, "package.json"), "utf8"), /"ci": "npm run verify && npm run build"/);
   assert.match(readFileSync(join(outputDir, "package.json"), "utf8"), /"verify:analysis-plan"/);
   assert.match(readFileSync(join(outputDir, "package.json"), "utf8"), /"verify:image-manifest"/);
   assert.match(readFileSync(join(outputDir, "package.json"), "utf8"), /"verify:preview"/);
@@ -133,6 +139,7 @@ test("export project CLI writes a project package from a LayerDoc file", () => {
   assert.match(readFileSync(join(outputDir, "package.json"), "utf8"), /"verify:gates"/);
   assert.match(readFileSync(join(outputDir, "package.json"), "utf8"), /"verify:layerdoc"/);
   assert.match(readFileSync(join(outputDir, "production-manifest.json"), "utf8"), /"role": "project_integration_manifest"/);
+  assert.match(readFileSync(join(outputDir, "ci-workflow.json"), "utf8"), /"kind": "project_ci_workflow"/);
   assert.match(readFileSync(join(outputDir, "production-manifest.schema.json"), "utf8"), /"title": "ProjectProductionManifest 0.1.0"/);
   assert.match(readFileSync(join(outputDir, "handoff-summary.json"), "utf8"), /"positioning": "AI UI Production System"/);
   assert.match(readFileSync(join(outputDir, "layerdoc-audit.json"), "utf8"), /"assetCompliance"/);

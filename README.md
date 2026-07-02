@@ -118,10 +118,15 @@ The repository currently implements the core LayerDoc domain layer:
 - Export a `backtest-runbook.json` with homepage backtest, pipeline,
   materialization, and project-local verification commands so Studio, CLI
   packages, and materialized projects share one machine-readable runbook.
+- Export a `ci-workflow.json` with install, preview verification, structural
+  verification, gate enforcement, and build phases so downstream CI systems can
+  ingest the generated project without scraping README text.
 - Export `production-manifest.schema.json` so downstream importers and CI can
   validate that project integration entrypoint before ingesting generated UI.
 - Export a project-local `verify:production-manifest` command for validating
   that integration entrypoint without running the entire handoff chain.
+- Export a project-local `verify:ci-workflow` command and `npm run ci` script
+  for validating and running the generated project automation contract.
 - Export an `asset-index.json` that inventories LayerDoc assets by source/type,
   usage, visible-project inclusion, section/component ownership, and DOM
   selectors so downstream project importers can wire media without reverse
@@ -352,9 +357,9 @@ npm run materialize:project -- \
   --verify-structure
 ```
 
-`--verify-structure` runs the generated production manifest, handoff, Analysis
-Plan, Image Manifest, LayerDoc, and integration contract verifiers. Visual
-screenshot diff still runs from the materialized project with
+`--verify-structure` runs the generated production manifest, CI workflow,
+handoff, Analysis Plan, Image Manifest, LayerDoc, and integration contract
+verifiers. Visual screenshot diff still runs from the materialized project with
 `npm run verify:preview`; reviewed section candidates can use the project-local
 application verifier to combine apply, preview diff, structure checks, and
 gates.

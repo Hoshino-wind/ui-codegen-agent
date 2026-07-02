@@ -31,10 +31,12 @@ test("createEditorWorkspace derives preview, export, and verifier output from on
   assert.equal(workspace.projectExport.manifest.componentName, "ProductionHomepage");
   assert.equal(workspace.projectExport.manifest.assetIndex, "asset-index.json");
   assert.equal(workspace.projectExport.manifest.backtestRunbook, "backtest-runbook.json");
+  assert.equal(workspace.projectExport.manifest.ciWorkflow, "ci-workflow.json");
   assert.equal(workspace.projectExport.manifest.productionManifest, "production-manifest.json");
   assert.equal(workspace.projectExport.manifest.productionManifestSchema, "production-manifest.schema.json");
-  assert.equal(workspace.projectExport.files.length, 34);
+  assert.equal(workspace.projectExport.files.length, 36);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "backtest-runbook.json"), true);
+  assert.equal(workspace.projectExport.files.some((file) => file.path === "ci-workflow.json"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "handoff-summary.json"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "production-manifest.json"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "production-manifest.schema.json"), true);
@@ -48,6 +50,7 @@ test("createEditorWorkspace derives preview, export, and verifier output from on
   assert.equal(workspace.projectExport.files.some((file) => file.path === "src/main.tsx"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "verification-report.json"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "scripts/verify-handoff.mjs"), true);
+  assert.equal(workspace.projectExport.files.some((file) => file.path === "scripts/verify-ci-workflow.mjs"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "scripts/verify-analysis-plan.mjs"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "scripts/verify-image-manifest.mjs"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "scripts/verify-contract.mjs"), true);

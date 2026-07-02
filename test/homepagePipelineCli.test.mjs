@@ -78,6 +78,7 @@ test("homepage pipeline CLI runs PNG intake, verification, and project export", 
   const summary = JSON.parse(result.stdout);
   const pipelineReport = JSON.parse(readFileSync(join(outputDir, "pipeline-report.json"), "utf8"));
   const projectManifest = JSON.parse(readFileSync(join(outputDir, "project", "manifest.json"), "utf8"));
+  const projectCiWorkflow = JSON.parse(readFileSync(join(outputDir, "project", "ci-workflow.json"), "utf8"));
   const projectAnalysisTask = JSON.parse(readFileSync(join(outputDir, "project", "analysis-task.json"), "utf8"));
   const projectAnalysisPlan = JSON.parse(readFileSync(join(outputDir, "project", "analysis-plan.json"), "utf8"));
   const projectImageManifest = JSON.parse(readFileSync(join(outputDir, "project", "image-manifest.json"), "utf8"));
@@ -95,6 +96,7 @@ test("homepage pipeline CLI runs PNG intake, verification, and project export", 
   assert.equal(existsSync(join(outputDir, "intake", "assets", "hero-crop.png")), true);
   assert.equal(existsSync(join(outputDir, "project", "src", "ProductionHomepage.tsx")), true);
   assert.equal(existsSync(join(outputDir, "project", "reference.png")), true);
+  assert.equal(existsSync(join(outputDir, "project", "ci-workflow.json")), true);
   assert.equal(existsSync(join(outputDir, "project", "analysis-task.json")), true);
   assert.equal(existsSync(join(outputDir, "project", "analysis-plan.json")), true);
   assert.equal(existsSync(join(outputDir, "project", "image-manifest.json")), true);
@@ -113,6 +115,7 @@ test("homepage pipeline CLI runs PNG intake, verification, and project export", 
   assert.equal(pipelineReport.project.referencePath, join(outputDir, "project", "reference.png"));
   assert.deepEqual(pipelineReport.project.copiedAssets.sort(), ["assets/hero-crop.png", "public/assets/hero-crop.png"]);
   assert.equal(projectManifest.analysisPlanFile, "analysis-plan.json");
+  assert.equal(projectManifest.ciWorkflow, "ci-workflow.json");
   assert.equal(projectManifest.analysisTaskFile, "analysis-task.json");
   assert.equal(projectManifest.imageManifestFile, "image-manifest.json");
   assert.equal(projectManifest.analysisPlanSchema, "analysis-plan.schema.json");
@@ -128,6 +131,11 @@ test("homepage pipeline CLI runs PNG intake, verification, and project export", 
     auditFile: "analysis-plan-audit.json"
   });
   assert.equal(productionManifest.intake.analysisTaskFile, "analysis-task.json");
+  assert.equal(productionManifest.runbooks.ci.file, "ci-workflow.json");
+  assert.equal(productionManifest.runbooks.ci.command, "npm run ci");
+  assert.equal(projectCiWorkflow.kind, "project_ci_workflow");
+  assert.equal(projectCiWorkflow.entrypoint.productionManifest, "production-manifest.json");
+  assert.equal(projectCiWorkflow.requiredCommands.includes("npm run verify:ci-workflow"), true);
   assert.equal(projectAnalysisTask.kind, "homepage-png-analysis");
   assert.equal(projectAnalysisTask.name, "Pipeline Homepage");
   assert.equal(projectAnalysisTask.sourceImage.width, 640);
@@ -201,6 +209,7 @@ test("homepage pipeline CLI can verify the exported project handoff", () => {
     [
       `node scripts/verify-preview.mjs --candidate ${candidatePath}`,
       "node scripts/verify-production-manifest.mjs",
+      "node scripts/verify-ci-workflow.mjs",
       "node scripts/verify-handoff.mjs",
       "node scripts/verify-analysis-plan.mjs",
       "node scripts/verify-image-manifest.mjs",

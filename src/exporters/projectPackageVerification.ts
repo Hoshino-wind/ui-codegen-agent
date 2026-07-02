@@ -24,6 +24,7 @@ export interface ProjectPreviewVerificationOptions {
 
 export const structureVerificationScripts = [
   "scripts/verify-production-manifest.mjs",
+  "scripts/verify-ci-workflow.mjs",
   "scripts/verify-handoff.mjs",
   "scripts/verify-analysis-plan.mjs",
   "scripts/verify-image-manifest.mjs",

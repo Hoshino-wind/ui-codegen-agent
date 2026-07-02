@@ -163,6 +163,7 @@ test("materialize project package CLI can verify the written structure chain", (
     summary.verification.results.map((entry) => entry.command),
     [
       "node scripts/verify-production-manifest.mjs",
+      "node scripts/verify-ci-workflow.mjs",
       "node scripts/verify-handoff.mjs",
       "node scripts/verify-analysis-plan.mjs",
       "node scripts/verify-image-manifest.mjs",
@@ -207,6 +208,7 @@ test("materialize project package CLI can verify the written quality gates", () 
     summary.verification.results.map((entry) => entry.command),
     [
       "node scripts/verify-production-manifest.mjs",
+      "node scripts/verify-ci-workflow.mjs",
       "node scripts/verify-handoff.mjs",
       "node scripts/verify-analysis-plan.mjs",
       "node scripts/verify-image-manifest.mjs",
@@ -260,6 +262,7 @@ test("materialize project package CLI can verify preview diff from a candidate P
     summary.verification.results.slice(1).map((entry) => entry.command),
     [
       "node scripts/verify-production-manifest.mjs",
+      "node scripts/verify-ci-workflow.mjs",
       "node scripts/verify-handoff.mjs",
       "node scripts/verify-analysis-plan.mjs",
       "node scripts/verify-image-manifest.mjs",
