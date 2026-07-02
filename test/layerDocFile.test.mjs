@@ -196,6 +196,26 @@ test("createAnalysisTaskPackageDownload serializes the model-facing PNG decompos
   assert.equal(schema.title, "HomepageAnalysisPlan 0.1.0");
 });
 
+test("createAnalysisTaskPackageDownload includes uploaded PNG bytes as the package source image", () => {
+  const sourcePng = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0xff]);
+  const artifact = createAnalysisTaskPackageDownload({
+    name: "Uploaded homepage",
+    sourceImage: {
+      uri: "browser-upload.png",
+      width: 1536,
+      height: 1024,
+      dataUri: `data:image/png;base64,${Buffer.from(sourcePng).toString("base64")}`
+    }
+  });
+
+  assert.deepEqual(zipCentralDirectoryNames(artifact.contents).sort(), ["analysis-plan.schema.json", "analysis-task.json", "source.png"]);
+
+  const task = JSON.parse(new TextDecoder().decode(zipLocalFileData(artifact.contents, "analysis-task.json")));
+
+  assert.deepEqual(task.sourceImage, { uri: "source.png", width: 1536, height: 1024 });
+  assert.deepEqual([...zipLocalFileData(artifact.contents, "source.png")], [...sourcePng]);
+});
+
 test("createReactExportDownload serializes the current React Tailwind export as a TSX artifact", () => {
   const workspace = createWorkspaceFromLayerDocJson(JSON.stringify(createSampleHomepageLayerDoc()));
   const artifact = createReactExportDownload(workspace);

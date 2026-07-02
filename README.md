@@ -239,9 +239,11 @@ npm run create:analysis-task -- \
   --name "AI homepage"
 ```
 
-It writes `analysis-task.json` and `analysis-plan.schema.json`. The task package
-is the model-facing handoff for producing `analysis-plan.json`; the image still
-does not become the editable source of truth.
+It writes `analysis-task.json` and `analysis-plan.schema.json`. In Studio, the
+same Save Task action produces a ZIP package; when the PNG was uploaded in the
+browser, that ZIP also includes `source.png` and the task points to it. The task
+package is the model-facing handoff for producing `analysis-plan.json`; the
+image still does not become the editable source of truth.
 
 Before LayerDoc build, the standalone verifier can audit that structure without
 running the full homepage pipeline:

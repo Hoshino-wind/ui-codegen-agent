@@ -41,6 +41,7 @@ test("app shell exposes an Analysis Task handoff before Analysis Plan editing", 
   assert.match(source, /Analysis Task/);
   assert.match(source, /Save Analysis Task/);
   assert.match(source, /createAnalysisTaskPackageDownload/);
+  assert.match(source, /dataUri: intake\.sourceImage\.dataUri/);
   assert.match(source, /analysis-task-download/);
   assert.match(source, /Image -> Analysis Task -> Analysis Plan -> LayerDoc/);
 });

@@ -3,8 +3,8 @@ import type { LayerDoc } from "../layerdoc/types.js";
 import { createHomepageAnalysisPlanJsonSchema, type HomepageAnalysisPlan } from "../importers/homepageAnalysisPlan.js";
 import { createHomepageAnalysisTask } from "../importers/homepageAnalysisTask.js";
 import type { ProjectExportPackage } from "../exporters/projectPackage.js";
-import { createStoredZipArchive } from "../exporters/zipArchive.js";
-import { bytesToBase64 } from "../shared/base64.js";
+import { createStoredZipArchive, type ZipArchiveFile } from "../exporters/zipArchive.js";
+import { base64ToBytes, bytesToBase64 } from "../shared/base64.js";
 import { createEditorWorkspace, type EditorWorkspace } from "./editorWorkspace.js";
 
 export interface LayerDocDownloadArtifact {
@@ -19,6 +19,7 @@ export interface AnalysisTaskPackageDownloadInput {
     uri: string;
     width: number;
     height: number;
+    dataUri?: string;
   };
 }
 
@@ -104,6 +105,19 @@ function projectExportForJson(projectExport: ProjectExportPackage): Omit<Project
   };
 }
 
+function sourcePngFromDataUri(dataUri: string | undefined): Uint8Array | null {
+  if (!dataUri) {
+    return null;
+  }
+
+  const match = /^data:image\/png(?:;[^,]*)?;base64,([A-Za-z0-9+/=\s]+)$/.exec(dataUri);
+  if (!match) {
+    throw new Error("Analysis Task source image must be a PNG data URI.");
+  }
+
+  return base64ToBytes(match[1]);
+}
+
 export function createWorkspaceFromLayerDocJson(contents: string): EditorWorkspace {
   return createEditorWorkspace(parseLayerDocJson(contents));
 }
@@ -125,24 +139,34 @@ export function createAnalysisPlanDownload(plan: HomepageAnalysisPlan, fileName 
 }
 
 // Studio emits the same two-file handoff as the CLI so model/manual
-// decomposition starts from schema-bound data instead of a loose prompt.
+// decomposition starts from schema-bound data instead of a loose prompt. When
+// the browser has uploaded bytes, keep the package self-contained.
 export function createAnalysisTaskPackageDownload(
   input: AnalysisTaskPackageDownloadInput,
   fileName = "analysis-task-package.zip"
 ): LayerDocDownloadArtifact {
+  const sourcePng = sourcePngFromDataUri(input.sourceImage.dataUri);
   const task = createHomepageAnalysisTask({
     name: input.name,
-    sourceImage: { ...input.sourceImage },
+    sourceImage: {
+      uri: sourcePng ? "source.png" : input.sourceImage.uri,
+      width: input.sourceImage.width,
+      height: input.sourceImage.height
+    },
     outputSchemaFile: "analysis-plan.schema.json"
   });
+  const files: ZipArchiveFile[] = [
+    { path: "analysis-task.json", contents: `${JSON.stringify(task, null, 2)}\n` },
+    { path: "analysis-plan.schema.json", contents: `${JSON.stringify(createHomepageAnalysisPlanJsonSchema(), null, 2)}\n` }
+  ];
+  if (sourcePng) {
+    files.push({ path: "source.png", contents: sourcePng });
+  }
 
   return {
     fileName,
     mimeType: "application/zip",
-    contents: createStoredZipArchive([
-      { path: "analysis-task.json", contents: `${JSON.stringify(task, null, 2)}\n` },
-      { path: "analysis-plan.schema.json", contents: `${JSON.stringify(createHomepageAnalysisPlanJsonSchema(), null, 2)}\n` }
-    ])
+    contents: createStoredZipArchive(files)
   };
 }
 

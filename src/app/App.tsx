@@ -1411,7 +1411,8 @@ export function App() {
       sourceImage: {
         uri: intake.sourceImage.uri,
         width: intake.sourceImage.width,
-        height: intake.sourceImage.height
+        height: intake.sourceImage.height,
+        dataUri: intake.sourceImage.dataUri
       }
     });
     downloadArtifact(artifact);
