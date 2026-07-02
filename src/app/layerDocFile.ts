@@ -9,7 +9,7 @@ import { createEditorWorkspace, type EditorWorkspace } from "./editorWorkspace.j
 
 export interface LayerDocDownloadArtifact {
   fileName: string;
-  mimeType: "application/json" | "application/zip" | "text/plain;charset=utf-8";
+  mimeType: "application/json" | "application/zip" | "text/html;charset=utf-8" | "text/plain;charset=utf-8";
   contents: string | Uint8Array;
 }
 
@@ -175,6 +175,14 @@ export function createReactExportDownload(workspace: EditorWorkspace): LayerDocD
     fileName: workspace.reactExport.fileName,
     mimeType: "text/plain;charset=utf-8",
     contents: workspace.reactExport.code
+  };
+}
+
+export function createHtmlPreviewDownload(workspace: EditorWorkspace): LayerDocDownloadArtifact {
+  return {
+    fileName: "preview.html",
+    mimeType: "text/html;charset=utf-8",
+    contents: workspace.previewHtml.endsWith("\n") ? workspace.previewHtml : `${workspace.previewHtml}\n`
   };
 }
 

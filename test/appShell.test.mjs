@@ -181,6 +181,14 @@ test("app shell exposes the generated HTML preview as a real iframe surface", ()
   assert.match(source, /html-preview-frame/);
 });
 
+test("app shell exposes direct HTML preview export", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /Save HTML/);
+  assert.match(source, /createHtmlPreviewDownload/);
+  assert.match(source, /saveHtmlPreviewFile/);
+});
+
 test("app shell exposes a PNG reference overlay for pixel alignment", () => {
   const appSource = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
   const cssSource = readFileSync(join(rootDir, "src", "app", "styles.css"), "utf8");

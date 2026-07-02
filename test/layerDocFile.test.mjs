@@ -5,6 +5,7 @@ import {
   createAnalysisTaskPackageDownload,
   createAnalysisPlanDownload,
   createBacktestHandoffDownload,
+  createHtmlPreviewDownload,
   createLayerDocDownload,
   createProjectPackageDownload,
   createProjectPackageZipDownload,
@@ -225,6 +226,18 @@ test("createReactExportDownload serializes the current React Tailwind export as 
   assert.equal(artifact.mimeType, "text/plain;charset=utf-8");
   assert.match(artifact.contents, /export function ProductionHomepage/);
   assert.match(artifact.contents, /data-layerdoc-version/);
+  assert.equal(artifact.contents.endsWith("\n"), true);
+});
+
+test("createHtmlPreviewDownload serializes the current LayerDoc HTML preview", () => {
+  const workspace = createWorkspaceFromLayerDocJson(JSON.stringify(createSampleHomepageLayerDoc()));
+  const artifact = createHtmlPreviewDownload(workspace);
+
+  assert.equal(artifact.fileName, "preview.html");
+  assert.equal(artifact.mimeType, "text/html;charset=utf-8");
+  assert.match(artifact.contents, /data-layerdoc="0.1.0"/);
+  assert.match(artifact.contents, /data-layer-id="hero-title"/);
+  assert.match(artifact.contents, /Turn AI visuals into production UI/);
   assert.equal(artifact.contents.endsWith("\n"), true);
 });
 

@@ -58,6 +58,7 @@ import {
   createAnalysisTaskPackageDownload,
   createAnalysisPlanDownload,
   createBacktestHandoffDownload,
+  createHtmlPreviewDownload,
   createLayerDocDownload,
   createProjectPackageDownload,
   createProjectPackageZipDownload,
@@ -1457,6 +1458,12 @@ export function App() {
     setLastAction(`Exported ${artifact.fileName}`);
   }
 
+  function saveHtmlPreviewFile() {
+    const artifact = createHtmlPreviewDownload(workspace);
+    downloadArtifact(artifact);
+    setLastAction(`Saved ${artifact.fileName}`);
+  }
+
   function exportProjectPackage() {
     const artifact = createProjectPackageDownload(workspace);
     downloadArtifact(artifact);
@@ -1593,6 +1600,10 @@ export function App() {
           <button className="secondary-action" type="button" onClick={saveLayerDocFile}>
             <Download size={16} />
             Save LayerDoc
+          </button>
+          <button className="secondary-action" type="button" onClick={saveHtmlPreviewFile}>
+            <Download size={16} />
+            Save HTML
           </button>
           <button className="primary-action" type="button" onClick={exportReactFile}>
             <Code2 size={16} />
