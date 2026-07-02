@@ -167,6 +167,18 @@ test("app shell exposes the generated HTML preview as a real iframe surface", ()
   assert.match(source, /html-preview-frame/);
 });
 
+test("app shell exposes a PNG reference overlay for pixel alignment", () => {
+  const appSource = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+  const cssSource = readFileSync(join(rootDir, "src", "app", "styles.css"), "utf8");
+
+  assert.match(appSource, /referenceOverlayEnabled/);
+  assert.match(appSource, /referenceOverlayOpacity/);
+  assert.match(appSource, /createReferenceOverlayDataUrl/);
+  assert.match(appSource, /reference-overlay-image/);
+  assert.match(appSource, /Reference overlay/);
+  assert.match(cssSource, /\.reference-overlay-image/);
+});
+
 test("app shell exposes controlled button action editing", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 

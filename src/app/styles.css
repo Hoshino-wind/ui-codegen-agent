@@ -985,6 +985,16 @@ button {
   margin-bottom: 14px;
 }
 
+.canvas-panel > .panel-heading {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.canvas-panel > .panel-heading > div:first-child {
+  min-width: 260px;
+  flex: 1 1 320px;
+}
+
 .panel-heading.compact {
   margin-bottom: 18px;
 }
@@ -1004,7 +1014,9 @@ button {
 
 .canvas-toolbar {
   gap: 6px;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .preview-surface-tabs {
@@ -1045,6 +1057,47 @@ button {
   color: var(--accent);
   background: var(--accent-soft);
   border-color: var(--accent-line);
+}
+
+.reference-overlay-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: #475569;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.reference-overlay-toggle.active {
+  border-color: var(--accent-line);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.reference-overlay-toggle:has(input:disabled) {
+  color: #94a3b8;
+  background: #f8fafc;
+}
+
+.reference-overlay-opacity {
+  display: inline-flex;
+  align-items: center;
+  width: 86px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.reference-overlay-opacity input {
+  width: 100%;
 }
 
 .zoom-chip {
@@ -1103,6 +1156,16 @@ button {
   border: 0;
   transform-origin: top left;
   background: #ffffff;
+}
+
+.reference-overlay-image {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 18;
+  object-fit: fill;
+  pointer-events: none;
+  mix-blend-mode: multiply;
 }
 
 .canvas-section {

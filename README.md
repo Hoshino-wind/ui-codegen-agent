@@ -72,6 +72,8 @@ The repository currently implements the core LayerDoc domain layer:
   pipeline reports, and exported project handoff files.
 - Upload a PNG in the browser to initialize Analysis Plan dimensions.
 - Render a deterministic HTML preview with section, component, and layer DOM markers.
+- Overlay the source PNG on top of Canvas/HTML preview with controlled opacity
+  so operators can align LayerDoc objects against the reference visual.
 - Export a React + Tailwind component that preserves LayerDoc traceability.
 - Expose current verifier scores as root `data-verification-*` attributes in both
   HTML preview and React/Tailwind export surfaces.

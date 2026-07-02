@@ -70,6 +70,7 @@ import { renderHtmlPreviewSnapshot } from "./htmlPreviewSnapshot.js";
 import { renderLayerDocSnapshot } from "./layerDocSnapshot.js";
 import { createPreviewViewport, type PreviewMode } from "./previewViewport.js";
 import { createProblemAreaAnnotationsFromReport } from "./problemAreaOverlay.js";
+import { createReferenceOverlayDataUrl, createReferenceOverlayStyle } from "./referenceOverlay.js";
 import { parseSectionRegenerationCandidateJson } from "./sectionCandidateFile.js";
 import { createSampleHomepageLayerDoc } from "./sampleDocument.js";
 import { runWorkspacePreviewVerification } from "./workspaceVerifier.js";
@@ -284,7 +285,12 @@ function CanvasPreview({
   previewSurface,
   workspace,
   showLabels,
+  referenceOverlayEnabled,
+  referenceOverlayOpacity,
+  referenceOverlaySrc,
   onPreviewModeChange,
+  onReferenceOverlayEnabledChange,
+  onReferenceOverlayOpacityChange,
   onPreviewSurfaceChange,
   onSelectLayer,
   onFocusProblemArea
@@ -293,7 +299,12 @@ function CanvasPreview({
   previewSurface: PreviewSurface;
   workspace: EditorWorkspace;
   showLabels: boolean;
+  referenceOverlayEnabled: boolean;
+  referenceOverlayOpacity: number;
+  referenceOverlaySrc: string | null;
   onPreviewModeChange: (mode: PreviewMode) => void;
+  onReferenceOverlayEnabledChange: (enabled: boolean) => void;
+  onReferenceOverlayOpacityChange: (opacity: number) => void;
   onPreviewSurfaceChange: (surface: PreviewSurface) => void;
   onSelectLayer: (layerId: string) => void;
   onFocusProblemArea: (layerId: string) => void;
@@ -308,6 +319,7 @@ function CanvasPreview({
   const problemAreas = createProblemAreaAnnotationsFromReport(workspace.report.visualProblemAreas, {
     scale: viewport.scale
   });
+  const showReferenceOverlay = referenceOverlayEnabled && Boolean(referenceOverlaySrc);
 
   return (
     <section className="canvas-panel">
@@ -365,6 +377,27 @@ function CanvasPreview({
           >
             <Smartphone size={16} />
           </button>
+          <label className={`reference-overlay-toggle ${referenceOverlayEnabled ? "active" : ""}`}>
+            <input
+              type="checkbox"
+              checked={referenceOverlayEnabled}
+              disabled={!referenceOverlaySrc}
+              onChange={(event) => onReferenceOverlayEnabledChange(event.target.checked)}
+            />
+            <span>Reference overlay</span>
+          </label>
+          <label className="reference-overlay-opacity">
+            <input
+              aria-label="Reference overlay opacity"
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value={referenceOverlayOpacity}
+              disabled={!referenceOverlaySrc || !referenceOverlayEnabled}
+              onChange={(event) => onReferenceOverlayOpacityChange(numberFromDecimalInput(event.target.value))}
+            />
+          </label>
           <span className="zoom-chip">{previewMode} / {Math.round(viewport.scale * 100)}%</span>
         </div>
       </div>
@@ -425,6 +458,19 @@ function CanvasPreview({
             ))}
           </>
         )}
+        {showReferenceOverlay && referenceOverlaySrc ? (
+          <img
+            aria-hidden="true"
+            className="reference-overlay-image"
+            src={referenceOverlaySrc}
+            alt=""
+            style={createReferenceOverlayStyle({
+              canvas: workspace.doc.canvas,
+              opacity: referenceOverlayOpacity,
+              scale: viewport.scale
+            })}
+          />
+        ) : null}
         {problemAreas.map((area) => (
           <button
             aria-label={
@@ -1240,11 +1286,14 @@ export function App() {
   const [previewMode, setPreviewMode] = useState<PreviewMode>("desktop");
   const [previewSurface, setPreviewSurface] = useState<PreviewSurface>("canvas");
   const [showLabels, setShowLabels] = useState(true);
+  const [referenceOverlayEnabled, setReferenceOverlayEnabled] = useState(false);
+  const [referenceOverlayOpacity, setReferenceOverlayOpacity] = useState(0.45);
   const [lastAction, setLastAction] = useState("Auto-saved LayerDoc state");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [verifierReference, setVerifierReference] = useState<VerifierSnapshot | null>(null);
   const [verifierError, setVerifierError] = useState<string | null>(null);
+  const referenceOverlaySrc = useMemo(() => createReferenceOverlayDataUrl(workspace.referencePng), [workspace.referencePng]);
   const workflow = createWorkflowSummary({
     sourceUri: intake.sourceImage.uri,
     intakeSectionCount: intake.analysisPlan.sections.length,
@@ -1515,9 +1564,20 @@ export function App() {
           previewSurface={previewSurface}
           workspace={workspace}
           showLabels={showLabels}
+          referenceOverlayEnabled={referenceOverlayEnabled}
+          referenceOverlayOpacity={referenceOverlayOpacity}
+          referenceOverlaySrc={referenceOverlaySrc}
           onPreviewModeChange={(mode) => {
             setPreviewMode(mode);
             setLastAction(`${mode === "mobile" ? "Mobile" : "Desktop"} preview selected`);
+          }}
+          onReferenceOverlayEnabledChange={(enabled) => {
+            setReferenceOverlayEnabled(enabled);
+            setLastAction(enabled ? "Reference overlay enabled" : "Reference overlay disabled");
+          }}
+          onReferenceOverlayOpacityChange={(opacity) => {
+            setReferenceOverlayOpacity(opacity);
+            setLastAction(`Reference overlay opacity ${Math.round(opacity * 100)}%`);
           }}
           onPreviewSurfaceChange={(surface) => {
             setPreviewSurface(surface);
