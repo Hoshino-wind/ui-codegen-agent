@@ -13,6 +13,7 @@ import {
   Play,
   RefreshCw,
   RotateCcw,
+  RotateCw,
   Smartphone,
   SquareDashedMousePointer,
   Type,
@@ -26,10 +27,12 @@ import {
   applyWorkspaceSectionRegenerationCandidate,
   createEditorWorkspace,
   moveWorkspaceSection,
+  redoWorkspace,
   requestWorkspaceSectionRegeneration,
   revertWorkspaceSectionRegenerationApplication,
   selectWorkspaceLayer,
   selectedLayer,
+  undoWorkspace,
   updateSelectedButtonAction,
   updateSelectedBounds,
   updateSelectedImageAlt,
@@ -1589,6 +1592,26 @@ export function App() {
           <button className="ghost-action" type="button" onClick={() => updateWorkspace(createEditorWorkspace(createSampleHomepageLayerDoc()), "Reset to sample LayerDoc")}>
             <RefreshCw size={16} />
             Reset
+          </button>
+          <button
+            aria-label="Undo editor change"
+            className="ghost-action"
+            disabled={workspace.history.past.length === 0}
+            type="button"
+            onClick={() => updateWorkspace(undoWorkspace(workspace), "Undo editor change")}
+          >
+            <RotateCcw size={16} />
+            Undo
+          </button>
+          <button
+            aria-label="Redo editor change"
+            className="ghost-action"
+            disabled={workspace.history.future.length === 0}
+            type="button"
+            onClick={() => updateWorkspace(redoWorkspace(workspace), "Redo editor change")}
+          >
+            <RotateCw size={16} />
+            Redo
           </button>
           <label className="ghost-action">
             <input

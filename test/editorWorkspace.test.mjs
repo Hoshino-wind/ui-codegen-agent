@@ -7,8 +7,10 @@ import {
   createEditorWorkspace,
   moveWorkspaceSection,
   requestWorkspaceSectionRegeneration,
+  redoWorkspace,
   revertWorkspaceSectionRegenerationApplication,
   selectWorkspaceLayer,
+  undoWorkspace,
   updateSelectedButtonAction,
   updateWorkspaceSectionVisibility,
   updateSelectedBounds,
@@ -100,6 +102,38 @@ test("updateSelectedText changes selected editable copy and refreshes preview ou
   assert.equal(workspace.doc.layers.find((layer) => layer.id === "hero-title").content.text, "Turn AI visuals into production UI");
   assert.equal(next.doc.layers.find((layer) => layer.id === "hero-title").content.text, "Make AI visuals shippable");
   assert.match(next.previewHtml, /Make AI visuals shippable/);
+});
+
+test("undoWorkspace and redoWorkspace restore controlled text edits through preview and project export", () => {
+  const workspace = createEditorWorkspace(createSampleHomepageLayerDoc());
+  const edited = updateSelectedText(workspace, "Make AI visuals shippable");
+
+  assert.equal(workspace.history.past.length, 0);
+  assert.equal(edited.history.past.length, 1);
+  assert.equal(edited.history.future.length, 0);
+  assert.equal(edited.history.past[0].operation, "update-text");
+  assert.equal(edited.history.past[0].selectedLayerIdBefore, "hero-title");
+  assert.equal(edited.history.past[0].selectedLayerIdAfter, "hero-title");
+
+  const undone = undoWorkspace(edited);
+  const undoneLayerDoc = JSON.parse(undone.projectExport.files.find((file) => file.path === "layerdoc.json").contents);
+
+  assert.equal(undone.doc.layers.find((layer) => layer.id === "hero-title").content.text, "Turn AI visuals into production UI");
+  assert.match(undone.previewHtml, /Turn AI visuals into production UI/);
+  assert.doesNotMatch(undone.reactExport.code, /Make AI visuals shippable/);
+  assert.equal(undoneLayerDoc.layers.find((layer) => layer.id === "hero-title").content.text, "Turn AI visuals into production UI");
+  assert.equal(undone.history.past.length, 0);
+  assert.equal(undone.history.future.length, 1);
+
+  const redone = redoWorkspace(undone);
+  const redoneLayerDoc = JSON.parse(redone.projectExport.files.find((file) => file.path === "layerdoc.json").contents);
+
+  assert.equal(redone.doc.layers.find((layer) => layer.id === "hero-title").content.text, "Make AI visuals shippable");
+  assert.match(redone.previewHtml, /Make AI visuals shippable/);
+  assert.match(redone.reactExport.code, /Make AI visuals shippable/);
+  assert.equal(redoneLayerDoc.layers.find((layer) => layer.id === "hero-title").content.text, "Make AI visuals shippable");
+  assert.equal(redone.history.past.length, 1);
+  assert.equal(redone.history.future.length, 0);
 });
 
 test("updateSelectedText can edit selected button copy", () => {
@@ -248,6 +282,24 @@ test("moveWorkspaceSection reorders sections without losing the current layer se
   assert.match(next.previewHtml, /data-layer-id="final-title"[^>]+top:40px/);
   assert.match(next.reactExport.code, /data-layer-id="final-title"[\s\S]+top: 40/);
   assert.match(next.projectExport.files.find((file) => file.path === "layerdoc.json").contents, /"id": "final-title"[\s\S]+"y": 40/);
+});
+
+test("undoWorkspace restores section order changes and redoWorkspace reapplies them", () => {
+  const workspace = selectWorkspaceLayer(createEditorWorkspace(createSampleHomepageLayerDoc()), "hero-cta");
+  const moved = moveWorkspaceSection(workspace, "final-cta", 0);
+
+  assert.equal(moved.history.past.at(-1).operation, "move-section");
+  assert.deepEqual(moved.doc.sections.slice(0, 3).map((section) => section.id), ["final-cta", "hero", "proof"]);
+
+  const undone = undoWorkspace(moved);
+  assert.deepEqual(undone.doc.sections.slice(0, 3).map((section) => section.id), ["hero", "proof", "workflow"]);
+  assert.equal(undone.selectedLayerId, "hero-cta");
+  assert.match(undone.previewHtml, /data-layer-id="hero-cta"[^>]+top:172px/);
+
+  const redone = redoWorkspace(undone);
+  assert.deepEqual(redone.doc.sections.slice(0, 3).map((section) => section.id), ["final-cta", "hero", "proof"]);
+  assert.equal(redone.selectedLayerId, "hero-cta");
+  assert.match(redone.reactExport.code, /data-layer-id="final-title"[\s\S]+top: 40/);
 });
 
 test("updateWorkspaceSectionVisibility refreshes preview and export from the LayerDoc state", () => {

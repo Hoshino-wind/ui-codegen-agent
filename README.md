@@ -422,7 +422,7 @@ test/           behavior tests for the production chain
 The editor should be a controlled AI UI production console, not a Figma clone.
 The MVP edits copy, colors, images, spacing, radius, buttons, section order,
 visibility, preview modes, regeneration requests, reviewed section candidates,
-export, and verifier runs.
+undo/redo history, export, and verifier runs.
 
 Freeform vector editing, multiplayer design collaboration, and plugin
 ecosystems are intentionally out of scope.
@@ -444,4 +444,4 @@ const swapped = updateImageLayerAsset(styled, "hero-image", {
 ```
 
 Because these edits update LayerDoc, the same state can feed preview, export,
-verification, and future undo/history without separate UI-specific state.
+verification, and editor undo/redo without separate UI-specific state.
