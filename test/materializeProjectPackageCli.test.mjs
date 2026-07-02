@@ -162,6 +162,7 @@ test("materialize project package CLI can verify the written structure chain", (
   assert.deepEqual(
     summary.verification.results.map((entry) => entry.command),
     [
+      "node scripts/verify-production-manifest.mjs",
       "node scripts/verify-handoff.mjs",
       "node scripts/verify-analysis-plan.mjs",
       "node scripts/verify-image-manifest.mjs",
@@ -205,6 +206,7 @@ test("materialize project package CLI can verify the written quality gates", () 
   assert.deepEqual(
     summary.verification.results.map((entry) => entry.command),
     [
+      "node scripts/verify-production-manifest.mjs",
       "node scripts/verify-handoff.mjs",
       "node scripts/verify-analysis-plan.mjs",
       "node scripts/verify-image-manifest.mjs",
@@ -257,6 +259,7 @@ test("materialize project package CLI can verify preview diff from a candidate P
   assert.deepEqual(
     summary.verification.results.slice(1).map((entry) => entry.command),
     [
+      "node scripts/verify-production-manifest.mjs",
       "node scripts/verify-handoff.mjs",
       "node scripts/verify-analysis-plan.mjs",
       "node scripts/verify-image-manifest.mjs",

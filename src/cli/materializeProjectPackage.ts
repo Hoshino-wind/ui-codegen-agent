@@ -33,7 +33,7 @@ Options:
   --input <project-package.json>  Studio JSON handoff package to materialize.
   --out <directory>              Target directory for the project package.
   --verify-handoff               Run scripts/verify-handoff.mjs after writing files.
-  --verify-structure             Run handoff, source, LayerDoc, and contract verifiers.
+  --verify-structure             Run production manifest, handoff, source, LayerDoc, and contract verifiers.
   --verify-quality               Run structure verifiers and generated quality gates.
   --verify-preview               Run preview visual diff, structure verifiers, and quality gates.
   --candidate <candidate.png>    Candidate PNG for --verify-preview; omitted values use Playwright.

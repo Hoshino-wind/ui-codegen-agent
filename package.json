@@ -11,6 +11,7 @@
     "dev": "vite --host 127.0.0.1",
     "intake:png": "node dist/cli/intakePng.js",
     "pipeline:homepage": "node dist/cli/homepagePipeline.js",
+    "backtest:homepage": "node dist/cli/homepageBacktest.js",
     "export:project": "node dist/cli/exportProject.js",
     "materialize:project": "node dist/cli/materializeProjectPackage.js",
     "create:analysis-task": "node dist/cli/createAnalysisTask.js",

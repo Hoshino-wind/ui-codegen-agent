@@ -142,6 +142,9 @@ The repository currently implements the core LayerDoc domain layer:
 - Run exported project verification in preview-first order so screenshot diff
   state is synchronized before handoff, LayerDoc, contract, and quality-gate
   checks read the package.
+- Run a deterministic homepage backtest that generates a mock AI visual PNG,
+  executes PNG intake, LayerDoc build, preview diff, project export, production
+  manifest validation, and project verification in one command.
 - Preserve Analysis Plan provenance in `LayerDoc.metadata.analysisPlan` and
   exported project handoff files so downstream consumers can see whether the
   editable structure came from a seeded scaffold, provided plan, editor
@@ -313,6 +316,17 @@ The homepage pipeline CLI also writes the original input PNG into the exported
 project package as `reference.png`, so the handoff project can rerun visual
 verification without manually locating the source image.
 
+For a deterministic smoke test of the whole MVP chain, run the homepage
+backtest. It creates `source.png` and `candidate.png`, runs the same pipeline
+with project verification enabled, and writes `backtest-report.json`:
+
+```bash
+npm run build:lib
+npm run backtest:homepage -- \
+  --out artifacts/homepage-backtest \
+  --component ProductionHomepage
+```
+
 Studio JSON handoffs are also materializable: binary files are represented as
 base64 entries in `project-package.json`, and `parseProjectExportPackageJson`
 plus `writeProjectExportPackage` can restore the package into a runnable project
@@ -325,11 +339,12 @@ npm run materialize:project -- \
   --verify-structure
 ```
 
-`--verify-structure` runs the generated handoff, Analysis Plan, Image
-Manifest, LayerDoc, and integration contract verifiers. Visual screenshot diff
-still runs from the materialized project with `npm run verify:preview`; reviewed
-section candidates can use the project-local application verifier to combine
-apply, preview diff, structure checks, and gates.
+`--verify-structure` runs the generated production manifest, handoff, Analysis
+Plan, Image Manifest, LayerDoc, and integration contract verifiers. Visual
+screenshot diff still runs from the materialized project with
+`npm run verify:preview`; reviewed section candidates can use the project-local
+application verifier to combine apply, preview diff, structure checks, and
+gates.
 
 ```bash
 npm run verify:section-application -- \

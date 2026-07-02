@@ -186,6 +186,7 @@ test("homepage pipeline CLI can verify the exported project handoff", () => {
     pipelineReport.project.verification.results.map((entry) => entry.command),
     [
       `node scripts/verify-preview.mjs --candidate ${candidatePath}`,
+      "node scripts/verify-production-manifest.mjs",
       "node scripts/verify-handoff.mjs",
       "node scripts/verify-analysis-plan.mjs",
       "node scripts/verify-image-manifest.mjs",
