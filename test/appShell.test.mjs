@@ -222,6 +222,9 @@ test("app shell exposes structural verifier issues in the verifier surface", () 
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 
   assert.match(source, /Structure issues/);
+  assert.match(source, /structuralIssues/);
+  assert.match(source, /structureBreakdown\.structuralIssueCount/);
+  assert.doesNotMatch(source, /workspace\.report\.issues\.length === 0 \? "passed" : "blocked"/);
   assert.match(source, /workspace\.report\.issues/);
   assert.match(source, /issue\.code/);
   assert.match(source, /issue\.path/);

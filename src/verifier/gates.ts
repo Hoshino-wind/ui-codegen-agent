@@ -50,8 +50,9 @@ export function evaluateVerificationGates(
     return [];
   });
 
-  if (report.issues.length > 0) {
-    failures.push(`${report.issues.length} structural issue(s) reported`);
+  const structuralIssueCount = report.structureBreakdown?.structuralIssueCount ?? report.issues.length;
+  if (structuralIssueCount > 0) {
+    failures.push(`${structuralIssueCount} structural blocker(s) reported`);
   }
 
   if (context.assetCompliance?.passed === false) {

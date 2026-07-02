@@ -1254,6 +1254,8 @@ function VerifierStrip({
   const structureBreakdown = workspace.report.structureBreakdown;
   const componentBreakdown = workspace.report.componentBreakdown;
   const projectFitBreakdown = workspace.report.projectFitBreakdown;
+  const ignoredStructureIssueCodes = new Set(structureBreakdown.ignoredIssueCodes);
+  const structuralIssues = workspace.report.issues.filter((issue) => !ignoredStructureIssueCodes.has(issue.code));
   const candidateLabel = visualEvidence.kind === "layerdoc-raster" ? "LayerDoc raster fallback" : "HTML preview screenshot";
   const problemAreaAnnotations = createProblemAreaAnnotationsFromReport(workspace.report.visualProblemAreas, {
     scale: 1
@@ -1343,15 +1345,19 @@ function VerifierStrip({
             <span>{componentBreakdown.uncoveredLayerIds.length} uncovered</span>
           </div>
         </div>
-        <div className={`verifier-issue-list ${workspace.report.issues.length === 0 ? "passed" : "blocked"}`}>
+        <div className={`verifier-issue-list ${structureBreakdown.structuralIssueCount === 0 ? "passed" : "blocked"}`}>
           <div className="verifier-issue-head">
             <span>Structure issues</span>
-            <strong>{workspace.report.issues.length}</strong>
+            <strong>{structureBreakdown.structuralIssueCount}</strong>
           </div>
-          {workspace.report.issues.length === 0 ? (
-            <small>No structural blockers</small>
+          {structuralIssues.length === 0 ? (
+            <small>
+              {structureBreakdown.trackMismatchCount > 0
+                ? `${structureBreakdown.trackMismatchCount} track notes, no structural blockers`
+                : "No structural blockers"}
+            </small>
           ) : (
-            workspace.report.issues.slice(0, 3).map((issue) => (
+            structuralIssues.slice(0, 3).map((issue) => (
               <div className="verifier-issue-row" key={`${issue.code}-${issue.path}`}>
                 <span>{issue.code}</span>
                 <strong>{issue.path}</strong>

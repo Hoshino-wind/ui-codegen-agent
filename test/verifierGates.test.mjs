@@ -7,6 +7,16 @@ const passingReport = {
   visualSimilarity: 96,
   visualDiff: null,
   structureScore: 100,
+  structureBreakdown: {
+    valid: true,
+    totalIssueCount: 0,
+    structuralIssueCount: 0,
+    trackMismatchCount: 0,
+    penaltyPerStructuralIssue: 20,
+    issueCodes: {},
+    blockingIssuePaths: [],
+    ignoredIssueCodes: ["track_mismatch"]
+  },
   componentScore: 100,
   projectFitScore: 90,
   issues: []
@@ -24,11 +34,35 @@ test("evaluateVerificationGates fails missing visual similarity and structural i
   const result = evaluateVerificationGates({
     ...passingReport,
     visualSimilarity: null,
+    structureBreakdown: {
+      ...passingReport.structureBreakdown,
+      valid: false,
+      totalIssueCount: 1,
+      structuralIssueCount: 1,
+      issueCodes: { missing_component: 1 },
+      blockingIssuePaths: ["components"]
+    },
     issues: [{ code: "missing_component", path: "components", message: "Missing component coverage." }]
   });
 
   assert.equal(result.passed, false);
-  assert.deepEqual(result.failures, ["visual_similarity n/a is below 85", "1 structural issue(s) reported"]);
+  assert.deepEqual(result.failures, ["visual_similarity n/a is below 85", "1 structural blocker(s) reported"]);
+});
+
+test("evaluateVerificationGates treats track mismatch issues as non-blocking notes", () => {
+  const result = evaluateVerificationGates({
+    ...passingReport,
+    structureBreakdown: {
+      ...passingReport.structureBreakdown,
+      totalIssueCount: 1,
+      trackMismatchCount: 1,
+      issueCodes: { track_mismatch: 1 }
+    },
+    issues: [{ code: "track_mismatch", path: "layers[0].track", message: "Layer route note." }]
+  });
+
+  assert.equal(result.passed, true);
+  assert.deepEqual(result.failures, []);
 });
 
 test("evaluateVerificationGates applies custom thresholds without mutating defaults", () => {

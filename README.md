@@ -425,6 +425,9 @@ emitted with `componentBreakdown`, and `project_fit_score` is emitted with
 and `production-manifest.json`. Downstream CI can see which structural issues
 block delivery, which component-track layers are covered by real components,
 and whether project fit was held back by bitmap shortcut risk.
+Quality gates use `structureBreakdown.structuralIssueCount` for structural
+blocking; `track_mismatch` remains visible as a track note without failing the
+handoff by itself.
 
 Pixel similarity alone is not enough. A bitmap can look perfect while being a
 poor engineering asset.
