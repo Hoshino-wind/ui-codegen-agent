@@ -90,7 +90,9 @@ The repository currently implements the core LayerDoc domain layer:
   candidate against the current LayerDoc section graph before it is applied and
   an exported `apply:section-candidate` script that rewrites `layerdoc.json`,
   `integration-contract.json`, `handoff-summary.json`, `preview.html`, and the
-  React component from the accepted candidate.
+  React component from the accepted candidate, plus `verify:section-application`
+  to verify, apply, refresh preview screenshot evidence, recheck handoff
+  artifacts, and enforce gates in one project-local command.
 - Export a `handoff-summary.json` with the source LayerDoc hash, entry
   component, contract counts, regeneration request count, verifier scores,
   audit status, and verification commands so CI or downstream importers can
@@ -278,7 +280,16 @@ npm run materialize:project -- \
 
 `--verify-structure` runs the generated handoff, Analysis Plan, Image
 Manifest, LayerDoc, and integration contract verifiers. Visual screenshot diff
-still runs from the materialized project with `npm run verify:preview`.
+still runs from the materialized project with `npm run verify:preview`; reviewed
+section candidates can use the project-local application verifier to combine
+apply, preview diff, structure checks, and gates.
+
+```bash
+npm run verify:section-application -- \
+  --section hero \
+  --input hero-candidate.json \
+  --reference reference.png
+```
 
 ```bash
 npm run materialize:project -- \

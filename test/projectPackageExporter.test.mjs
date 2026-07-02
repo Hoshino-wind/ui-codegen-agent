@@ -197,7 +197,10 @@ function createHeroSectionCandidate() {
         content: { text: "Apply candidate" }
       }
     ],
-    components: [{ id: "RegeneratedHero", layerIds: ["hero-title", "hero-cta"], exportable: true }]
+    components: [
+      { id: "RegeneratedHero", layerIds: ["hero-title", "hero-cta"], exportable: true },
+      { id: "RegeneratedHeroActions", layerIds: ["hero-cta"], exportable: true }
+    ]
   };
 }
 
@@ -425,6 +428,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     "scripts/verify-image-manifest.mjs",
     "scripts/verify-layerdoc.mjs",
     "scripts/verify-preview.mjs",
+    "scripts/verify-section-application.mjs",
     "scripts/verify-section-candidate.mjs",
     "src/App.tsx",
     "src/index.css",
@@ -445,6 +449,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:preview": "node scripts\/verify-preview\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:gates": "node scripts\/verify-gates\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"apply:section-candidate": "node scripts\/apply-section-candidate\.mjs"/);
+  assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:section-application": "node scripts\/verify-section-application\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:layerdoc": "node scripts\/verify-layerdoc\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:contract": "node scripts\/verify-contract\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:section-candidate": "node scripts\/verify-section-candidate\.mjs"/);
@@ -648,6 +653,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
       "npm run verify:contract",
       "npm run apply:section-candidate",
       "npm run verify:section-candidate",
+      "npm run verify:section-application",
       "npm run verify:gates"
     ]
   );
@@ -671,6 +677,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "scripts/apply-section-candidate.mjs").contents, /apply:section-candidate/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /preview\.html/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /verification-report\.json/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-section-application.mjs").contents, /verify:section-application/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-section-candidate.mjs").contents, /section-candidate\.schema\.json/);
   assert.match(output.files.find((file) => file.path === "preview.html").contents, /data-layerdoc="0.1.0"/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm install/);
@@ -684,6 +691,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:layerdoc/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:preview/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:section-candidate/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:section-application/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /manifest reference visual/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /handoff-summary\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /integration-contract\.json/);
@@ -1351,7 +1359,7 @@ test("exported preview verifier script updates the handoff report from candidate
     { cwd: directory, encoding: "utf8", env: { ...process.env, NODE_PATH: join(process.cwd(), "node_modules") } }
   );
 
-  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.status, 0, result.stderr || result.stdout);
   assert.match(result.stdout, /"visualSimilarity": 99.75/);
   assert.equal(existsSync(join(directory, "verification-artifacts", "diff.png")), true);
   const report = JSON.parse(readFileSync(join(directory, "verification-report.json"), "utf8"));
@@ -1424,7 +1432,7 @@ test("exported preview verifier script defaults to manifest reference visual", (
     { cwd: directory, encoding: "utf8", env: { ...process.env, NODE_PATH: join(process.cwd(), "node_modules") } }
   );
 
-  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.status, 0, result.stderr || result.stdout);
   assert.match(result.stdout, /"visualSimilarity": 100/);
   assert.match(result.stdout, /"referencePath":/);
   assert.match(result.stdout, /reference\.png/);
@@ -1504,6 +1512,51 @@ test("exported section candidate apply script updates LayerDoc and derived hando
 
   const handoffVerification = spawnSync(process.execPath, ["scripts/verify-handoff.mjs"], { cwd: directory, encoding: "utf8" });
   assert.equal(handoffVerification.status, 0, handoffVerification.stderr);
+});
+
+test("exported section application verifier applies candidate, refreshes preview score, and enforces gates", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-section-application-"));
+  const output = createProjectExportPackage(createRegenerationExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const candidatePath = join(directory, "hero-candidate.json");
+  const referencePath = join(directory, "reference.png");
+  const candidatePngPath = join(directory, "candidate.png");
+  writeFileSync(candidatePath, `${JSON.stringify(createHeroSectionCandidate(), null, 2)}\n`);
+  writeSolidPng(referencePath, 2, 1, [255, 255, 255, 255]);
+  writeSolidPng(candidatePngPath, 2, 1, [255, 255, 255, 255]);
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      "scripts/verify-section-application.mjs",
+      "--section",
+      "hero",
+      "--input",
+      candidatePath,
+      "--reference",
+      referencePath,
+      "--candidate",
+      candidatePngPath,
+      "--out",
+      "verification-artifacts"
+    ],
+    { cwd: directory, encoding: "utf8", env: { ...process.env, NODE_PATH: join(process.cwd(), "node_modules") } }
+  );
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(result.stdout, /"passed": true/);
+  assert.match(result.stdout, /"step": "verify:gates"/);
+
+  const layerDoc = JSON.parse(readFileSync(join(directory, "layerdoc.json"), "utf8"));
+  assert.deepEqual(layerDoc.sections[0].layerIds, ["hero-title", "hero-cta"]);
+  assert.equal(layerDoc.generation.sectionRequests[0].status, "applied");
+  assert.equal(layerDoc.verification.scores.visualSimilarity, 100);
+
+  const report = JSON.parse(readFileSync(join(directory, "verification-report.json"), "utf8"));
+  assert.equal(report.visualSimilarity, 100);
+  assert.equal(report.evidence.visual.kind, "html-screenshot");
+  const handoff = JSON.parse(readFileSync(join(directory, "handoff-summary.json"), "utf8"));
+  assert.equal(handoff.quality.scores.visual_similarity, 100);
 });
 
 test("exported quality gate script passes and fails from project files", () => {

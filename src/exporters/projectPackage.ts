@@ -497,6 +497,7 @@ function packageJsonFor(manifest: ProjectExportManifest): string {
       "verify:contract": "node scripts/verify-contract.mjs",
       "apply:section-candidate": "node scripts/apply-section-candidate.mjs",
       "verify:section-candidate": "node scripts/verify-section-candidate.mjs",
+      "verify:section-application": "node scripts/verify-section-application.mjs",
       "verify:preview": "node scripts/verify-preview.mjs",
       "verify:gates": "node scripts/verify-gates.mjs"
     },
@@ -653,7 +654,7 @@ for (const path of manifestFiles) {
 }
 
 pushIf(packageScripts.verify !== "${PROJECT_VERIFY_CHAIN}", failures, "package_verify_chain_mismatch", "package.json verify script must run the full handoff verification chain.");
-for (const scriptName of ["verify:handoff", "verify:analysis-plan", "verify:image-manifest", "verify:layerdoc", "verify:contract", "apply:section-candidate", "verify:section-candidate", "verify:preview", "verify:gates"]) {
+for (const scriptName of ["verify:handoff", "verify:analysis-plan", "verify:image-manifest", "verify:layerdoc", "verify:contract", "apply:section-candidate", "verify:section-candidate", "verify:section-application", "verify:preview", "verify:gates"]) {
   pushIf(typeof packageScripts[scriptName] !== "string", failures, "package_verify_script_missing", \`package.json scripts must include \${scriptName}.\`);
 }
 
@@ -2069,6 +2070,138 @@ process.stdout.write(JSON.stringify(result, null, 2) + "\\n");
 if (!result.passed) {
   process.exitCode = 1;
 }
+`;
+}
+
+function sectionApplicationVerifierScriptFor(): string {
+  return `import { spawnSync } from "node:child_process";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const usage = "Usage: npm run verify:section-application -- --section <section-id> --input <candidate.json> [verify-preview options]";
+const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+function readOption(args, index, name) {
+  const arg = args[index];
+  if (arg.startsWith(name + "=")) {
+    return { value: arg.slice(name.length + 1), nextIndex: index + 1 };
+  }
+  const value = args[index + 1];
+  if (!value || value.startsWith("--")) {
+    throw new Error(name + " requires a value. " + usage);
+  }
+  return { value, nextIndex: index + 2 };
+}
+
+function parseArgs(args) {
+  const options = { sectionId: null, input: null, previewArgs: [] };
+  let index = 0;
+  while (index < args.length) {
+    const arg = args[index];
+    if (arg === "-h" || arg === "--help") {
+      process.stdout.write(usage + "\\n");
+      process.exit(0);
+    }
+    if (arg === "--section" || arg.startsWith("--section=")) {
+      const option = readOption(args, index, "--section");
+      options.sectionId = option.value;
+      index = option.nextIndex;
+      continue;
+    }
+    if (arg === "--input" || arg.startsWith("--input=")) {
+      const option = readOption(args, index, "--input");
+      options.input = option.value;
+      index = option.nextIndex;
+      continue;
+    }
+    if (arg === "--include-aa") {
+      options.previewArgs.push(arg);
+      index += 1;
+      continue;
+    }
+    if (
+      arg === "--reference" || arg.startsWith("--reference=") ||
+      arg === "--candidate" || arg.startsWith("--candidate=") ||
+      arg === "--out" || arg.startsWith("--out=") ||
+      arg === "--browser" || arg.startsWith("--browser=") ||
+      arg === "--threshold" || arg.startsWith("--threshold=")
+    ) {
+      const name = arg.includes("=") ? arg.slice(0, arg.indexOf("=")) : arg;
+      const option = readOption(args, index, name);
+      options.previewArgs.push(name, option.value);
+      index = option.nextIndex;
+      continue;
+    }
+    throw new Error("Unknown argument " + arg + ". " + usage);
+  }
+
+  if (!options.sectionId || !options.input) {
+    throw new Error(usage);
+  }
+  return options;
+}
+
+function parseOutput(stdout) {
+  const trimmed = stdout.trim();
+  if (!trimmed) {
+    return null;
+  }
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return trimmed;
+  }
+}
+
+function runStep(step, args) {
+  const result = spawnSync(process.execPath, args, {
+    cwd: projectRoot,
+    encoding: "utf8",
+    env: process.env
+  });
+  return {
+    step,
+    command: ["node", ...args].join(" "),
+    status: result.status,
+    stdout: parseOutput(result.stdout),
+    stderr: result.stderr.trim()
+  };
+}
+
+const options = parseArgs(process.argv.slice(2));
+const steps = [];
+const pipeline = [
+  ["verify:section-candidate", ["scripts/verify-section-candidate.mjs", "--input", options.input]],
+  ["apply:section-candidate", ["scripts/apply-section-candidate.mjs", "--section", options.sectionId, "--input", options.input]],
+  ["verify:preview", ["scripts/verify-preview.mjs", ...options.previewArgs]],
+  ["verify:layerdoc", ["scripts/verify-layerdoc.mjs"]],
+  ["verify:contract", ["scripts/verify-contract.mjs"]],
+  ["verify:handoff", ["scripts/verify-handoff.mjs"]],
+  ["verify:gates", ["scripts/verify-gates.mjs"]]
+];
+
+for (const [step, args] of pipeline) {
+  const result = runStep(step, args);
+  steps.push(result);
+  if (result.status !== 0) {
+    process.stdout.write(JSON.stringify({
+      passed: false,
+      failedStep: step,
+      sectionId: options.sectionId,
+      input: options.input,
+      steps
+    }, null, 2) + "\\n");
+    process.exitCode = result.status || 1;
+    process.exit();
+  }
+}
+
+process.stdout.write(JSON.stringify({
+  passed: true,
+  sectionId: options.sectionId,
+  input: options.input,
+  steps
+}, null, 2) + "\\n");
 `;
 }
 
@@ -3868,6 +4001,7 @@ Run locally:
 - \`npm run verify:contract\`
 - \`npm run apply:section-candidate -- --section section-id --input path/to/section-candidate.json\`
 - \`npm run verify:section-candidate -- --input path/to/section-candidate.json\`
+- \`npm run verify:section-application -- --section section-id --input path/to/section-candidate.json --reference reference.png\`
 - \`npm run verify:gates\`
 
 Generated assets:
@@ -3893,6 +4027,7 @@ Verification:
 - Run \`npm run verify:section-candidate -- --input path/to/section-candidate.json\` before applying a reviewed regeneration result to confirm it matches \`${manifest.sectionCandidateSchema}\` and the current LayerDoc section graph.
 - Run \`npm run apply:section-candidate -- --section section-id --input path/to/section-candidate.json\` to apply a verified candidate into \`layerdoc.json\` and regenerate the project contract, handoff, preview, and React component from the updated LayerDoc.
 - Applying a candidate clears visual similarity evidence to \`Not captured\`; rerun \`npm run verify:preview\` with a fresh screenshot before enforcing gates.
+- Run \`npm run verify:section-application -- --section section-id --input path/to/section-candidate.json --reference reference.png\` to verify the candidate, apply it, refresh preview screenshot evidence, recheck LayerDoc/contract/handoff, and enforce gates in one CI-friendly command. You may pass any \`verify:preview\` option such as \`--candidate\`, \`--out\`, \`--browser\`, \`--threshold\`, or \`--include-aa\`.
 - Hidden sections remain editable in \`layerdoc.json\` but are intentionally omitted from rendered project, preview, and responsive CSS contract requirements.
 - Put the original target visual at \`${manifest.referenceVisual.file}\`.
 - Run \`npm run verify:gates\` after preview verification to enforce score thresholds and LayerDoc asset compliance.
@@ -3920,6 +4055,7 @@ function handoffCommands(): ProjectHandoffCommand[] {
     { label: "Verify integration contract", command: "npm run verify:contract" },
     { label: "Apply reviewed section candidate", command: "npm run apply:section-candidate" },
     { label: "Verify section candidate", command: "npm run verify:section-candidate" },
+    { label: "Verify section application", command: "npm run verify:section-application" },
     { label: "Enforce quality gates", command: "npm run verify:gates" }
   ];
 }
@@ -4038,6 +4174,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     "scripts/verify-image-manifest.mjs",
     "scripts/verify-layerdoc.mjs",
     "scripts/verify-preview.mjs",
+    "scripts/verify-section-application.mjs",
     "scripts/verify-section-candidate.mjs",
     "src/App.tsx",
     "src/index.css",
@@ -4106,6 +4243,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
       { path: "scripts/verify-image-manifest.mjs", contents: imageManifestVerifierScriptFor() },
       { path: "scripts/verify-layerdoc.mjs", contents: layerDocVerifierScriptFor() },
       { path: "scripts/verify-preview.mjs", contents: previewVerifierScriptFor() },
+      { path: "scripts/verify-section-application.mjs", contents: sectionApplicationVerifierScriptFor() },
       { path: "scripts/verify-section-candidate.mjs", contents: sectionCandidateVerifierScriptFor() },
       { path: "src/App.tsx", contents: appShellFor(options.componentName) },
       { path: "src/index.css", contents: indexCssFor() },
