@@ -60,7 +60,7 @@ import {
 import {
   createAnalysisTaskPackageDownload,
   createAnalysisPlanDownload,
-  createBacktestHandoffDownload,
+  createBacktestRunbookDownload,
   createHtmlPreviewDownload,
   createLayerDocDownload,
   createProjectPackageDownload,
@@ -942,9 +942,9 @@ function ProjectExportPanel({
       </div>
       <div className="project-backtest-card">
         <div className="project-backtest-head">
-          <span>Backtest Handoff</span>
-          <strong>backtest-report.json</strong>
-          <small>project.verification</small>
+          <span>Backtest Runbook</span>
+          <strong>backtest-runbook.json</strong>
+          <small>backtest-report.json / project.verification</small>
         </div>
         <button className="export-package-download" type="button" onClick={onDownloadBacktest}>
           <Download size={13} />
@@ -1501,8 +1501,8 @@ export function App() {
     setLastAction(`Exported ${artifact.fileName}`);
   }
 
-  function saveBacktestHandoffFile() {
-    const artifact = createBacktestHandoffDownload(workspace);
+  function saveBacktestRunbookFile() {
+    const artifact = createBacktestRunbookDownload(workspace);
     downloadArtifact(artifact);
     setLastAction(`Saved ${artifact.fileName}`);
   }
@@ -1674,7 +1674,7 @@ export function App() {
         />
         <ProjectExportPanel
           workspace={workspace}
-          onDownloadBacktest={saveBacktestHandoffFile}
+          onDownloadBacktest={saveBacktestRunbookFile}
           onDownload={exportProjectPackage}
           onDownloadZip={exportProjectZip}
         />

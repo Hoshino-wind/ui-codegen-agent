@@ -97,14 +97,14 @@ test("app shell exposes a project ZIP export action", () => {
   assert.match(source, /createProjectPackageZipDownload/);
 });
 
-test("app shell exposes project backtest handoff commands", () => {
+test("app shell exposes project backtest runbook commands", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
   const styles = readFileSync(join(rootDir, "src", "app", "styles.css"), "utf8");
 
-  assert.match(source, /Backtest Handoff/);
+  assert.match(source, /Backtest Runbook/);
   assert.match(source, /Save Backtest/);
-  assert.match(source, /createBacktestHandoffDownload/);
-  assert.match(source, /saveBacktestHandoffFile/);
+  assert.match(source, /createBacktestRunbookDownload/);
+  assert.match(source, /saveBacktestRunbookFile/);
   assert.match(source, /npm run backtest:homepage --/);
   assert.match(source, /backtest-report\.json/);
   assert.match(source, /npm run pipeline:homepage --/);

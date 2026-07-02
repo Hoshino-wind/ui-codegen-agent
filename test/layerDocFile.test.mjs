@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   createAnalysisTaskPackageDownload,
   createAnalysisPlanDownload,
-  createBacktestHandoffDownload,
+  createBacktestRunbookDownload,
   createHtmlPreviewDownload,
   createLayerDocDownload,
   createProjectPackageDownload,
@@ -323,19 +323,27 @@ test("createProjectPackageDownload serializes every project package file in one 
   assert.equal(artifact.contents.endsWith("\n"), true);
 });
 
-test("createBacktestHandoffDownload exposes the project handoff summary as a direct Studio artifact", () => {
+test("createBacktestRunbookDownload exposes a Studio backtest runbook", () => {
   const workspace = createWorkspaceFromLayerDocJson(JSON.stringify(createSampleHomepageLayerDoc()));
-  const artifact = createBacktestHandoffDownload(workspace);
+  const artifact = createBacktestRunbookDownload(workspace);
   const payload = JSON.parse(artifact.contents);
 
-  assert.equal(artifact.fileName, "handoff-summary.json");
+  assert.equal(artifact.fileName, "backtest-runbook.json");
   assert.equal(artifact.mimeType, "application/json");
+  assert.equal(payload.kind, "studio_backtest_runbook");
   assert.equal(payload.positioning, "AI UI Production System");
-  assert.equal(payload.source, "layerdoc");
-  assert.equal(payload.sourceOfTruth.file, "layerdoc.json");
-  assert.equal(payload.quality.referenceVisual.file, "reference.png");
+  assert.equal(payload.packageName, workspace.projectExport.manifest.packageName);
+  assert.equal(payload.componentName, workspace.projectExport.manifest.componentName);
+  assert.equal(payload.artifacts.projectPackage, "project-package.json");
+  assert.equal(payload.artifacts.backtestReport, "backtest-report.json");
+  assert.equal(payload.artifacts.productionManifest, "production-manifest.json");
   assert.equal(Array.isArray(payload.commands), true);
-  assert.equal(payload.commands.some((entry) => /verify:preview/.test(entry.command)), true);
+  assert.equal(payload.commands.some((entry) => entry.command === "npm run backtest:homepage -- --out artifacts/homepage-backtest --component ProductionHomepage"), true);
+  assert.equal(payload.commands.some((entry) => /npm run pipeline:homepage --/.test(entry.command) && /--verify-project/.test(entry.command)), true);
+  assert.equal(payload.commands.some((entry) => /npm run materialize:project --/.test(entry.command) && /--verify-preview/.test(entry.command)), true);
+  assert.equal(payload.projectVerification.commands.some((entry) => entry.command === "npm run verify:production-manifest"), true);
+  assert.equal(payload.projectVerification.commands.some((entry) => entry.command === "npm run verify:preview"), true);
+  assert.equal(payload.sourceOfTruth.file, "layerdoc.json");
   assert.equal(artifact.contents.endsWith("\n"), true);
 });
 
