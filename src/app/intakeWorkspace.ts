@@ -312,8 +312,13 @@ export function addHeroAnnotationSet(workspace: IntakeWorkspace): IntakeWorkspac
   return materialize(workspace.sourceImage, addHeroAnnotationSetToPlan(workspace.analysisPlan), "hero", "hero-title");
 }
 
-export function seedHomepageAnnotations(workspace: IntakeWorkspace): IntakeWorkspace {
+export function runMockVisionDecomposition(workspace: IntakeWorkspace): IntakeWorkspace {
+  // Deterministic stand-in for the future image-to-structure model boundary.
   return materialize(workspace.sourceImage, seedHomepageAnalysisPlan(workspace.analysisPlan), "hero", "hero-title");
+}
+
+export function seedHomepageAnnotations(workspace: IntakeWorkspace): IntakeWorkspace {
+  return runMockVisionDecomposition(workspace);
 }
 
 export async function materializeReferenceCropAssets(workspace: IntakeWorkspace, resolveCrop: ReferenceCropAssetResolver): Promise<IntakeWorkspace> {

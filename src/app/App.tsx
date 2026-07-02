@@ -47,9 +47,9 @@ import {
   createIntakeWorkspace,
   createIntakeWorkspaceFromAnalysisPlanJson,
   materializeReferenceCropAssets,
+  runMockVisionDecomposition,
   selectIntakeLayer,
   selectIntakeSection,
-  seedHomepageAnnotations,
   updateManualAnalysisLayer,
   type IntakeWorkspace,
   type ManualAnalysisLayerKind
@@ -1170,8 +1170,8 @@ function AnalysisPlanPanel({
           <Download size={13} />
           Save Analysis Plan
         </button>
-        <button type="button" onClick={() => onChange(seedHomepageAnnotations(intake))}>
-          Seed homepage
+        <button type="button" onClick={() => onChange(runMockVisionDecomposition(intake))}>
+          Mock Vision
         </button>
         <button type="button" onClick={() => onChange(addHeroAnnotationSet(intake))}>
           Add hero layers

@@ -46,6 +46,14 @@ test("app shell exposes an Analysis Task handoff before Analysis Plan editing", 
   assert.match(source, /Image -> Analysis Task -> Analysis Plan -> LayerDoc/);
 });
 
+test("app shell exposes mock vision decomposition before LayerDoc build", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /Mock Vision/);
+  assert.match(source, /runMockVisionDecomposition/);
+  assert.match(source, /Build LayerDoc/);
+});
+
 test("app shell exposes Analysis Plan audit readiness and track counts", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 

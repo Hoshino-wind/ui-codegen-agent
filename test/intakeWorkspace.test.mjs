@@ -11,6 +11,7 @@ import {
   createIntakeWorkspace,
   createIntakeWorkspaceFromAnalysisPlanJson,
   materializeReferenceCropAssets,
+  runMockVisionDecomposition,
   selectIntakeLayer,
   selectIntakeSection,
   seedHomepageAnnotations,
@@ -110,6 +111,25 @@ test("addHeroAnnotationSet adds editable hero layers without mutating the origin
   assert.equal(next.layerCount, 4);
   assert.deepEqual(next.analysisPlan.sections[0].layers.map((layer) => layer.id), ["hero-title", "hero-copy", "hero-cta", "hero-image"]);
   assert.equal(next.ready, true);
+});
+
+test("runMockVisionDecomposition produces a LayerDoc-ready mock vision plan from uploaded PNG metadata", () => {
+  const intake = createIntakeWorkspace({
+    uri: "/uploads/mock-ai-homepage.png",
+    width: 1440,
+    height: 1760
+  });
+
+  const next = runMockVisionDecomposition(intake);
+
+  assert.equal(intake.layerCount, 0);
+  assert.equal(next.layerCount, 18);
+  assert.equal(next.audit.readiness.readyForLayerDoc, true);
+  assert.deepEqual(next.analysisPlan.sections.map((section) => section.layers.length), [4, 2, 2, 2, 2, 2, 2, 2]);
+  assert.equal(next.selectedSectionId, "hero");
+  assert.equal(next.selectedLayerId, "hero-title");
+  assert.equal(next.analysisPlan.canvas.width, 1440);
+  assert.equal(next.analysisPlan.canvas.height, 1760);
 });
 
 test("selectIntakeSection changes the selected analysis section", () => {
