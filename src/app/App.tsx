@@ -55,6 +55,7 @@ import {
   type ManualAnalysisLayerKind
 } from "./intakeWorkspace.js";
 import {
+  createAnalysisTaskPackageDownload,
   createAnalysisPlanDownload,
   createLayerDocDownload,
   createProjectPackageDownload,
@@ -912,6 +913,7 @@ function AnalysisPlanPanel({
   intake,
   onChange,
   onBuild,
+  onDownloadTask,
   onDownloadPlan,
   onUploadPlan,
   onUploadFile,
@@ -920,6 +922,7 @@ function AnalysisPlanPanel({
   intake: IntakeWorkspace;
   onChange: (workspace: IntakeWorkspace) => void;
   onBuild: () => void | Promise<void>;
+  onDownloadTask: () => void;
   onDownloadPlan: () => void;
   onUploadPlan: (file: File) => void;
   onUploadFile: (file: File) => void;
@@ -999,6 +1002,24 @@ function AnalysisPlanPanel({
           <span>
             {intake.sourceImage.width} x {intake.sourceImage.height}
           </span>
+        </div>
+      </div>
+      <div className="analysis-task-card">
+        <div className="analysis-task-head">
+          <span>Analysis Task</span>
+          <button aria-label="Save Analysis Task" className="analysis-task-download" type="button" onClick={onDownloadTask}>
+            <Download size={13} />
+            Save Task
+          </button>
+        </div>
+        <small title="Image -> Analysis Task -> Analysis Plan -> LayerDoc">
+          {`${intake.sourceImage.width}x${intake.sourceImage.height} / Task -> Plan -> LayerDoc`}
+        </small>
+        <div className="analysis-task-grid" aria-label="Analysis Task output contract">
+          <span>8-15 sec</span>
+          <span>4 tracks</span>
+          <span>schema</span>
+          <span>no-shot</span>
         </div>
       </div>
       <div className="analysis-stats">
@@ -1384,6 +1405,19 @@ export function App() {
     setLastAction(`Saved ${artifact.fileName}`);
   }
 
+  function saveAnalysisTaskPackage() {
+    const artifact = createAnalysisTaskPackageDownload({
+      name: intake.analysisPlan.name,
+      sourceImage: {
+        uri: intake.sourceImage.uri,
+        width: intake.sourceImage.width,
+        height: intake.sourceImage.height
+      }
+    });
+    downloadArtifact(artifact);
+    setLastAction(`Saved ${artifact.fileName}`);
+  }
+
   function exportReactFile() {
     const artifact = createReactExportDownload(workspace);
     downloadArtifact(artifact);
@@ -1535,6 +1569,7 @@ export function App() {
           intake={intake}
           onChange={updateIntake}
           onBuild={buildFromAnalysisPlan}
+          onDownloadTask={saveAnalysisTaskPackage}
           onDownloadPlan={saveAnalysisPlanFile}
           onUploadPlan={(file) => void importAnalysisPlanFile(file)}
           onUploadFile={(file) => void importPngFile(file)}

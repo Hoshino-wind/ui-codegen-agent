@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  createAnalysisTaskPackageDownload,
   createAnalysisPlanDownload,
   createLayerDocDownload,
   createProjectPackageDownload,
@@ -170,6 +171,29 @@ test("createAnalysisPlanDownload serializes the current structured intake plan",
   assert.equal(parsed.canvas.width, 640);
   assert.equal(parsed.sections.length, 8);
   assert.equal(artifact.contents.endsWith("\n"), true);
+});
+
+test("createAnalysisTaskPackageDownload serializes the model-facing PNG decomposition package", () => {
+  const artifact = createAnalysisTaskPackageDownload({
+    name: "Generated homepage",
+    sourceImage: { uri: "references/homepage.png", width: 1536, height: 1024 }
+  });
+
+  assert.equal(artifact.fileName, "analysis-task-package.zip");
+  assert.equal(artifact.mimeType, "application/zip");
+  assert.deepEqual(zipCentralDirectoryNames(artifact.contents).sort(), ["analysis-plan.schema.json", "analysis-task.json"]);
+
+  const task = JSON.parse(new TextDecoder().decode(zipLocalFileData(artifact.contents, "analysis-task.json")));
+  const schema = JSON.parse(new TextDecoder().decode(zipLocalFileData(artifact.contents, "analysis-plan.schema.json")));
+
+  assert.equal(task.kind, "homepage-png-analysis");
+  assert.equal(task.name, "Generated homepage");
+  assert.deepEqual(task.sourceImage, { uri: "references/homepage.png", width: 1536, height: 1024 });
+  assert.equal(task.outputContract.schemaFile, "analysis-plan.schema.json");
+  assert.equal(task.outputContract.minSections, 8);
+  assert.equal(task.outputContract.maxSections, 15);
+  assert.match(task.operatorPrompt, /Image -> HomepageAnalysisPlan -> LayerDoc -> HTML Preview -> React\/Tailwind -> Verifier/);
+  assert.equal(schema.title, "HomepageAnalysisPlan 0.1.0");
 });
 
 test("createReactExportDownload serializes the current React Tailwind export as a TSX artifact", () => {

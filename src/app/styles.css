@@ -326,6 +326,77 @@ button {
   font-weight: 700;
 }
 
+.analysis-task-card {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 10px;
+  padding: 9px 8px;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  background: #f0f9ff;
+}
+
+.analysis-task-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.analysis-task-head span {
+  color: #0369a1;
+  font-size: 10px;
+  font-weight: 860;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.analysis-task-card small,
+.analysis-task-grid span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analysis-task-card small {
+  color: #475569;
+  font-size: 10px;
+  font-weight: 760;
+}
+
+.analysis-task-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.analysis-task-grid span {
+  min-height: 24px;
+  padding: 5px 4px;
+  border-radius: 6px;
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 9px;
+  font-weight: 820;
+}
+
+.analysis-task-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  gap: 5px;
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid #38bdf8;
+  border-radius: 7px;
+  color: #075985;
+  background: #ffffff;
+  font-size: 11px;
+  font-weight: 840;
+  cursor: pointer;
+}
+
 .analysis-stats {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -593,7 +664,12 @@ button {
   margin-top: 10px;
 }
 
-.analysis-actions button {
+.analysis-actions button,
+.analysis-file-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   min-height: 31px;
   border: 1px solid var(--accent-line);
   border-radius: 7px;
@@ -601,6 +677,8 @@ button {
   background: var(--surface);
   font-size: 12px;
   font-weight: 820;
+  text-align: center;
+  cursor: pointer;
 }
 
 .analysis-actions button:last-child {

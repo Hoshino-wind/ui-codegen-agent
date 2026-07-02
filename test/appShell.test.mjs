@@ -35,6 +35,16 @@ test("app shell exposes Analysis Plan load action", () => {
   assert.match(source, /createIntakeWorkspaceFromAnalysisPlanJson/);
 });
 
+test("app shell exposes an Analysis Task handoff before Analysis Plan editing", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /Analysis Task/);
+  assert.match(source, /Save Analysis Task/);
+  assert.match(source, /createAnalysisTaskPackageDownload/);
+  assert.match(source, /analysis-task-download/);
+  assert.match(source, /Image -> Analysis Task -> Analysis Plan -> LayerDoc/);
+});
+
 test("app shell exposes Analysis Plan audit readiness and track counts", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 

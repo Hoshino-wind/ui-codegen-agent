@@ -1,6 +1,7 @@
 import { validateLayerDoc } from "../layerdoc/validation.js";
 import type { LayerDoc } from "../layerdoc/types.js";
-import type { HomepageAnalysisPlan } from "../importers/homepageAnalysisPlan.js";
+import { createHomepageAnalysisPlanJsonSchema, type HomepageAnalysisPlan } from "../importers/homepageAnalysisPlan.js";
+import { createHomepageAnalysisTask } from "../importers/homepageAnalysisTask.js";
 import type { ProjectExportPackage } from "../exporters/projectPackage.js";
 import { createStoredZipArchive } from "../exporters/zipArchive.js";
 import { bytesToBase64 } from "../shared/base64.js";
@@ -10,6 +11,15 @@ export interface LayerDocDownloadArtifact {
   fileName: string;
   mimeType: "application/json" | "application/zip" | "text/plain;charset=utf-8";
   contents: string | Uint8Array;
+}
+
+export interface AnalysisTaskPackageDownloadInput {
+  name: string;
+  sourceImage: {
+    uri: string;
+    width: number;
+    height: number;
+  };
 }
 
 interface JsonProjectExportTextFile {
@@ -111,6 +121,28 @@ export function createAnalysisPlanDownload(plan: HomepageAnalysisPlan, fileName 
     fileName,
     mimeType: "application/json",
     contents: `${JSON.stringify(plan, null, 2)}\n`
+  };
+}
+
+// Studio emits the same two-file handoff as the CLI so model/manual
+// decomposition starts from schema-bound data instead of a loose prompt.
+export function createAnalysisTaskPackageDownload(
+  input: AnalysisTaskPackageDownloadInput,
+  fileName = "analysis-task-package.zip"
+): LayerDocDownloadArtifact {
+  const task = createHomepageAnalysisTask({
+    name: input.name,
+    sourceImage: { ...input.sourceImage },
+    outputSchemaFile: "analysis-plan.schema.json"
+  });
+
+  return {
+    fileName,
+    mimeType: "application/zip",
+    contents: createStoredZipArchive([
+      { path: "analysis-task.json", contents: `${JSON.stringify(task, null, 2)}\n` },
+      { path: "analysis-plan.schema.json", contents: `${JSON.stringify(createHomepageAnalysisPlanJsonSchema(), null, 2)}\n` }
+    ])
   };
 }
 
