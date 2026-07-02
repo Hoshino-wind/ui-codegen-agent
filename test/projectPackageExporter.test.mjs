@@ -389,6 +389,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.manifest.layerDocHash, /^sha256:[a-f0-9]{64}$/);
   assert.equal(output.manifest.integrationContract, "integration-contract.json");
   assert.equal(output.manifest.handoffSummary, "handoff-summary.json");
+  assert.equal(output.manifest.backtestRunbook, "backtest-runbook.json");
   assert.equal(output.manifest.productionManifest, "production-manifest.json");
   assert.equal(output.manifest.productionManifestSchema, "production-manifest.schema.json");
   assert.equal(output.manifest.sectionCandidateSchema, "section-candidate.schema.json");
@@ -413,6 +414,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     "analysis-plan-audit.json",
     "analysis-plan.schema.json",
     "asset-index.json",
+    "backtest-runbook.json",
     "handoff-summary.json",
     "index.html",
     "integration-contract.json",
@@ -475,6 +477,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   const manifest = JSON.parse(output.files.find((file) => file.path === "manifest.json").contents);
   const productionManifest = JSON.parse(output.files.find((file) => file.path === "production-manifest.json").contents);
   const productionManifestSchema = JSON.parse(output.files.find((file) => file.path === "production-manifest.schema.json").contents);
+  const backtestRunbook = JSON.parse(output.files.find((file) => file.path === "backtest-runbook.json").contents);
   const assetIndex = JSON.parse(output.files.find((file) => file.path === "asset-index.json").contents);
   const exportedLayerDoc = JSON.parse(output.files.find((file) => file.path === "layerdoc.json").contents);
   assert.deepEqual(manifest.referenceVisual, output.manifest.referenceVisual);
@@ -482,6 +485,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.deepEqual(manifest.analysisPlanAudit, output.manifest.analysisPlanAudit);
   assert.equal(manifest.productionManifest, output.manifest.productionManifest);
   assert.equal(manifest.productionManifestSchema, output.manifest.productionManifestSchema);
+  assert.equal(manifest.backtestRunbook, output.manifest.backtestRunbook);
   assert.equal(manifest.assetIndex, output.manifest.assetIndex);
   assert.equal(productionManifestSchema.title, "ProjectProductionManifest 0.1.0");
   assert.deepEqual(productionManifestSchema.required, [
@@ -492,12 +496,14 @@ test("createProjectExportPackage returns project-ready files derived from one La
     "generated",
     "quality",
     "regeneration",
+    "runbooks",
     "integrationSteps"
   ]);
   assert.equal(productionManifestSchema.properties.role.const, "project_integration_manifest");
   assert.deepEqual(productionManifestSchema.properties.sourceOfTruth.required, ["type", "file", "schemaFile", "hash", "editable"]);
   assert.deepEqual(productionManifestSchema.properties.generated.required, ["react", "preview", "contract", "assets"]);
   assert.equal(productionManifestSchema.properties.quality.properties.scores.required.includes("visual_similarity"), true);
+  assert.deepEqual(productionManifestSchema.properties.runbooks.required, ["backtest"]);
   assert.equal(productionManifestSchema.properties.integrationSteps.items.required.includes("command"), true);
   assert.equal(productionManifest.role, "project_integration_manifest");
   assert.deepEqual(productionManifest.sourceOfTruth, {
@@ -537,6 +543,27 @@ test("createProjectExportPackage returns project-ready files derived from one La
     component_score: output.manifest.scores.componentScore,
     project_fit_score: output.manifest.scores.projectFitScore
   });
+  assert.deepEqual(productionManifest.runbooks.backtest, {
+    file: "backtest-runbook.json",
+    kind: "studio_backtest_runbook"
+  });
+  assert.equal(backtestRunbook.version, "0.1.0");
+  assert.equal(backtestRunbook.kind, "studio_backtest_runbook");
+  assert.equal(backtestRunbook.packageName, output.manifest.packageName);
+  assert.equal(backtestRunbook.componentName, output.manifest.componentName);
+  assert.deepEqual(backtestRunbook.sourceOfTruth, {
+    file: "layerdoc.json",
+    schemaFile: "layerdoc.schema.json",
+    hash: output.manifest.layerDocHash
+  });
+  assert.equal(backtestRunbook.artifacts.productionManifest, "production-manifest.json");
+  assert.equal(backtestRunbook.artifacts.handoffSummary, "handoff-summary.json");
+  assert.equal(backtestRunbook.artifacts.projectPackage, "project-package.json");
+  assert.equal(backtestRunbook.commands.some((entry) => entry.command === "npm run backtest:homepage -- --out artifacts/homepage-backtest --component ProductionHomepage"), true);
+  assert.equal(backtestRunbook.commands.some((entry) => /npm run pipeline:homepage --/.test(entry.command) && /--verify-project/.test(entry.command)), true);
+  assert.equal(backtestRunbook.commands.some((entry) => /npm run materialize:project --/.test(entry.command) && /--verify-preview/.test(entry.command)), true);
+  assert.equal(backtestRunbook.projectVerification.commands.some((entry) => entry.command === "npm run verify:production-manifest"), true);
+  assert.equal(backtestRunbook.projectVerification.commands.some((entry) => entry.command === "npm run verify:preview"), true);
   assert.deepEqual(productionManifest.integrationSteps.map((step) => step.command), [
     "npm install",
     "npm run verify:preview",
@@ -752,6 +779,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   );
   assert.match(output.files.find((file) => file.path === "scripts/verify-gates.mjs").contents, /verification-report\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-handoff.mjs").contents, /handoff-summary\.json/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-handoff.mjs").contents, /backtest-runbook\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-handoff.mjs").contents, /asset-index\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-handoff.mjs").contents, /package\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-analysis-plan.mjs").contents, /analysis-plan-audit\.json/);
@@ -793,6 +821,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "README.md").contents, /production-manifest\.schema\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /recommended integration entrypoint/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /handoff-summary\.json/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /backtest-runbook\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /asset-index\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /integration-contract\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /layerdoc\.schema\.json/);

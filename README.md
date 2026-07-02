@@ -112,6 +112,9 @@ The repository currently implements the core LayerDoc domain layer:
   entrypoint, tying the editable LayerDoc source, generated React component,
   HTML preview, integration contract, asset index, quality gates, and section
   regeneration commands into one stable file.
+- Export a `backtest-runbook.json` with homepage backtest, pipeline,
+  materialization, and project-local verification commands so Studio, CLI
+  packages, and materialized projects share one machine-readable runbook.
 - Export `production-manifest.schema.json` so downstream importers and CI can
   validate that project integration entrypoint before ingesting generated UI.
 - Export a project-local `verify:production-manifest` command for validating
@@ -328,9 +331,8 @@ npm run backtest:homepage -- \
 ```
 
 The Studio Project Package panel shows this command next to the lower-level
-pipeline/materialize commands, and Save Backtest downloads
-`backtest-runbook.json` with the same commands plus the project-local
-verification commands from the exported handoff.
+pipeline/materialize commands, and Save Backtest downloads the same
+`backtest-runbook.json` artifact included in the exported project package.
 
 Studio JSON handoffs are also materializable: binary files are represented as
 base64 entries in `project-package.json`, and `parseProjectExportPackageJson`

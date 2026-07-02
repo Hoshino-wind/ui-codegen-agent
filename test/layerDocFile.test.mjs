@@ -254,6 +254,7 @@ test("createProjectPackageDownload serializes every project package file in one 
     [
       "README.md",
       "asset-index.json",
+      "backtest-runbook.json",
       "handoff-summary.json",
       "index.html",
       "integration-contract.json",
@@ -288,9 +289,11 @@ test("createProjectPackageDownload serializes every project package file in one 
     ].sort()
   );
   assert.equal(payload.manifest.assetIndex, "asset-index.json");
+  assert.equal(payload.manifest.backtestRunbook, "backtest-runbook.json");
   assert.equal(payload.manifest.productionManifest, "production-manifest.json");
   assert.equal(payload.manifest.productionManifestSchema, "production-manifest.schema.json");
   assert.match(payload.files.find((file) => file.path === "asset-index.json").contents, /"source": "layerdoc"/);
+  assert.match(payload.files.find((file) => file.path === "backtest-runbook.json").contents, /"kind": "studio_backtest_runbook"/);
   assert.match(payload.files.find((file) => file.path === "production-manifest.json").contents, /"role": "project_integration_manifest"/);
   assert.match(payload.files.find((file) => file.path === "production-manifest.schema.json").contents, /"title": "ProjectProductionManifest 0.1.0"/);
   assert.match(

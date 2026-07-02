@@ -37,6 +37,7 @@ export interface ProjectExportManifest {
   layerDocHash: string;
   integrationContract: string;
   handoffSummary: string;
+  backtestRunbook: string;
   productionManifest: string;
   productionManifestSchema: string;
   assetIndex: string;
@@ -126,6 +127,33 @@ export interface ProjectHandoffSummary {
     editableCoverage: LayerDocAudit["editableCoverage"];
   };
   commands: ProjectHandoffCommand[];
+}
+
+export interface ProjectBacktestRunbook {
+  version: "0.1.0";
+  kind: "studio_backtest_runbook";
+  positioning: "AI UI Production System";
+  packageName: string;
+  componentName: string;
+  sourceOfTruth: ProjectHandoffSummary["sourceOfTruth"];
+  artifacts: {
+    projectPackage: "project-package.json";
+    projectZip: string;
+    backtestReport: "backtest-report.json";
+    pipelineReport: "pipeline-report.json";
+    productionManifest: string;
+    handoffSummary: string;
+    verificationReport: "verification-report.json";
+  };
+  commands: Array<{
+    id: string;
+    label: string;
+    command: string;
+  }>;
+  projectVerification: {
+    source: string;
+    commands: ProjectHandoffCommand[];
+  };
 }
 
 export interface ProjectIntegrationContract {
@@ -316,6 +344,12 @@ export interface ProjectProductionManifest {
       verifyApplication: "npm run verify:section-application";
     };
   };
+  runbooks: {
+    backtest: {
+      file: string;
+      kind: ProjectBacktestRunbook["kind"];
+    };
+  };
   integrationSteps: Array<{
     id: string;
     label: string;
@@ -327,6 +361,7 @@ export interface ProjectProductionManifest {
 const PROJECT_VERIFY_CHAIN =
   "npm run verify:preview && npm run verify:production-manifest && npm run verify:handoff && npm run verify:analysis-plan && npm run verify:image-manifest && npm run verify:layerdoc && npm run verify:contract && npm run verify:gates";
 const ASSET_INDEX_FILE = "asset-index.json";
+const BACKTEST_RUNBOOK_FILE = "backtest-runbook.json";
 const SECTION_CANDIDATE_SCHEMA_FILE = "section-candidate.schema.json";
 const PRODUCTION_MANIFEST_FILE = "production-manifest.json";
 const PRODUCTION_MANIFEST_SCHEMA_FILE = "production-manifest.schema.json";
@@ -743,7 +778,7 @@ function createProductionManifestJsonSchema(): Record<string, unknown> {
     title: "ProjectProductionManifest 0.1.0",
     type: "object",
     additionalProperties: false,
-    required: ["version", "system", "role", "sourceOfTruth", "generated", "quality", "regeneration", "integrationSteps"],
+    required: ["version", "system", "role", "sourceOfTruth", "generated", "quality", "regeneration", "runbooks", "integrationSteps"],
     properties: {
       version: { const: "0.1.0" },
       system: { const: "AI UI Production System" },
@@ -851,6 +886,22 @@ function createProductionManifestJsonSchema(): Record<string, unknown> {
           requestCount: { type: "integer", minimum: 0 },
           applicationCount: { type: "integer", minimum: 0 },
           commands: { type: "object" }
+        }
+      },
+      runbooks: {
+        type: "object",
+        additionalProperties: false,
+        required: ["backtest"],
+        properties: {
+          backtest: {
+            type: "object",
+            additionalProperties: false,
+            required: ["file", "kind"],
+            properties: {
+              file: { const: BACKTEST_RUNBOOK_FILE },
+              kind: { const: "studio_backtest_runbook" }
+            }
+          }
         }
       },
       integrationSteps: {
@@ -1043,10 +1094,16 @@ const audit = readJson("../layerdoc-audit.json");
 const report = readJson("../verification-report.json");
 const assetIndexPath = manifest.assetIndex ?? "${ASSET_INDEX_FILE}";
 const assetIndex = fileExists(assetIndexPath) ? readJson("../" + assetIndexPath) : null;
+const backtestRunbookPath = manifest.backtestRunbook ?? "${BACKTEST_RUNBOOK_FILE}";
+const backtestRunbook = fileExists(backtestRunbookPath) ? readJson("../" + backtestRunbookPath) : null;
 const productionManifestPath = manifest.productionManifest ?? "${PRODUCTION_MANIFEST_FILE}";
 const productionManifest = fileExists(productionManifestPath) ? readJson("../" + productionManifestPath) : null;
 const productionManifestSchemaPath = manifest.productionManifestSchema ?? "${PRODUCTION_MANIFEST_SCHEMA_FILE}";
 const productionManifestSchema = fileExists(productionManifestSchemaPath) ? readJson("../" + productionManifestSchemaPath) : null;
+const actualLayerDocHash = sha256(stableJson(layerDoc));
+const manifestFiles = Array.isArray(manifest.files) ? manifest.files : [];
+const handoffCommands = Array.isArray(handoff.commands) ? handoff.commands : [];
+const packageScripts = packageJson.scripts ?? {};
 const expectedAssetIndex = expectedAssetIndexFrom(layerDoc, contract, manifest);
 const expectedAssetIndexSummary = {
   file: assetIndexPath,
@@ -1061,7 +1118,7 @@ const expectedProductionManifest = {
     type: "LayerDoc",
     file: "layerdoc.json",
     schemaFile: "layerdoc.schema.json",
-    hash: sha256(stableJson(layerDoc)),
+    hash: actualLayerDocHash,
     editable: true
   },
   intake: {
@@ -1120,6 +1177,12 @@ const expectedProductionManifest = {
       verifyApplication: "npm run verify:section-application"
     }
   },
+  runbooks: {
+    backtest: {
+      file: backtestRunbookPath,
+      kind: "studio_backtest_runbook"
+    }
+  },
   integrationSteps: [
     { id: "install", label: "Install dependencies", command: "npm install", required: true },
     { id: "verify-preview", label: "Capture preview diff", command: "npm run verify:preview", required: true },
@@ -1127,14 +1190,53 @@ const expectedProductionManifest = {
     { id: "build", label: "Build React export", command: "npm run build", required: true }
   ]
 };
-const actualLayerDocHash = sha256(stableJson(layerDoc));
+const expectedBacktestRunbook = {
+  version: "0.1.0",
+  kind: "studio_backtest_runbook",
+  positioning: "AI UI Production System",
+  packageName: manifest.packageName,
+  componentName: manifest.componentName,
+  sourceOfTruth: {
+    file: "layerdoc.json",
+    schemaFile: "layerdoc.schema.json",
+    hash: actualLayerDocHash
+  },
+  artifacts: {
+    projectPackage: "project-package.json",
+    projectZip: manifest.packageName + ".zip",
+    backtestReport: "backtest-report.json",
+    pipelineReport: "pipeline-report.json",
+    productionManifest: manifest.productionManifest,
+    handoffSummary: manifest.handoffSummary,
+    verificationReport: "verification-report.json"
+  },
+  commands: [
+    {
+      id: "homepage-backtest",
+      label: "Run full homepage MVP backtest",
+      command: "npm run backtest:homepage -- --out artifacts/homepage-backtest --component " + manifest.componentName
+    },
+    {
+      id: "homepage-pipeline",
+      label: "Run PNG intake, LayerDoc build, project export, and project verification",
+      command: "npm run pipeline:homepage -- --input references/homepage.png --candidate artifacts/candidate.png --out artifacts/homepage-run --component " + manifest.componentName + " --verify-project"
+    },
+    {
+      id: "materialize-project-preview",
+      label: "Materialize Studio project package and verify preview",
+      command: "npm run materialize:project -- --input artifacts/project-package.json --out artifacts/materialized-project --verify-preview --candidate artifacts/candidate.png"
+    }
+  ],
+  projectVerification: {
+    source: manifest.handoffSummary,
+    commands: handoffCommands
+  }
+};
 const failures = [];
-const manifestFiles = Array.isArray(manifest.files) ? manifest.files : [];
-const handoffCommands = Array.isArray(handoff.commands) ? handoff.commands : [];
-const packageScripts = packageJson.scripts ?? {};
 
 pushIf(manifest.source !== "layerdoc", failures, "manifest_source_invalid", "manifest.json source must be layerdoc.");
 pushIf(manifest.handoffSummary !== "handoff-summary.json", failures, "manifest_handoff_file_mismatch", "manifest.json handoffSummary must be handoff-summary.json.");
+pushIf(manifest.backtestRunbook !== "${BACKTEST_RUNBOOK_FILE}", failures, "manifest_backtest_runbook_mismatch", "manifest.json backtestRunbook must be ${BACKTEST_RUNBOOK_FILE}.");
 pushIf(manifest.assetIndex !== "${ASSET_INDEX_FILE}", failures, "manifest_asset_index_mismatch", "manifest.json assetIndex must be ${ASSET_INDEX_FILE}.");
 pushIf(manifest.productionManifest !== "${PRODUCTION_MANIFEST_FILE}", failures, "manifest_production_manifest_mismatch", "manifest.json productionManifest must be ${PRODUCTION_MANIFEST_FILE}.");
 pushIf(manifest.productionManifestSchema !== "${PRODUCTION_MANIFEST_SCHEMA_FILE}", failures, "manifest_production_manifest_schema_mismatch", "manifest.json productionManifestSchema must be ${PRODUCTION_MANIFEST_SCHEMA_FILE}.");
@@ -1146,9 +1248,11 @@ pushIf(handoff.sourceOfTruth?.schemaFile !== "layerdoc.schema.json", failures, "
 pushIf(handoff.sourceOfTruth?.hash !== actualLayerDocHash, failures, "handoff_source_hash_mismatch", "handoff sourceOfTruth.hash must match the current layerdoc.json hash.");
 pushIf(manifest.layerDocHash !== actualLayerDocHash, failures, "manifest_layerdoc_hash_mismatch", "manifest.json layerDocHash must match the current layerdoc.json hash.");
 pushIf(!manifestFiles.includes("${ASSET_INDEX_FILE}"), failures, "asset_index_not_listed", "manifest.json files must include ${ASSET_INDEX_FILE}.");
+pushIf(!manifestFiles.includes("${BACKTEST_RUNBOOK_FILE}"), failures, "backtest_runbook_not_listed", "manifest.json files must include ${BACKTEST_RUNBOOK_FILE}.");
 pushIf(!manifestFiles.includes("${PRODUCTION_MANIFEST_FILE}"), failures, "production_manifest_not_listed", "manifest.json files must include ${PRODUCTION_MANIFEST_FILE}.");
 pushIf(!manifestFiles.includes("${PRODUCTION_MANIFEST_SCHEMA_FILE}"), failures, "production_manifest_schema_not_listed", "manifest.json files must include ${PRODUCTION_MANIFEST_SCHEMA_FILE}.");
 pushIf(!fileExists(assetIndexPath), failures, "asset_index_missing", "manifest.json assetIndex must point at an existing file.");
+pushIf(!fileExists(backtestRunbookPath), failures, "backtest_runbook_missing", "manifest.json backtestRunbook must point at an existing file.");
 pushIf(!fileExists(productionManifestPath), failures, "production_manifest_missing", "manifest.json productionManifest must point at an existing file.");
 pushIf(!fileExists(productionManifestSchemaPath), failures, "production_manifest_schema_missing", "manifest.json productionManifestSchema must point at an existing file.");
 pushIf(!fileExists(manifest.sectionCandidateSchema), failures, "section_candidate_schema_missing", "manifest.json sectionCandidateSchema must point at an existing file.");
@@ -1187,6 +1291,7 @@ pushIf(handoff.sectionRegeneration?.requestCount !== (contract.generationRequest
 pushIf(handoff.sectionRegeneration?.applicationCount !== (contract.generationApplications?.length ?? 0), failures, "handoff_section_application_count_mismatch", "handoff sectionRegeneration.applicationCount must match integration contract.");
 pushIf(stableJson(assetIndex) !== stableJson(expectedAssetIndex), failures, "asset_index_mismatch", "asset-index.json does not match LayerDoc and integration-contract assets. Expected " + stableJson(expectedAssetIndex) + " Received " + stableJson(assetIndex));
 pushIf(stableJson(handoff.assetIndex) !== stableJson(expectedAssetIndexSummary), failures, "handoff_asset_index_mismatch", "handoff-summary.json assetIndex must summarize asset-index.json.");
+pushIf(stableJson(backtestRunbook) !== stableJson(expectedBacktestRunbook), failures, "backtest_runbook_mismatch", "backtest-runbook.json must match manifest.json, handoff-summary.json, and current LayerDoc hash. Expected " + stableJson(expectedBacktestRunbook) + " Received " + stableJson(backtestRunbook));
 pushIf(stableJson(productionManifest) !== stableJson(expectedProductionManifest), failures, "production_manifest_mismatch", "production-manifest.json must match LayerDoc, integration contract, asset index, quality report, and handoff metadata. Expected " + stableJson(expectedProductionManifest) + " Received " + stableJson(productionManifest));
 pushIf(stableJson(productionManifestSchema) !== stableJson(expectedProductionManifestSchema), failures, "production_manifest_schema_mismatch", "production-manifest.schema.json must match the exported ProjectProductionManifest contract. Expected " + stableJson(expectedProductionManifestSchema) + " Received " + stableJson(productionManifestSchema));
 
@@ -1331,6 +1436,12 @@ const expectedProductionManifest = {
       verifyCandidate: "npm run verify:section-candidate",
       applyCandidate: "npm run apply:section-candidate",
       verifyApplication: "npm run verify:section-application"
+    }
+  },
+  runbooks: {
+    backtest: {
+      file: manifest.backtestRunbook ?? "${BACKTEST_RUNBOOK_FILE}",
+      kind: "studio_backtest_runbook"
     }
   },
   integrationSteps: [
@@ -2734,11 +2845,52 @@ function updateProductionManifest(productionManifest, manifest, contract, report
   };
 }
 
+function updateBacktestRunbook(runbook, manifest, handoff) {
+  return {
+    ...runbook,
+    packageName: manifest.packageName,
+    componentName: manifest.componentName,
+    sourceOfTruth: { ...handoff.sourceOfTruth },
+    artifacts: {
+      projectPackage: "project-package.json",
+      projectZip: manifest.packageName + ".zip",
+      backtestReport: "backtest-report.json",
+      pipelineReport: "pipeline-report.json",
+      productionManifest: manifest.productionManifest,
+      handoffSummary: manifest.handoffSummary,
+      verificationReport: "verification-report.json"
+    },
+    commands: [
+      {
+        id: "homepage-backtest",
+        label: "Run full homepage MVP backtest",
+        command: "npm run backtest:homepage -- --out artifacts/homepage-backtest --component " + manifest.componentName
+      },
+      {
+        id: "homepage-pipeline",
+        label: "Run PNG intake, LayerDoc build, project export, and project verification",
+        command: "npm run pipeline:homepage -- --input references/homepage.png --candidate artifacts/candidate.png --out artifacts/homepage-run --component " + manifest.componentName + " --verify-project"
+      },
+      {
+        id: "materialize-project-preview",
+        label: "Materialize Studio project package and verify preview",
+        command: "npm run materialize:project -- --input artifacts/project-package.json --out artifacts/materialized-project --verify-preview --candidate artifacts/candidate.png"
+      }
+    ],
+    projectVerification: {
+      source: manifest.handoffSummary,
+      commands: asArray(handoff.commands)
+    }
+  };
+}
+
 const options = parseArgs(process.argv.slice(2));
 const candidate = readInputJson(options.input);
 const currentLayerDoc = readProjectJson("../layerdoc.json");
 const manifest = readProjectJson("../manifest.json");
 const handoff = readProjectJson("../handoff-summary.json");
+const backtestRunbookPath = manifest.backtestRunbook ?? "${BACKTEST_RUNBOOK_FILE}";
+const backtestRunbook = readProjectJson("../" + backtestRunbookPath);
 const productionManifestPath = manifest.productionManifest ?? "${PRODUCTION_MANIFEST_FILE}";
 const productionManifest = readProjectJson("../" + productionManifestPath);
 const candidateFailures = validateCandidate(candidate, options.sectionId, currentLayerDoc);
@@ -2762,6 +2914,7 @@ const contract = createIntegrationContract(nextLayerDoc, componentName, componen
 const assetIndex = createAssetIndex(nextLayerDoc, contract, nextHash);
 const nextHandoff = updateHandoffSummary(handoff, manifest, contract, audit, report, assetIndex);
 const nextProductionManifest = updateProductionManifest(productionManifest, manifest, contract, report, assetIndex, nextHandoff);
+const nextBacktestRunbook = updateBacktestRunbook(backtestRunbook, manifest, nextHandoff);
 
 writeProjectJson("../layerdoc.json", nextLayerDoc);
 writeProjectJson("../verification-report.json", report);
@@ -2769,6 +2922,7 @@ writeProjectJson("../layerdoc-audit.json", audit);
 writeProjectJson("../manifest.json", manifest);
 writeProjectJson("../integration-contract.json", contract);
 writeProjectJson("../" + (manifest.assetIndex ?? "${ASSET_INDEX_FILE}"), assetIndex);
+writeProjectJson("../" + backtestRunbookPath, nextBacktestRunbook);
 writeProjectJson("../handoff-summary.json", nextHandoff);
 writeProjectJson("../" + productionManifestPath, nextProductionManifest);
 writeProjectText("../preview.html", renderHtmlPreview(nextLayerDoc));
@@ -2791,6 +2945,7 @@ process.stdout.write(JSON.stringify({
     "manifest.json",
     "integration-contract.json",
     manifest.assetIndex ?? "${ASSET_INDEX_FILE}",
+    backtestRunbookPath,
     "handoff-summary.json",
     productionManifestPath,
     "preview.html",
@@ -4633,6 +4788,45 @@ function visualProblemSummaryFor(report) {
   };
 }
 
+function updateBacktestRunbook(runbook, manifest, handoff) {
+  return {
+    ...runbook,
+    packageName: manifest.packageName,
+    componentName: manifest.componentName,
+    sourceOfTruth: { ...handoff.sourceOfTruth },
+    artifacts: {
+      projectPackage: "project-package.json",
+      projectZip: manifest.packageName + ".zip",
+      backtestReport: "backtest-report.json",
+      pipelineReport: "pipeline-report.json",
+      productionManifest: manifest.productionManifest,
+      handoffSummary: manifest.handoffSummary,
+      verificationReport: "verification-report.json"
+    },
+    commands: [
+      {
+        id: "homepage-backtest",
+        label: "Run full homepage MVP backtest",
+        command: "npm run backtest:homepage -- --out artifacts/homepage-backtest --component " + manifest.componentName
+      },
+      {
+        id: "homepage-pipeline",
+        label: "Run PNG intake, LayerDoc build, project export, and project verification",
+        command: "npm run pipeline:homepage -- --input references/homepage.png --candidate artifacts/candidate.png --out artifacts/homepage-run --component " + manifest.componentName + " --verify-project"
+      },
+      {
+        id: "materialize-project-preview",
+        label: "Materialize Studio project package and verify preview",
+        command: "npm run materialize:project -- --input artifacts/project-package.json --out artifacts/materialized-project --verify-preview --candidate artifacts/candidate.png"
+      }
+    ],
+    projectVerification: {
+      source: manifest.handoffSummary,
+      commands: Array.isArray(handoff.commands) ? handoff.commands : []
+    }
+  };
+}
+
 function comparePngs(referencePath, candidatePath, diffPath, threshold, includeAA) {
   const reference = PNG.sync.read(readFileSync(referencePath));
   const candidate = PNG.sync.read(readFileSync(candidatePath));
@@ -4696,6 +4890,8 @@ if (!options.candidate) {
 
 const visualDiff = comparePngs(referencePath, candidatePath, diffPath, options.threshold, options.includeAA);
 const handoff = readJson("../handoff-summary.json");
+const backtestRunbookPath = manifest.backtestRunbook ?? "${BACKTEST_RUNBOOK_FILE}";
+const backtestRunbook = readJson("../" + backtestRunbookPath);
 const productionManifest = readJson("../" + productionManifestPath);
 const layerDoc = readJson("../layerdoc.json");
 const contract = readJson("../integration-contract.json");
@@ -4781,6 +4977,7 @@ handoff.quality = {
   visualProblems: visualProblemSummaryFor(report)
 };
 writeJson("../handoff-summary.json", handoff);
+writeJson("../" + backtestRunbookPath, updateBacktestRunbook(backtestRunbook, manifest, handoff));
 
 productionManifest.sourceOfTruth = {
   ...(productionManifest.sourceOfTruth ?? {}),
@@ -4965,6 +5162,7 @@ Generated assets:
 - \`preview.html\`: deterministic HTML verification preview
 - \`${manifest.productionManifest}\`: recommended integration entrypoint for downstream projects, tying LayerDoc, generated React, preview, contract, assets, quality gates, and regeneration commands together
 - \`${manifest.productionManifestSchema}\`: JSON Schema for validating the production manifest before project ingestion
+- \`${manifest.backtestRunbook}\`: machine-readable runbook for rerunning the homepage backtest, project materialization, and project-local verification commands
 - \`handoff-summary.json\`: machine-readable integration summary for CI, importers, and downstream project handoff
 - \`integration-contract.json\`: stable mapping from visible LayerDoc objects to project files and DOM selectors
 - \`${manifest.assetIndex}\`: machine-readable asset inventory with source, usage, visible-project, section, component, and selector mapping
@@ -4977,7 +5175,7 @@ ${manifest.analysisPlanFile ? `- \`${manifest.analysisPlanFile}\`: confirmed Hom
 Verification:
 - Run \`npm run verify:preview\` first to use the manifest reference visual, render \`preview.html\`, capture \`verification-artifacts/candidate.png\`, produce \`verification-artifacts/diff.png\`, and sync \`verification-report.json\`, \`layerdoc.json\`, \`manifest.json\`, \`integration-contract.json\`, \`${manifest.productionManifest}\`, \`handoff-summary.json\`, and rendered root quality attributes.
 - Run \`npm run verify:production-manifest\` when a downstream importer only needs to validate the project integration entrypoint and its schema before ingesting generated UI.
-- Run \`npm run verify:handoff\` after preview verification to confirm the project package manifest, file list, commands, scripts, entrypoint, production manifest, contract summary, quality summary, audit summary, and LayerDoc hash still agree.
+- Run \`npm run verify:handoff\` after preview verification to confirm the project package manifest, file list, commands, scripts, entrypoint, production manifest, backtest runbook, contract summary, quality summary, audit summary, and LayerDoc hash still agree.
 - Run \`npm run verify:analysis-plan\` to confirm Analysis Plan schema and audit artifacts still match \`manifest.json\`, \`layerdoc.json\`, and \`handoff-summary.json\`.
 - Run \`npm run verify:image-manifest\` to confirm the source image decomposition still matches \`manifest.json\`, \`layerdoc.json\`, and \`handoff-summary.json\`.
 - Run \`npm run verify:layerdoc\` after editing \`layerdoc.json\` to catch broken graph references before integration.
@@ -5097,6 +5295,49 @@ function createHandoffSummary(
   };
 }
 
+function createBacktestRunbook(manifest: ProjectExportManifest, handoff: ProjectHandoffSummary): ProjectBacktestRunbook {
+  const componentName = manifest.componentName;
+
+  return {
+    version: "0.1.0",
+    kind: "studio_backtest_runbook",
+    positioning: "AI UI Production System",
+    packageName: manifest.packageName,
+    componentName,
+    sourceOfTruth: { ...handoff.sourceOfTruth },
+    artifacts: {
+      projectPackage: "project-package.json",
+      projectZip: `${manifest.packageName}.zip`,
+      backtestReport: "backtest-report.json",
+      pipelineReport: "pipeline-report.json",
+      productionManifest: manifest.productionManifest,
+      handoffSummary: manifest.handoffSummary,
+      verificationReport: "verification-report.json"
+    },
+    commands: [
+      {
+        id: "homepage-backtest",
+        label: "Run full homepage MVP backtest",
+        command: `npm run backtest:homepage -- --out artifacts/homepage-backtest --component ${componentName}`
+      },
+      {
+        id: "homepage-pipeline",
+        label: "Run PNG intake, LayerDoc build, project export, and project verification",
+        command: `npm run pipeline:homepage -- --input references/homepage.png --candidate artifacts/candidate.png --out artifacts/homepage-run --component ${componentName} --verify-project`
+      },
+      {
+        id: "materialize-project-preview",
+        label: "Materialize Studio project package and verify preview",
+        command: "npm run materialize:project -- --input artifacts/project-package.json --out artifacts/materialized-project --verify-preview --candidate artifacts/candidate.png"
+      }
+    ],
+    projectVerification: {
+      source: manifest.handoffSummary,
+      commands: handoff.commands
+    }
+  };
+}
+
 function createProductionManifest(
   manifest: ProjectExportManifest,
   contract: ProjectIntegrationContract,
@@ -5168,6 +5409,12 @@ function createProductionManifest(
         verifyApplication: "npm run verify:section-application"
       }
     },
+    runbooks: {
+      backtest: {
+        file: manifest.backtestRunbook,
+        kind: "studio_backtest_runbook"
+      }
+    },
     integrationSteps: [
       { id: "install", label: "Install dependencies", command: "npm install", required: true },
       { id: "verify-preview", label: "Capture preview diff", command: "npm run verify:preview", required: true },
@@ -5201,6 +5448,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     ...(analysisPlanAuditPath ? [analysisPlanAuditPath] : []),
     ...(analysisPlanSchemaPath ? [analysisPlanSchemaPath] : []),
     ASSET_INDEX_FILE,
+    BACKTEST_RUNBOOK_FILE,
     "handoff-summary.json",
     "index.html",
     "integration-contract.json",
@@ -5241,6 +5489,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     layerDocHash: sourceHash,
     integrationContract: "integration-contract.json",
     handoffSummary: "handoff-summary.json",
+    backtestRunbook: BACKTEST_RUNBOOK_FILE,
     productionManifest: PRODUCTION_MANIFEST_FILE,
     productionManifestSchema: PRODUCTION_MANIFEST_SCHEMA_FILE,
     assetIndex: ASSET_INDEX_FILE,
@@ -5267,6 +5516,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     sourceDoc.metadata.analysisPlan,
     sourceDoc.metadata.analysisPlanAudit
   );
+  const backtestRunbook = createBacktestRunbook(manifest, handoffSummary);
   const productionManifest = createProductionManifest(manifest, integrationContract, assetIndex, handoffSummary);
 
   return {
@@ -5280,6 +5530,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
         : []),
       ...(analysisPlanSchemaPath ? [{ path: analysisPlanSchemaPath, contents: stableJson(createHomepageAnalysisPlanJsonSchema()) }] : []),
       { path: ASSET_INDEX_FILE, contents: stableJson(assetIndex) },
+      { path: BACKTEST_RUNBOOK_FILE, contents: stableJson(backtestRunbook) },
       { path: "handoff-summary.json", contents: stableJson(handoffSummary) },
       { path: "index.html", contents: indexHtmlFor(options.componentName) },
       { path: "integration-contract.json", contents: stableJson(integrationContract) },

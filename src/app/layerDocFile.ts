@@ -211,57 +211,10 @@ function readProjectTextFile(projectExport: ProjectExportPackage, path: string):
 }
 
 export function createBacktestRunbookDownload(workspace: EditorWorkspace): LayerDocDownloadArtifact {
-  const handoff = JSON.parse(readProjectTextFile(workspace.projectExport, workspace.projectExport.manifest.handoffSummary)) as {
-    sourceOfTruth?: unknown;
-    commands?: Array<{ label: string; command: string }>;
-  };
-  const componentName = workspace.projectExport.manifest.componentName;
-  const runbook = {
-    version: "0.1.0",
-    kind: "studio_backtest_runbook",
-    positioning: "AI UI Production System",
-    packageName: workspace.projectExport.manifest.packageName,
-    componentName,
-    sourceOfTruth: handoff.sourceOfTruth ?? {
-      type: "LayerDoc",
-      file: "layerdoc.json"
-    },
-    artifacts: {
-      projectPackage: "project-package.json",
-      projectZip: `${workspace.projectExport.manifest.packageName}.zip`,
-      backtestReport: "backtest-report.json",
-      pipelineReport: "pipeline-report.json",
-      productionManifest: workspace.projectExport.manifest.productionManifest,
-      handoffSummary: workspace.projectExport.manifest.handoffSummary,
-      verificationReport: "verification-report.json"
-    },
-    commands: [
-      {
-        id: "homepage-backtest",
-        label: "Run full homepage MVP backtest",
-        command: `npm run backtest:homepage -- --out artifacts/homepage-backtest --component ${componentName}`
-      },
-      {
-        id: "homepage-pipeline",
-        label: "Run PNG intake, LayerDoc build, project export, and project verification",
-        command: `npm run pipeline:homepage -- --input references/homepage.png --candidate artifacts/candidate.png --out artifacts/homepage-run --component ${componentName} --verify-project`
-      },
-      {
-        id: "materialize-project-preview",
-        label: "Materialize Studio project package and verify preview",
-        command: "npm run materialize:project -- --input artifacts/project-package.json --out artifacts/materialized-project --verify-preview --candidate artifacts/candidate.png"
-      }
-    ],
-    projectVerification: {
-      source: workspace.projectExport.manifest.handoffSummary,
-      commands: handoff.commands ?? []
-    }
-  };
-
   return {
-    fileName: "backtest-runbook.json",
+    fileName: workspace.projectExport.manifest.backtestRunbook,
     mimeType: "application/json",
-    contents: `${JSON.stringify(runbook, null, 2)}\n`
+    contents: readProjectTextFile(workspace.projectExport, workspace.projectExport.manifest.backtestRunbook)
   };
 }
 
