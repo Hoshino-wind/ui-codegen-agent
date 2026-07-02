@@ -216,7 +216,7 @@ export function createLayerDocJsonSchema(): Record<string, unknown> {
             required: ["source", "name", "sectionCount", "layerCount"],
             additionalProperties: false,
             properties: {
-              source: { enum: ["seeded", "provided", "editor", "manual"] },
+              source: { enum: ["seeded", "provided", "editor", "manual", "mock-vision"] },
               name: { type: "string", minLength: 1 },
               sectionCount: { type: "number", minimum: 0 },
               layerCount: { type: "number", minimum: 0 },

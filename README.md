@@ -132,8 +132,8 @@ The repository currently implements the core LayerDoc domain layer:
   checks read the package.
 - Preserve Analysis Plan provenance in `LayerDoc.metadata.analysisPlan` and
   exported project handoff files so downstream consumers can see whether the
-  editable structure came from a seeded scaffold, provided plan, or editor
-  review.
+  editable structure came from a seeded scaffold, provided plan, editor
+  review, manual plan, or mock vision decomposition.
 - Validate that provenance during Studio import, package export verification,
   and LayerDoc checks so broken source-of-structure metadata cannot silently
   enter the production chain.
@@ -272,7 +272,9 @@ layerdoc-run-homepage \
 ```
 
 The resulting `pipeline-report.json` records whether the structure came from a
-provided plan or from the seeded MVP scaffold.
+provided plan or from the seeded MVP scaffold. Studio-built LayerDocs also
+record whether their intake structure came from manual edits, imported plans,
+editor helpers, or the deterministic Mock Vision decomposition boundary.
 
 For MVP backtests, add `--verify-project` so the exported project runs its own
 preview diff, handoff, source, LayerDoc, integration-contract, and gate checks:

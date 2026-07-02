@@ -132,6 +132,23 @@ test("runMockVisionDecomposition produces a LayerDoc-ready mock vision plan from
   assert.equal(next.analysisPlan.canvas.height, 1760);
 });
 
+test("runMockVisionDecomposition carries mock vision provenance into LayerDoc and project handoff", () => {
+  const intake = runMockVisionDecomposition(
+    createIntakeWorkspace({
+      uri: "/uploads/mock-ai-homepage.png",
+      width: 1440,
+      height: 1760
+    })
+  );
+
+  const workspace = buildWorkspaceFromIntake(intake);
+  const handoffSummary = JSON.parse(workspace.projectExport.files.find((file) => file.path === "handoff-summary.json").contents);
+
+  assert.equal(workspace.doc.metadata.analysisPlan.source, "mock-vision");
+  assert.equal(workspace.projectExport.manifest.analysisPlan.source, "mock-vision");
+  assert.equal(handoffSummary.sourceAnalysisPlan.source, "mock-vision");
+});
+
 test("selectIntakeSection changes the selected analysis section", () => {
   const intake = createIntakeWorkspace({
     uri: "/uploads/homepage.png",

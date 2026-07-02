@@ -158,6 +158,18 @@ function layerKindLabel(layer: LayerNode): string {
   return `${layer.kind} / ${layer.track}`;
 }
 
+function analysisPlanSourceLabel(source: IntakeWorkspace["analysisPlanSource"]): string {
+  const labels: Record<IntakeWorkspace["analysisPlanSource"], string> = {
+    seeded: "Seeded",
+    provided: "Provided",
+    editor: "Editor",
+    manual: "Manual",
+    "mock-vision": "Mock Vision"
+  };
+
+  return labels[source];
+}
+
 function selectedAnalysisSection(intake: IntakeWorkspace) {
   return intake.analysisPlan.sections.find((section) => section.id === intake.selectedSectionId);
 }
@@ -1058,6 +1070,7 @@ function AnalysisPlanPanel({
       <div className="analysis-stats">
         <span>{intake.analysisPlan.sections.length} sections</span>
         <span>{intake.layerCount} layers</span>
+        <span>Source {analysisPlanSourceLabel(intake.analysisPlanSource)}</span>
       </div>
       <div className={`analysis-audit ${intake.audit.readiness.readyForLayerDoc ? "ready" : "blocked"}`}>
         <div className="analysis-audit-head">

@@ -38,7 +38,7 @@ export interface SourceImageProvenance {
 }
 
 export interface AnalysisPlanProvenance {
-  source: "seeded" | "provided" | "editor" | "manual";
+  source: "seeded" | "provided" | "editor" | "manual" | "mock-vision";
   name: string;
   sectionCount: number;
   layerCount: number;

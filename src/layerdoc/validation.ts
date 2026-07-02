@@ -25,7 +25,7 @@ function collectDuplicateIds(ids: string[]): Set<string> {
   return duplicates;
 }
 
-const analysisPlanSources = new Set(["seeded", "provided", "editor", "manual"]);
+const analysisPlanSources = new Set(["seeded", "provided", "editor", "manual", "mock-vision"]);
 const analysisPlanTrackKeys: readonly LayerTrack[] = ["component", "asset", "approximation", "layout"];
 
 function isNonEmptyString(value: unknown): value is string {

@@ -54,6 +54,13 @@ test("app shell exposes mock vision decomposition before LayerDoc build", () => 
   assert.match(source, /Build LayerDoc/);
 });
 
+test("app shell exposes Analysis Plan provenance in the intake console", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /analysisPlanSource/);
+  assert.match(source, /Source/);
+});
+
 test("app shell exposes Analysis Plan audit readiness and track counts", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 

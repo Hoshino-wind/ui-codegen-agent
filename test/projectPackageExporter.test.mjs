@@ -512,7 +512,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.equal(layerDocSchema.properties.schema.const, "layerdoc");
   assert.deepEqual(layerDocSchema.properties.metadata.properties.sourceImage.required, ["uri", "width", "height"]);
   assert.deepEqual(layerDocSchema.properties.metadata.properties.analysisPlan.required, ["source", "name", "sectionCount", "layerCount"]);
-  assert.deepEqual(layerDocSchema.properties.metadata.properties.analysisPlan.properties.source.enum, ["seeded", "provided", "editor", "manual"]);
+  assert.deepEqual(layerDocSchema.properties.metadata.properties.analysisPlan.properties.source.enum, ["seeded", "provided", "editor", "manual", "mock-vision"]);
   assert.deepEqual(layerDocSchema.properties.metadata.properties.analysisPlanAudit.required, [
     "summary",
     "tracks",

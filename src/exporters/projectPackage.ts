@@ -3267,7 +3267,7 @@ function classifyLayer(layer) {
   return "layout";
 }
 
-const analysisPlanSources = new Set(["seeded", "provided", "editor", "manual"]);
+const analysisPlanSources = new Set(["seeded", "provided", "editor", "manual", "mock-vision"]);
 const analysisPlanTrackKeys = ["component", "asset", "approximation", "layout"];
 
 function isNonEmptyString(value) {
