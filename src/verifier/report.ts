@@ -21,6 +21,14 @@ export interface VerificationEvidence {
   visual: VerificationVisualEvidence;
 }
 
+export interface VerificationComponentBreakdown {
+  componentLayerCount: number;
+  coveredComponentLayerCount: number;
+  coverageRatio: number;
+  coveredLayerIds: string[];
+  uncoveredLayerIds: string[];
+}
+
 export interface VerificationProjectFitBreakdown {
   baseScore: number;
   finalScore: number;
@@ -38,6 +46,7 @@ export interface VerificationReport {
   evidence: VerificationEvidence;
   structureScore: number;
   componentScore: number;
+  componentBreakdown: VerificationComponentBreakdown;
   projectFitScore: number;
   projectFitBreakdown: VerificationProjectFitBreakdown;
   issues: VerificationIssue[];
@@ -76,13 +85,6 @@ function percentage(part: number, whole: number): number {
 function structureScore(doc: LayerDoc, issues: VerificationIssue[]): number {
   const structuralIssues = issues.filter((issue) => issue.code !== "track_mismatch");
   return structuralIssues.length === 0 ? 100 : Math.max(0, 100 - structuralIssues.length * 20);
-}
-
-function componentScore(doc: LayerDoc): number {
-  const componentLayers = doc.layers.filter((layer) => layer.track === "component");
-  const coveredLayerIds = new Set(doc.components.flatMap((component) => component.layerIds));
-  const covered = componentLayers.filter((layer) => coveredLayerIds.has(layer.id)).length;
-  return percentage(covered, componentLayers.length);
 }
 
 function visualEvidenceFor(input: VerificationInput): VerificationVisualEvidence {
@@ -160,6 +162,29 @@ function visualProblemAreasFor(doc: LayerDoc, visualDiff: PngSnapshotComparisonR
   });
 }
 
+function roundRatio(part: number, whole: number): number {
+  if (whole === 0) {
+    return 1;
+  }
+
+  return Math.round((part / whole) * 100) / 100;
+}
+
+function componentBreakdownFor(doc: LayerDoc): VerificationComponentBreakdown {
+  const componentLayers = doc.layers.filter((layer) => layer.track === "component");
+  const declaredComponentLayerIds = new Set(doc.components.flatMap((component) => component.layerIds));
+  const coveredLayerIds = componentLayers.filter((layer) => declaredComponentLayerIds.has(layer.id)).map((layer) => layer.id);
+  const uncoveredLayerIds = componentLayers.filter((layer) => !declaredComponentLayerIds.has(layer.id)).map((layer) => layer.id);
+
+  return {
+    componentLayerCount: componentLayers.length,
+    coveredComponentLayerCount: coveredLayerIds.length,
+    coverageRatio: roundRatio(coveredLayerIds.length, componentLayers.length),
+    coveredLayerIds,
+    uncoveredLayerIds
+  };
+}
+
 function projectFitBreakdownFor(projectFit: ProjectFitScore): VerificationProjectFitBreakdown {
   return {
     baseScore: projectFit.baseScore,
@@ -180,6 +205,7 @@ function projectFitBreakdownFor(projectFit: ProjectFitScore): VerificationProjec
 export function createVerificationReport(doc: LayerDoc, input: VerificationInput = {}): VerificationReport {
   const validation = validateLayerDoc(doc);
   const projectFit = scoreProjectFit(doc);
+  const componentBreakdown = componentBreakdownFor(doc);
   const visualSimilarity = input.visualSimilarity ?? input.visualDiff?.visualSimilarity ?? null;
 
   return {
@@ -190,7 +216,8 @@ export function createVerificationReport(doc: LayerDoc, input: VerificationInput
       visual: visualEvidenceFor(input)
     },
     structureScore: structureScore(doc, validation.issues),
-    componentScore: componentScore(doc),
+    componentScore: percentage(componentBreakdown.coveredComponentLayerCount, componentBreakdown.componentLayerCount),
+    componentBreakdown,
     projectFitScore: projectFit.projectFitScore,
     projectFitBreakdown: projectFitBreakdownFor(projectFit),
     issues: validation.issues

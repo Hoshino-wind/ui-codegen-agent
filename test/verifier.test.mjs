@@ -42,6 +42,13 @@ test("createVerificationReport separates visual, structure, component, and proje
   assert.equal(report.visualSimilarity, 87.4);
   assert.equal(report.structureScore, 100);
   assert.equal(report.componentScore, 100);
+  assert.deepEqual(report.componentBreakdown, {
+    componentLayerCount: 2,
+    coveredComponentLayerCount: 2,
+    coverageRatio: 1,
+    coveredLayerIds: ["title", "cta"],
+    uncoveredLayerIds: []
+  });
   assert.equal(report.projectFitScore, 75);
   assert.deepEqual(report.projectFitBreakdown, {
     baseScore: 50,

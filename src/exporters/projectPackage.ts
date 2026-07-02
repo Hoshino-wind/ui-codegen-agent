@@ -132,6 +132,7 @@ export interface ProjectHandoffSummary {
     };
     visualEvidence: VerificationReport["evidence"]["visual"];
     visualProblems: ProjectVisualProblemSummary;
+    componentBreakdown: VerificationReport["componentBreakdown"];
     projectFitBreakdown: VerificationReport["projectFitBreakdown"];
     referenceVisual: ProjectReferenceVisual;
     gatesFile: string;
@@ -410,6 +411,7 @@ export interface ProjectProductionManifest {
     gatesFile: "quality-gates.json";
     scores: ProjectHandoffSummary["quality"]["scores"];
     visualEvidence: VerificationReport["evidence"]["visual"];
+    componentBreakdown: VerificationReport["componentBreakdown"];
     projectFitBreakdown: VerificationReport["projectFitBreakdown"];
     commands: {
       full: "npm run verify";
@@ -1003,7 +1005,7 @@ function createProductionManifestJsonSchema(): Record<string, unknown> {
       quality: {
         type: "object",
         additionalProperties: true,
-        required: ["reportFile", "gatesFile", "scores", "visualEvidence", "projectFitBreakdown", "commands"],
+        required: ["reportFile", "gatesFile", "scores", "visualEvidence", "componentBreakdown", "projectFitBreakdown", "commands"],
         properties: {
           reportFile: { const: "verification-report.json" },
           gatesFile: { const: "quality-gates.json" },
@@ -1012,6 +1014,24 @@ function createProductionManifestJsonSchema(): Record<string, unknown> {
             additionalProperties: false,
             required: ["visual_similarity", "structure_score", "component_score", "project_fit_score"],
             properties: scoreProperties
+          },
+          componentBreakdown: {
+            type: "object",
+            additionalProperties: false,
+            required: ["componentLayerCount", "coveredComponentLayerCount", "coverageRatio", "coveredLayerIds", "uncoveredLayerIds"],
+            properties: {
+              componentLayerCount: { type: "integer", minimum: 0 },
+              coveredComponentLayerCount: { type: "integer", minimum: 0 },
+              coverageRatio: { type: "number", minimum: 0, maximum: 1 },
+              coveredLayerIds: {
+                type: "array",
+                items: { type: "string", minLength: 1 }
+              },
+              uncoveredLayerIds: {
+                type: "array",
+                items: { type: "string", minLength: 1 }
+              }
+            }
           },
           projectFitBreakdown: {
             type: "object",
@@ -1373,6 +1393,7 @@ const expectedProductionManifest = {
       project_fit_score: report.projectFitScore
     },
     visualEvidence: report.evidence?.visual,
+    componentBreakdown: report.componentBreakdown,
     projectFitBreakdown: report.projectFitBreakdown,
     commands: {
       full: "npm run verify",
@@ -1571,6 +1592,7 @@ pushIf(handoff.quality?.scores?.structure_score !== report.structureScore, failu
 pushIf(handoff.quality?.scores?.component_score !== report.componentScore, failures, "handoff_component_score_mismatch", "handoff component score must match verification-report.json.");
 pushIf(handoff.quality?.scores?.project_fit_score !== report.projectFitScore, failures, "handoff_project_fit_score_mismatch", "handoff project fit score must match verification-report.json.");
 pushIf(stableJson(handoff.quality?.visualEvidence) !== stableJson(report.evidence?.visual), failures, "handoff_visual_evidence_mismatch", "handoff visual evidence must match verification-report.json.");
+pushIf(stableJson(handoff.quality?.componentBreakdown) !== stableJson(report.componentBreakdown), failures, "handoff_component_breakdown_mismatch", "handoff quality componentBreakdown must match verification-report.json.");
 pushIf(stableJson(handoff.quality?.projectFitBreakdown) !== stableJson(report.projectFitBreakdown), failures, "handoff_project_fit_breakdown_mismatch", "handoff quality projectFitBreakdown must match verification-report.json.");
 pushIf(stableJson(handoff.quality?.visualProblems) !== stableJson(visualProblemSummaryFor(report)), failures, "handoff_visual_problems_mismatch", "handoff visual problem summary must match verification-report.json.");
 
@@ -1688,6 +1710,7 @@ const expectedProductionManifest = {
       project_fit_score: report.projectFitScore
     },
     visualEvidence: report.evidence?.visual,
+    componentBreakdown: report.componentBreakdown,
     projectFitBreakdown: report.projectFitBreakdown,
     commands: {
       full: "npm run verify",
@@ -2482,15 +2505,24 @@ function percentage(part, whole) {
   return whole === 0 ? 100 : Math.round((part / whole) * 100);
 }
 
-function componentScore(doc) {
+function componentBreakdownFor(doc) {
   const componentLayers = asArray(doc.layers).filter((layer) => layer.track === "component");
-  const coveredLayerIds = new Set(asArray(doc.components).flatMap((component) => asArray(component.layerIds)));
-  return percentage(componentLayers.filter((layer) => coveredLayerIds.has(layer.id)).length, componentLayers.length);
+  const declaredComponentLayerIds = new Set(asArray(doc.components).flatMap((component) => asArray(component.layerIds)));
+  const coveredLayerIds = componentLayers.filter((layer) => declaredComponentLayerIds.has(layer.id)).map((layer) => layer.id);
+  const uncoveredLayerIds = componentLayers.filter((layer) => !declaredComponentLayerIds.has(layer.id)).map((layer) => layer.id);
+  return {
+    componentLayerCount: componentLayers.length,
+    coveredComponentLayerCount: coveredLayerIds.length,
+    coverageRatio: componentLayers.length === 0 ? 1 : Math.round((coveredLayerIds.length / componentLayers.length) * 100) / 100,
+    coveredLayerIds,
+    uncoveredLayerIds
+  };
 }
 
 function createVerificationReport(doc) {
   const issues = validateLayerDoc(doc);
   const projectFit = scoreProjectFit(doc);
+  const componentBreakdown = componentBreakdownFor(doc);
   const structuralIssues = issues.filter((item) => item.code !== "track_mismatch");
   return {
     visualSimilarity: null,
@@ -2504,7 +2536,8 @@ function createVerificationReport(doc) {
       }
     },
     structureScore: structuralIssues.length === 0 ? 100 : Math.max(0, 100 - structuralIssues.length * 20),
-    componentScore: componentScore(doc),
+    componentScore: percentage(componentBreakdown.coveredComponentLayerCount, componentBreakdown.componentLayerCount),
+    componentBreakdown,
     projectFitScore: projectFit.projectFitScore,
     projectFitBreakdown: projectFitBreakdownFor(projectFit),
     issues
@@ -3173,6 +3206,7 @@ function updateHandoffSummary(handoff, manifest, contract, audit, report, assetI
         project_fit_score: report.projectFitScore
       },
       visualEvidence: report.evidence.visual,
+      componentBreakdown: report.componentBreakdown,
       projectFitBreakdown: report.projectFitBreakdown,
       visualProblems: visualProblemSummaryFor(report),
       referenceVisual: manifest.referenceVisual,
@@ -3238,6 +3272,7 @@ function updateProductionManifest(productionManifest, manifest, contract, report
         project_fit_score: report.projectFitScore
       },
       visualEvidence: report.evidence.visual,
+      componentBreakdown: report.componentBreakdown,
       projectFitBreakdown: report.projectFitBreakdown
     },
     regeneration: {
@@ -5429,6 +5464,7 @@ handoff.quality = {
     project_fit_score: report.projectFitScore
   },
   visualEvidence: report.evidence.visual,
+  componentBreakdown: report.componentBreakdown,
   projectFitBreakdown: report.projectFitBreakdown,
   visualProblems: visualProblemSummaryFor(report)
 };
@@ -5466,6 +5502,7 @@ productionManifest.quality = {
     project_fit_score: report.projectFitScore
   },
   visualEvidence: report.evidence.visual,
+  componentBreakdown: report.componentBreakdown,
   projectFitBreakdown: report.projectFitBreakdown
 };
 writeJson("../" + productionManifestPath, productionManifest);
@@ -5849,6 +5886,7 @@ function createHandoffSummary(
         project_fit_score: manifest.scores.projectFitScore
       },
       visualEvidence: manifest.scores.evidence.visual,
+      componentBreakdown: manifest.scores.componentBreakdown,
       projectFitBreakdown: manifest.scores.projectFitBreakdown,
       visualProblems: visualProblemSummaryFor(manifest.scores),
       referenceVisual: manifest.referenceVisual,
@@ -5964,6 +6002,7 @@ function createProductionManifest(
       gatesFile: "quality-gates.json",
       scores: { ...handoff.quality.scores },
       visualEvidence: handoff.quality.visualEvidence,
+      componentBreakdown: handoff.quality.componentBreakdown,
       projectFitBreakdown: handoff.quality.projectFitBreakdown,
       commands: {
         full: "npm run verify",

@@ -1251,6 +1251,7 @@ function VerifierStrip({
 }) {
   const visualDiff = workspace.report.visualDiff;
   const visualEvidence = workspace.report.evidence.visual;
+  const componentBreakdown = workspace.report.componentBreakdown;
   const projectFitBreakdown = workspace.report.projectFitBreakdown;
   const candidateLabel = visualEvidence.kind === "layerdoc-raster" ? "LayerDoc raster fallback" : "HTML preview screenshot";
   const problemAreaAnnotations = createProblemAreaAnnotationsFromReport(workspace.report.visualProblemAreas, {
@@ -1319,6 +1320,16 @@ function VerifierStrip({
             <span>{Math.round(projectFitBreakdown.assetCoverageRatio * 100)}% asset coverage</span>
             <span>{projectFitBreakdown.exportableComponents} exportable</span>
             <span>{projectFitBreakdown.editableComponentLayers} editable comp</span>
+          </div>
+        </div>
+        <div className={`component-breakdown ${componentBreakdown.uncoveredLayerIds.length === 0 ? "passed" : "blocked"}`}>
+          <div className="component-breakdown-head">
+            <span>Component coverage</span>
+            <strong>{Math.round(componentBreakdown.coverageRatio * 100)}%</strong>
+          </div>
+          <div className="component-breakdown-grid">
+            <span>{componentBreakdown.coveredComponentLayerCount}/{componentBreakdown.componentLayerCount} covered</span>
+            <span>{componentBreakdown.uncoveredLayerIds.length} uncovered</span>
           </div>
         </div>
         <div className={`verifier-issue-list ${workspace.report.issues.length === 0 ? "passed" : "blocked"}`}>

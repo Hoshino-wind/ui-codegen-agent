@@ -107,6 +107,7 @@ export type {
   SectionRegenerationRequestInput
 } from "./editor/operations.js";
 export type {
+  VerificationComponentBreakdown,
   VerificationEvidence,
   VerificationInput,
   VerificationProjectFitBreakdown,
