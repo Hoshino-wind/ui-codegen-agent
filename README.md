@@ -426,9 +426,11 @@ project_fit_score   readiness for target project integration
 `structure_score` is emitted with `structureBreakdown`, `component_score` is
 emitted with `componentBreakdown`, and `project_fit_score` is emitted with
 `projectFitBreakdown`, in `verification-report.json`, `handoff-summary.json`,
-and `production-manifest.json`. Downstream CI can see which structural issues
-block delivery, which component-track layers are covered by real components,
-and whether project fit was held back by bitmap shortcut risk.
+and `production-manifest.json`. `verification-report.schema.json` ships with
+each project package so downstream CI can validate the report contract before
+it consumes the scores. CI can see which structural issues block delivery,
+which component-track layers are covered by real components, and whether
+project fit was held back by bitmap shortcut risk.
 Quality gates use `structureBreakdown.structuralIssueCount` for structural
 blocking; `track_mismatch` remains visible as a track note without failing the
 handoff by itself.

@@ -52,7 +52,7 @@ export { createLayerDoc } from "./layerdoc/factory.js";
 export { createLayerDocJsonSchema } from "./layerdoc/jsonSchema.js";
 export { scoreProjectFit } from "./layerdoc/scoring.js";
 export { validateLayerDoc } from "./layerdoc/validation.js";
-export { createVerificationReport, layerDocWithVerificationReport, verificationVisualEvidence } from "./verifier/report.js";
+export { createVerificationReport, createVerificationReportJsonSchema, layerDocWithVerificationReport, verificationVisualEvidence } from "./verifier/report.js";
 export { defaultVerificationGates, evaluateVerificationGates } from "./verifier/gates.js";
 export { compareImageDataSnapshots } from "./verifier/imageDataDiff.js";
 export { runLayerDocPreviewVerification } from "./verifier/previewRun.js";

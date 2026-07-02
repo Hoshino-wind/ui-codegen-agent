@@ -6,7 +6,12 @@ import type { ImageAnalysisManifest } from "../importers/imageManifest.js";
 import { createLayerDocAudit, type LayerDocAudit } from "../layerdoc/audit.js";
 import { createLayerDocJsonSchema } from "../layerdoc/jsonSchema.js";
 import { defaultVerificationGates, type VerificationGates } from "../verifier/gates.js";
-import { createVerificationReport, layerDocWithVerificationReport, type VerificationReport } from "../verifier/report.js";
+import {
+  createVerificationReport,
+  createVerificationReportJsonSchema,
+  layerDocWithVerificationReport,
+  type VerificationReport
+} from "../verifier/report.js";
 import { renderHtmlPreview } from "./htmlPreview.js";
 import { exportReactTailwind } from "./reactTailwind.js";
 import { verificationDataAttributes } from "./verificationAttributes.js";
@@ -44,6 +49,7 @@ export interface ProjectExportManifest {
   editAuditFile?: string;
   productionManifest: string;
   productionManifestSchema: string;
+  verificationReportSchema: "verification-report.schema.json";
   assetIndex: string;
   sectionCandidateSchema: string;
   referenceVisual: ProjectReferenceVisual;
@@ -136,6 +142,7 @@ export interface ProjectHandoffSummary {
     componentBreakdown: VerificationReport["componentBreakdown"];
     projectFitBreakdown: VerificationReport["projectFitBreakdown"];
     referenceVisual: ProjectReferenceVisual;
+    reportSchemaFile: string;
     gatesFile: string;
   };
   audit: {
@@ -409,6 +416,7 @@ export interface ProjectProductionManifest {
   };
   quality: {
     reportFile: "verification-report.json";
+    reportSchemaFile: "verification-report.schema.json";
     gatesFile: "quality-gates.json";
     scores: ProjectHandoffSummary["quality"]["scores"];
     visualEvidence: VerificationReport["evidence"]["visual"];
@@ -461,6 +469,7 @@ const EDIT_AUDIT_FILE = "edit-audit.json";
 const SECTION_CANDIDATE_SCHEMA_FILE = "section-candidate.schema.json";
 const PRODUCTION_MANIFEST_FILE = "production-manifest.json";
 const PRODUCTION_MANIFEST_SCHEMA_FILE = "production-manifest.schema.json";
+const VERIFICATION_REPORT_SCHEMA_FILE = "verification-report.schema.json";
 
 function toKebabCase(value: string): string {
   return value
@@ -1009,6 +1018,7 @@ function createProductionManifestJsonSchema(): Record<string, unknown> {
         additionalProperties: true,
         required: [
           "reportFile",
+          "reportSchemaFile",
           "gatesFile",
           "scores",
           "visualEvidence",
@@ -1019,6 +1029,7 @@ function createProductionManifestJsonSchema(): Record<string, unknown> {
         ],
         properties: {
           reportFile: { const: "verification-report.json" },
+          reportSchemaFile: { const: VERIFICATION_REPORT_SCHEMA_FILE },
           gatesFile: { const: "quality-gates.json" },
           scores: {
             type: "object",
@@ -1361,6 +1372,8 @@ const productionManifestPath = manifest.productionManifest ?? "${PRODUCTION_MANI
 const productionManifest = fileExists(productionManifestPath) ? readJson("../" + productionManifestPath) : null;
 const productionManifestSchemaPath = manifest.productionManifestSchema ?? "${PRODUCTION_MANIFEST_SCHEMA_FILE}";
 const productionManifestSchema = fileExists(productionManifestSchemaPath) ? readJson("../" + productionManifestSchemaPath) : null;
+const verificationReportSchemaPath = manifest.verificationReportSchema ?? "${VERIFICATION_REPORT_SCHEMA_FILE}";
+const verificationReportSchema = fileExists(verificationReportSchemaPath) ? readJson("../" + verificationReportSchemaPath) : null;
 const actualLayerDocHash = sha256(stableJson(layerDoc));
 const manifestFiles = Array.isArray(manifest.files) ? manifest.files : [];
 const handoffCommands = Array.isArray(handoff.commands) ? handoff.commands : [];
@@ -1386,6 +1399,7 @@ function expectedEditAuditSummary(audit) {
   };
 }
 const expectedProductionManifestSchema = ${stableJson(createProductionManifestJsonSchema())};
+const expectedVerificationReportSchema = ${stableJson(createVerificationReportJsonSchema())};
 const expectedProductionManifest = {
   version: "0.1.0",
   system: "AI UI Production System",
@@ -1430,6 +1444,7 @@ const expectedProductionManifest = {
   },
   quality: {
     reportFile: "verification-report.json",
+    reportSchemaFile: verificationReportSchemaPath,
     gatesFile: "quality-gates.json",
     scores: {
       visual_similarity: report.visualSimilarity,
@@ -1548,6 +1563,7 @@ pushIf(manifest.ciWorkflow !== "${CI_WORKFLOW_FILE}", failures, "manifest_ci_wor
 pushIf(manifest.assetIndex !== "${ASSET_INDEX_FILE}", failures, "manifest_asset_index_mismatch", "manifest.json assetIndex must be ${ASSET_INDEX_FILE}.");
 pushIf(manifest.productionManifest !== "${PRODUCTION_MANIFEST_FILE}", failures, "manifest_production_manifest_mismatch", "manifest.json productionManifest must be ${PRODUCTION_MANIFEST_FILE}.");
 pushIf(manifest.productionManifestSchema !== "${PRODUCTION_MANIFEST_SCHEMA_FILE}", failures, "manifest_production_manifest_schema_mismatch", "manifest.json productionManifestSchema must be ${PRODUCTION_MANIFEST_SCHEMA_FILE}.");
+pushIf(manifest.verificationReportSchema !== "${VERIFICATION_REPORT_SCHEMA_FILE}", failures, "manifest_verification_report_schema_mismatch", "manifest.json verificationReportSchema must be ${VERIFICATION_REPORT_SCHEMA_FILE}.");
 pushIf(manifest.sectionCandidateSchema !== "${SECTION_CANDIDATE_SCHEMA_FILE}", failures, "manifest_section_candidate_schema_mismatch", "manifest.json sectionCandidateSchema must be ${SECTION_CANDIDATE_SCHEMA_FILE}.");
 pushIf(handoff.source !== "layerdoc", failures, "handoff_source_invalid", "handoff-summary.json source must be layerdoc.");
 pushIf(handoff.positioning !== "AI UI Production System", failures, "handoff_positioning_invalid", "handoff-summary.json positioning must identify the AI UI Production System.");
@@ -1561,12 +1577,14 @@ pushIf(!manifestFiles.includes("${CI_WORKFLOW_FILE}"), failures, "ci_workflow_no
 pushIf(Boolean(editAuditPath) && !manifestFiles.includes(editAuditPath), failures, "edit_audit_not_listed", "manifest.json files must include edit-audit.json when editAuditFile is set.");
 pushIf(!manifestFiles.includes("${PRODUCTION_MANIFEST_FILE}"), failures, "production_manifest_not_listed", "manifest.json files must include ${PRODUCTION_MANIFEST_FILE}.");
 pushIf(!manifestFiles.includes("${PRODUCTION_MANIFEST_SCHEMA_FILE}"), failures, "production_manifest_schema_not_listed", "manifest.json files must include ${PRODUCTION_MANIFEST_SCHEMA_FILE}.");
+pushIf(!manifestFiles.includes("${VERIFICATION_REPORT_SCHEMA_FILE}"), failures, "verification_report_schema_not_listed", "manifest.json files must include ${VERIFICATION_REPORT_SCHEMA_FILE}.");
 pushIf(!fileExists(assetIndexPath), failures, "asset_index_missing", "manifest.json assetIndex must point at an existing file.");
 pushIf(!fileExists(backtestRunbookPath), failures, "backtest_runbook_missing", "manifest.json backtestRunbook must point at an existing file.");
 pushIf(!fileExists(ciWorkflowPath), failures, "ci_workflow_missing", "manifest.json ciWorkflow must point at an existing file.");
 pushIf(Boolean(editAuditPath) && !fileExists(editAuditPath), failures, "edit_audit_missing", "manifest.json editAuditFile must point at an existing file.");
 pushIf(!fileExists(productionManifestPath), failures, "production_manifest_missing", "manifest.json productionManifest must point at an existing file.");
 pushIf(!fileExists(productionManifestSchemaPath), failures, "production_manifest_schema_missing", "manifest.json productionManifestSchema must point at an existing file.");
+pushIf(!fileExists(verificationReportSchemaPath), failures, "verification_report_schema_missing", "manifest.json verificationReportSchema must point at an existing file.");
 pushIf(!fileExists(manifest.sectionCandidateSchema), failures, "section_candidate_schema_missing", "manifest.json sectionCandidateSchema must point at an existing file.");
 
 pushIf(!manifestFiles.includes("scripts/verify-handoff.mjs"), failures, "handoff_verifier_not_listed", "manifest.json files must include scripts/verify-handoff.mjs.");
@@ -1625,8 +1643,10 @@ pushIf(stableJson(ciWorkflow) !== stableJson(expectedCiWorkflow), failures, "ci_
 pushIf(stableJson(backtestRunbook) !== stableJson(expectedBacktestRunbook), failures, "backtest_runbook_mismatch", "backtest-runbook.json must match manifest.json, handoff-summary.json, and current LayerDoc hash. Expected " + stableJson(expectedBacktestRunbook) + " Received " + stableJson(backtestRunbook));
 pushIf(stableJson(productionManifest) !== stableJson(expectedProductionManifest), failures, "production_manifest_mismatch", "production-manifest.json must match LayerDoc, integration contract, asset index, quality report, and handoff metadata. Expected " + stableJson(expectedProductionManifest) + " Received " + stableJson(productionManifest));
 pushIf(stableJson(productionManifestSchema) !== stableJson(expectedProductionManifestSchema), failures, "production_manifest_schema_mismatch", "production-manifest.schema.json must match the exported ProjectProductionManifest contract. Expected " + stableJson(expectedProductionManifestSchema) + " Received " + stableJson(productionManifestSchema));
+pushIf(stableJson(verificationReportSchema) !== stableJson(expectedVerificationReportSchema), failures, "verification_report_schema_mismatch", "verification-report.schema.json must match the exported VerificationReport contract. Expected " + stableJson(expectedVerificationReportSchema) + " Received " + stableJson(verificationReportSchema));
 
 pushIf(handoff.quality?.referenceVisual?.file !== manifest.referenceVisual?.file, failures, "handoff_reference_visual_mismatch", "handoff reference visual must match manifest referenceVisual.");
+pushIf(handoff.quality?.reportSchemaFile !== verificationReportSchemaPath, failures, "handoff_report_schema_file_mismatch", "handoff quality reportSchemaFile must match manifest verificationReportSchema.");
 pushIf(handoff.quality?.gatesFile !== "quality-gates.json", failures, "handoff_gates_file_mismatch", "handoff quality gatesFile must be quality-gates.json.");
 pushIf(manifest.scores?.visualSimilarity !== report.visualSimilarity, failures, "manifest_visual_score_mismatch", "manifest visual score must match verification-report.json.");
 pushIf(manifest.scores?.structureScore !== report.structureScore, failures, "manifest_structure_score_mismatch", "manifest structure score must match verification-report.json.");
@@ -1699,8 +1719,11 @@ const productionManifestPath = manifest.productionManifest ?? "${PRODUCTION_MANI
 const productionManifestSchemaPath = manifest.productionManifestSchema ?? "${PRODUCTION_MANIFEST_SCHEMA_FILE}";
 const productionManifest = fileExists(productionManifestPath) ? readJson("../" + productionManifestPath) : null;
 const productionManifestSchema = fileExists(productionManifestSchemaPath) ? readJson("../" + productionManifestSchemaPath) : null;
+const verificationReportSchemaPath = manifest.verificationReportSchema ?? "${VERIFICATION_REPORT_SCHEMA_FILE}";
+const verificationReportSchema = fileExists(verificationReportSchemaPath) ? readJson("../" + verificationReportSchemaPath) : null;
 const layerDocHash = sha256(stableJson(layerDoc));
 const expectedProductionManifestSchema = ${stableJson(createProductionManifestJsonSchema())};
+const expectedVerificationReportSchema = ${stableJson(createVerificationReportJsonSchema())};
 const expectedAssetSummary = {
   file: assetIndexPath,
   ...(assetIndex?.summary ?? {})
@@ -1749,6 +1772,7 @@ const expectedProductionManifest = {
   },
   quality: {
     reportFile: "verification-report.json",
+    reportSchemaFile: verificationReportSchemaPath,
     gatesFile: "quality-gates.json",
     scores: {
       visual_similarity: report.visualSimilarity,
@@ -1798,9 +1822,12 @@ const expectedProductionManifest = {
 const failures = [];
 pushIf(manifest.productionManifest !== "${PRODUCTION_MANIFEST_FILE}", failures, "manifest_production_manifest_mismatch", "manifest.json productionManifest must be ${PRODUCTION_MANIFEST_FILE}.");
 pushIf(manifest.productionManifestSchema !== "${PRODUCTION_MANIFEST_SCHEMA_FILE}", failures, "manifest_production_manifest_schema_mismatch", "manifest.json productionManifestSchema must be ${PRODUCTION_MANIFEST_SCHEMA_FILE}.");
+pushIf(manifest.verificationReportSchema !== "${VERIFICATION_REPORT_SCHEMA_FILE}", failures, "manifest_verification_report_schema_mismatch", "manifest.json verificationReportSchema must be ${VERIFICATION_REPORT_SCHEMA_FILE}.");
 pushIf(!fileExists(productionManifestPath), failures, "production_manifest_missing", "production manifest file is missing: " + productionManifestPath);
 pushIf(!fileExists(productionManifestSchemaPath), failures, "production_manifest_schema_missing", "production manifest schema file is missing: " + productionManifestSchemaPath);
+pushIf(!fileExists(verificationReportSchemaPath), failures, "verification_report_schema_missing", "verification report schema file is missing: " + verificationReportSchemaPath);
 pushIf(stableJson(productionManifestSchema) !== stableJson(expectedProductionManifestSchema), failures, "production_manifest_schema_mismatch", "production-manifest.schema.json must match the exported contract. Expected " + stableJson(expectedProductionManifestSchema) + " Received " + stableJson(productionManifestSchema));
+pushIf(stableJson(verificationReportSchema) !== stableJson(expectedVerificationReportSchema), failures, "verification_report_schema_mismatch", "verification-report.schema.json must match the exported contract. Expected " + stableJson(expectedVerificationReportSchema) + " Received " + stableJson(verificationReportSchema));
 pushIf(stableJson(productionManifest) !== stableJson(expectedProductionManifest), failures, "production_manifest_mismatch", "production-manifest.json must match LayerDoc, integration contract, asset index, quality report, and handoff metadata. Expected " + stableJson(expectedProductionManifest) + " Received " + stableJson(productionManifest));
 
 const result = {
@@ -1808,6 +1835,7 @@ const result = {
   failures,
   productionManifestPath,
   productionManifestSchemaPath,
+  verificationReportSchemaPath,
   layerDocHash
 };
 
@@ -3287,6 +3315,7 @@ function updateHandoffSummary(handoff, manifest, contract, audit, report, assetI
       projectFitBreakdown: report.projectFitBreakdown,
       visualProblems: visualProblemSummaryFor(report),
       referenceVisual: manifest.referenceVisual,
+      reportSchemaFile: manifest.verificationReportSchema ?? "${VERIFICATION_REPORT_SCHEMA_FILE}",
       gatesFile: "quality-gates.json"
     },
     audit: {
@@ -3351,7 +3380,8 @@ function updateProductionManifest(productionManifest, manifest, contract, report
       visualEvidence: report.evidence.visual,
       structureBreakdown: report.structureBreakdown,
       componentBreakdown: report.componentBreakdown,
-      projectFitBreakdown: report.projectFitBreakdown
+      projectFitBreakdown: report.projectFitBreakdown,
+      reportSchemaFile: manifest.verificationReportSchema ?? "${VERIFICATION_REPORT_SCHEMA_FILE}"
     },
     regeneration: {
       ...(productionManifest.regeneration ?? {}),
@@ -5554,6 +5584,7 @@ handoff.quality = {
   structureBreakdown: report.structureBreakdown,
   componentBreakdown: report.componentBreakdown,
   projectFitBreakdown: report.projectFitBreakdown,
+  reportSchemaFile: manifest.verificationReportSchema ?? "${VERIFICATION_REPORT_SCHEMA_FILE}",
   visualProblems: visualProblemSummaryFor(report)
 };
 writeJson("../handoff-summary.json", handoff);
@@ -5592,7 +5623,8 @@ productionManifest.quality = {
   visualEvidence: report.evidence.visual,
   structureBreakdown: report.structureBreakdown,
   componentBreakdown: report.componentBreakdown,
-  projectFitBreakdown: report.projectFitBreakdown
+  projectFitBreakdown: report.projectFitBreakdown,
+  reportSchemaFile: manifest.verificationReportSchema ?? "${VERIFICATION_REPORT_SCHEMA_FILE}"
 };
 writeJson("../" + productionManifestPath, productionManifest);
 
@@ -5758,7 +5790,7 @@ Generated assets:
 - \`${manifest.sectionCandidateSchema}\`: reviewed section regeneration candidate contract for AI workers and Studio imports
 ${manifest.analysisTaskFile ? `- \`${manifest.analysisTaskFile}\`: source PNG decomposition task given to the vision/manual analysis step\n` : ""}${manifest.analysisPlanFile ? `- \`${manifest.analysisPlanFile}\`: confirmed Homepage Analysis Plan used before LayerDoc build\n` : ""}${manifest.analysisPlanSchema ? `- \`${manifest.analysisPlanSchema}\`: Homepage Analysis Plan source contract\n` : ""}${manifest.analysisPlanAuditFile ? `- \`${manifest.analysisPlanAuditFile}\`: Analysis Plan coverage, track, and readiness audit\n` : ""}${manifest.imageManifestFile ? `- \`${manifest.imageManifestFile}\`: source image decomposition manifest connecting the visual intake to LayerDoc sections and layers\n` : ""}- \`${manifest.referenceVisual.file}\`: original target visual expected by preview verification; included when the exporter receives \`referencePng\`; homepage pipeline supplies it automatically
 - \`layerdoc-audit.json\`: structure, track, and asset-compliance audit
-- \`verification-report.json\`, \`quality-gates.json\`, \`scripts/verify-handoff.mjs\`, \`scripts/verify-production-manifest.mjs\`, \`scripts/verify-ci-workflow.mjs\`, \`scripts/verify-analysis-plan.mjs\`, \`scripts/verify-image-manifest.mjs\`, \`scripts/verify-layerdoc.mjs\`, \`scripts/verify-contract.mjs\`, \`scripts/verify-preview.mjs\`, \`scripts/verify-gates.mjs\`: executable source, structure, contract, visual, and quality gate handoff
+- \`verification-report.json\`, \`${manifest.verificationReportSchema}\`, \`quality-gates.json\`, \`scripts/verify-handoff.mjs\`, \`scripts/verify-production-manifest.mjs\`, \`scripts/verify-ci-workflow.mjs\`, \`scripts/verify-analysis-plan.mjs\`, \`scripts/verify-image-manifest.mjs\`, \`scripts/verify-layerdoc.mjs\`, \`scripts/verify-contract.mjs\`, \`scripts/verify-preview.mjs\`, \`scripts/verify-gates.mjs\`: executable source, structure, contract, visual, and quality gate handoff
 
 Verification:
 - Run \`npm run ci\` in downstream CI to execute full project verification and the generated React build.
@@ -5980,6 +6012,7 @@ function createHandoffSummary(
       projectFitBreakdown: manifest.scores.projectFitBreakdown,
       visualProblems: visualProblemSummaryFor(manifest.scores),
       referenceVisual: manifest.referenceVisual,
+      reportSchemaFile: manifest.verificationReportSchema,
       gatesFile: "quality-gates.json"
     },
     audit: {
@@ -6089,6 +6122,7 @@ function createProductionManifest(
     },
     quality: {
       reportFile: "verification-report.json",
+      reportSchemaFile: manifest.verificationReportSchema,
       gatesFile: "quality-gates.json",
       scores: { ...handoff.quality.scores },
       visualEvidence: handoff.quality.visualEvidence,
@@ -6177,6 +6211,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     PRODUCTION_MANIFEST_SCHEMA_FILE,
     "quality-gates.json",
     SECTION_CANDIDATE_SCHEMA_FILE,
+    VERIFICATION_REPORT_SCHEMA_FILE,
     ...(options.referencePng ? [referenceVisual.file] : []),
     "scripts/apply-section-candidate.mjs",
     "scripts/verify-analysis-plan.mjs",
@@ -6209,6 +6244,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     ciWorkflow: CI_WORKFLOW_FILE,
     productionManifest: PRODUCTION_MANIFEST_FILE,
     productionManifestSchema: PRODUCTION_MANIFEST_SCHEMA_FILE,
+    verificationReportSchema: VERIFICATION_REPORT_SCHEMA_FILE,
     assetIndex: ASSET_INDEX_FILE,
     sectionCandidateSchema: SECTION_CANDIDATE_SCHEMA_FILE,
     referenceVisual,
@@ -6277,6 +6313,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
       { path: PRODUCTION_MANIFEST_SCHEMA_FILE, contents: stableJson(createProductionManifestJsonSchema()) },
       { path: "quality-gates.json", contents: stableJson(defaultVerificationGates) },
       { path: SECTION_CANDIDATE_SCHEMA_FILE, contents: stableJson(createSectionRegenerationCandidateJsonSchema()) },
+      { path: VERIFICATION_REPORT_SCHEMA_FILE, contents: stableJson(createVerificationReportJsonSchema()) },
       ...(options.referencePng ? [{ path: referenceVisual.file, contents: options.referencePng }] : []),
       { path: "scripts/apply-section-candidate.mjs", contents: sectionCandidateApplyScriptFor() },
       { path: "scripts/verify-analysis-plan.mjs", contents: analysisPlanVerifierScriptFor() },

@@ -87,6 +87,233 @@ export const verificationVisualEvidence = {
   }
 } satisfies Record<string, VerificationVisualEvidence>;
 
+const scoreSchema = { type: ["number", "null"], minimum: 0, maximum: 100 };
+
+const boundedNumberSchema = { type: "number", minimum: 0, maximum: 100 };
+
+const rectJsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["x", "y", "width", "height"],
+  properties: {
+    x: { type: "number" },
+    y: { type: "number" },
+    width: { type: "number", minimum: 0 },
+    height: { type: "number", minimum: 0 }
+  }
+};
+
+const stringArrayJsonSchema = {
+  type: "array",
+  items: { type: "string", minLength: 1 }
+};
+
+/**
+ * Public contract for verification-report.json. The report is consumed by CI,
+ * generated project manifests, and editor handoff tools, so it needs a stable
+ * machine-readable schema instead of being treated as an informal log file.
+ */
+export function createVerificationReportJsonSchema(): Record<string, unknown> {
+  return {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    title: "VerificationReport 0.1.0",
+    type: "object",
+    additionalProperties: false,
+    required: [
+      "visualSimilarity",
+      "visualDiff",
+      "visualProblemAreas",
+      "evidence",
+      "structureScore",
+      "structureBreakdown",
+      "componentScore",
+      "componentBreakdown",
+      "projectFitScore",
+      "projectFitBreakdown",
+      "issues"
+    ],
+    properties: {
+      visualSimilarity: scoreSchema,
+      visualDiff: {
+        anyOf: [
+          { type: "null" },
+          {
+            type: "object",
+            additionalProperties: false,
+            required: [
+              "visualSimilarity",
+              "mismatchedPixels",
+              "comparedPixels",
+              "dimensions",
+              "mismatchBounds",
+              "problemAreas",
+              "diffPath",
+              "threshold"
+            ],
+            properties: {
+              visualSimilarity: boundedNumberSchema,
+              mismatchedPixels: { type: "integer", minimum: 0 },
+              comparedPixels: { type: "integer", minimum: 0 },
+              dimensions: {
+                type: "object",
+                additionalProperties: false,
+                required: ["width", "height"],
+                properties: {
+                  width: { type: "integer", minimum: 1 },
+                  height: { type: "integer", minimum: 1 }
+                }
+              },
+              mismatchBounds: { anyOf: [{ type: "null" }, rectJsonSchema] },
+              problemAreas: {
+                type: "array",
+                items: rectJsonSchema
+              },
+              diffPath: { type: ["string", "null"] },
+              threshold: { type: "number", minimum: 0, maximum: 1 }
+            }
+          }
+        ]
+      },
+      visualProblemAreas: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: [
+            "id",
+            "bounds",
+            "affectedLayerId",
+            "affectedLayerKind",
+            "affectedLayerTrack",
+            "affectedLayerEditable",
+            "affectedSectionId"
+          ],
+          properties: {
+            id: { type: "string", minLength: 1 },
+            bounds: rectJsonSchema,
+            affectedLayerId: { type: ["string", "null"] },
+            affectedLayerKind: { type: ["string", "null"] },
+            affectedLayerTrack: {
+              enum: ["component", "asset", "approximation", "layout", null]
+            },
+            affectedLayerEditable: { type: ["boolean", "null"] },
+            affectedSectionId: { type: ["string", "null"] }
+          }
+        }
+      },
+      evidence: {
+        type: "object",
+        additionalProperties: false,
+        required: ["visual"],
+        properties: {
+          visual: {
+            type: "object",
+            additionalProperties: false,
+            required: ["kind", "label", "description"],
+            properties: {
+              kind: { enum: ["none", "image-data", "layerdoc-raster", "html-screenshot"] },
+              label: { type: "string", minLength: 1 },
+              description: { type: "string", minLength: 1 }
+            }
+          }
+        }
+      },
+      structureScore: boundedNumberSchema,
+      structureBreakdown: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "valid",
+          "totalIssueCount",
+          "structuralIssueCount",
+          "trackMismatchCount",
+          "penaltyPerStructuralIssue",
+          "issueCodes",
+          "blockingIssuePaths",
+          "ignoredIssueCodes"
+        ],
+        properties: {
+          valid: { type: "boolean" },
+          totalIssueCount: { type: "integer", minimum: 0 },
+          structuralIssueCount: { type: "integer", minimum: 0 },
+          trackMismatchCount: { type: "integer", minimum: 0 },
+          penaltyPerStructuralIssue: { type: "number", minimum: 0 },
+          issueCodes: {
+            type: "object",
+            additionalProperties: { type: "integer", minimum: 0 }
+          },
+          blockingIssuePaths: stringArrayJsonSchema,
+          ignoredIssueCodes: stringArrayJsonSchema
+        }
+      },
+      componentScore: boundedNumberSchema,
+      componentBreakdown: {
+        type: "object",
+        additionalProperties: false,
+        required: ["componentLayerCount", "coveredComponentLayerCount", "coverageRatio", "coveredLayerIds", "uncoveredLayerIds"],
+        properties: {
+          componentLayerCount: { type: "integer", minimum: 0 },
+          coveredComponentLayerCount: { type: "integer", minimum: 0 },
+          coverageRatio: { type: "number", minimum: 0, maximum: 1 },
+          coveredLayerIds: stringArrayJsonSchema,
+          uncoveredLayerIds: stringArrayJsonSchema
+        }
+      },
+      projectFitScore: boundedNumberSchema,
+      projectFitBreakdown: {
+        type: "object",
+        additionalProperties: true,
+        required: [
+          "baseScore",
+          "finalScore",
+          "assetCoverageRatio",
+          "fullPageBitmapRisk",
+          "exportableComponents",
+          "editableComponentLayers",
+          "contributions"
+        ],
+        properties: {
+          baseScore: { type: "number" },
+          finalScore: boundedNumberSchema,
+          assetCoverageRatio: { type: "number", minimum: 0 },
+          fullPageBitmapRisk: { type: "boolean" },
+          exportableComponents: { type: "integer", minimum: 0 },
+          editableComponentLayers: { type: "integer", minimum: 0 },
+          contributions: {
+            type: "array",
+            items: {
+              type: "object",
+              additionalProperties: true,
+              required: ["id", "label", "delta"],
+              properties: {
+                id: { type: "string", minLength: 1 },
+                label: { type: "string", minLength: 1 },
+                delta: { type: "number" },
+                count: { type: "integer", minimum: 0 },
+                maximum: { type: "number" },
+                triggered: { type: "boolean" }
+              }
+            }
+          }
+        }
+      },
+      issues: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: true,
+          required: ["code", "path", "message"],
+          properties: {
+            code: { type: "string", minLength: 1 },
+            path: { type: "string", minLength: 1 },
+            message: { type: "string", minLength: 1 }
+          }
+        }
+      }
+    }
+  };
+}
+
 function percentage(part: number, whole: number): number {
   if (whole === 0) {
     return 100;

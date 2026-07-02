@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createLayerDoc, createVerificationReport } from "../dist/index.js";
+import { createLayerDoc, createVerificationReport, createVerificationReportJsonSchema } from "../dist/index.js";
 
 test("createVerificationReport separates visual, structure, component, and project-fit scores", () => {
   const doc = createLayerDoc({
@@ -221,4 +221,50 @@ test("createVerificationReport preserves explicit visual evidence provenance", (
     label: "LayerDoc raster",
     description: "Studio rendered the LayerDoc graph into an ImageData candidate."
   });
+});
+
+test("createVerificationReportJsonSchema exposes the report handoff contract", () => {
+  const schema = createVerificationReportJsonSchema();
+
+  assert.equal(schema.title, "VerificationReport 0.1.0");
+  assert.deepEqual(schema.required, [
+    "visualSimilarity",
+    "visualDiff",
+    "visualProblemAreas",
+    "evidence",
+    "structureScore",
+    "structureBreakdown",
+    "componentScore",
+    "componentBreakdown",
+    "projectFitScore",
+    "projectFitBreakdown",
+    "issues"
+  ]);
+  assert.equal(schema.properties.evidence.properties.visual.properties.kind.enum.includes("html-screenshot"), true);
+  assert.deepEqual(schema.properties.structureBreakdown.required, [
+    "valid",
+    "totalIssueCount",
+    "structuralIssueCount",
+    "trackMismatchCount",
+    "penaltyPerStructuralIssue",
+    "issueCodes",
+    "blockingIssuePaths",
+    "ignoredIssueCodes"
+  ]);
+  assert.deepEqual(schema.properties.componentBreakdown.required, [
+    "componentLayerCount",
+    "coveredComponentLayerCount",
+    "coverageRatio",
+    "coveredLayerIds",
+    "uncoveredLayerIds"
+  ]);
+  assert.deepEqual(schema.properties.projectFitBreakdown.required, [
+    "baseScore",
+    "finalScore",
+    "assetCoverageRatio",
+    "fullPageBitmapRisk",
+    "exportableComponents",
+    "editableComponentLayers",
+    "contributions"
+  ]);
 });

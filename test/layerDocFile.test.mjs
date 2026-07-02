@@ -287,6 +287,7 @@ test("createProjectPackageDownload serializes every project package file in one 
       "src/ProductionHomepage.tsx",
       "tsconfig.json",
       "verification-report.json",
+      "verification-report.schema.json",
       "vite.config.ts"
     ].sort()
   );
@@ -295,11 +296,13 @@ test("createProjectPackageDownload serializes every project package file in one 
   assert.equal(payload.manifest.ciWorkflow, "ci-workflow.json");
   assert.equal(payload.manifest.productionManifest, "production-manifest.json");
   assert.equal(payload.manifest.productionManifestSchema, "production-manifest.schema.json");
+  assert.equal(payload.manifest.verificationReportSchema, "verification-report.schema.json");
   assert.match(payload.files.find((file) => file.path === "asset-index.json").contents, /"source": "layerdoc"/);
   assert.match(payload.files.find((file) => file.path === "backtest-runbook.json").contents, /"kind": "studio_backtest_runbook"/);
   assert.match(payload.files.find((file) => file.path === "ci-workflow.json").contents, /"kind": "project_ci_workflow"/);
   assert.match(payload.files.find((file) => file.path === "production-manifest.json").contents, /"role": "project_integration_manifest"/);
   assert.match(payload.files.find((file) => file.path === "production-manifest.schema.json").contents, /"title": "ProjectProductionManifest 0.1.0"/);
+  assert.match(payload.files.find((file) => file.path === "verification-report.schema.json").contents, /"title": "VerificationReport 0.1.0"/);
   assert.match(
     payload.files.find((file) => file.path === "handoff-summary.json").contents,
     /"source": "layerdoc"/

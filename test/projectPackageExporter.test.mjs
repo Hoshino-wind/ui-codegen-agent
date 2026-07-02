@@ -395,6 +395,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.equal(output.manifest.ciWorkflow, "ci-workflow.json");
   assert.equal(output.manifest.productionManifest, "production-manifest.json");
   assert.equal(output.manifest.productionManifestSchema, "production-manifest.schema.json");
+  assert.equal(output.manifest.verificationReportSchema, "verification-report.schema.json");
   assert.equal(output.manifest.sectionCandidateSchema, "section-candidate.schema.json");
   assert.equal(output.manifest.assetIndex, "asset-index.json");
   assert.deepEqual(output.manifest.referenceVisual, {
@@ -452,6 +453,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     "src/ProductionHomepage.tsx",
     "tsconfig.json",
     "verification-report.json",
+    "verification-report.schema.json",
     "vite.config.ts"
   ].sort());
   assert.deepEqual(output.manifest.files.sort(), paths);
@@ -486,6 +488,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   const manifest = JSON.parse(output.files.find((file) => file.path === "manifest.json").contents);
   const productionManifest = JSON.parse(output.files.find((file) => file.path === "production-manifest.json").contents);
   const productionManifestSchema = JSON.parse(output.files.find((file) => file.path === "production-manifest.schema.json").contents);
+  const verificationReportSchema = JSON.parse(output.files.find((file) => file.path === "verification-report.schema.json").contents);
   const analysisTask = JSON.parse(output.files.find((file) => file.path === "analysis-task.json").contents);
   const backtestRunbook = JSON.parse(output.files.find((file) => file.path === "backtest-runbook.json").contents);
   const ciWorkflow = JSON.parse(output.files.find((file) => file.path === "ci-workflow.json").contents);
@@ -497,6 +500,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.deepEqual(manifest.analysisPlanAudit, output.manifest.analysisPlanAudit);
   assert.equal(manifest.productionManifest, output.manifest.productionManifest);
   assert.equal(manifest.productionManifestSchema, output.manifest.productionManifestSchema);
+  assert.equal(manifest.verificationReportSchema, output.manifest.verificationReportSchema);
   assert.equal(manifest.backtestRunbook, output.manifest.backtestRunbook);
   assert.equal(manifest.ciWorkflow, output.manifest.ciWorkflow);
   assert.equal(manifest.assetIndex, output.manifest.assetIndex);
@@ -515,6 +519,8 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.equal(productionManifestSchema.properties.role.const, "project_integration_manifest");
   assert.deepEqual(productionManifestSchema.properties.sourceOfTruth.required, ["type", "file", "schemaFile", "hash", "editable"]);
   assert.deepEqual(productionManifestSchema.properties.generated.required, ["react", "preview", "contract", "assets"]);
+  assert.equal(productionManifestSchema.properties.quality.required.includes("reportSchemaFile"), true);
+  assert.equal(productionManifestSchema.properties.quality.properties.reportSchemaFile.const, "verification-report.schema.json");
   assert.equal(productionManifestSchema.properties.quality.properties.scores.required.includes("visual_similarity"), true);
   assert.equal(productionManifestSchema.properties.quality.required.includes("structureBreakdown"), true);
   assert.deepEqual(productionManifestSchema.properties.quality.properties.structureBreakdown.required, [
@@ -547,6 +553,46 @@ test("createProjectExportPackage returns project-ready files derived from one La
   ]);
   assert.deepEqual(productionManifestSchema.properties.runbooks.required, ["backtest", "ci"]);
   assert.equal(productionManifestSchema.properties.integrationSteps.items.required.includes("command"), true);
+  assert.equal(verificationReportSchema.title, "VerificationReport 0.1.0");
+  assert.deepEqual(verificationReportSchema.required, [
+    "visualSimilarity",
+    "visualDiff",
+    "visualProblemAreas",
+    "evidence",
+    "structureScore",
+    "structureBreakdown",
+    "componentScore",
+    "componentBreakdown",
+    "projectFitScore",
+    "projectFitBreakdown",
+    "issues"
+  ]);
+  assert.deepEqual(verificationReportSchema.properties.structureBreakdown.required, [
+    "valid",
+    "totalIssueCount",
+    "structuralIssueCount",
+    "trackMismatchCount",
+    "penaltyPerStructuralIssue",
+    "issueCodes",
+    "blockingIssuePaths",
+    "ignoredIssueCodes"
+  ]);
+  assert.deepEqual(verificationReportSchema.properties.componentBreakdown.required, [
+    "componentLayerCount",
+    "coveredComponentLayerCount",
+    "coverageRatio",
+    "coveredLayerIds",
+    "uncoveredLayerIds"
+  ]);
+  assert.deepEqual(verificationReportSchema.properties.projectFitBreakdown.required, [
+    "baseScore",
+    "finalScore",
+    "assetCoverageRatio",
+    "fullPageBitmapRisk",
+    "exportableComponents",
+    "editableComponentLayers",
+    "contributions"
+  ]);
   assert.equal(productionManifest.role, "project_integration_manifest");
   assert.deepEqual(productionManifest.sourceOfTruth, {
     type: "LayerDoc",
@@ -598,6 +644,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     component_score: output.manifest.scores.componentScore,
     project_fit_score: output.manifest.scores.projectFitScore
   });
+  assert.equal(productionManifest.quality.reportSchemaFile, "verification-report.schema.json");
   assert.deepEqual(productionManifest.quality.structureBreakdown, output.manifest.scores.structureBreakdown);
   assert.deepEqual(productionManifest.quality.componentBreakdown, output.manifest.scores.componentBreakdown);
   assert.deepEqual(productionManifest.quality.projectFitBreakdown, output.manifest.scores.projectFitBreakdown);
@@ -774,10 +821,12 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.deepEqual(JSON.parse(output.files.find((file) => file.path === "analysis-plan-audit.json").contents), output.manifest.analysisPlanAudit);
   assert.match(output.files.find((file) => file.path === "verification-report.json").contents, /"structureScore": 100/);
   assert.match(output.files.find((file) => file.path === "verification-report.json").contents, /"evidence"/);
+  assert.match(output.files.find((file) => file.path === "verification-report.schema.json").contents, /"title": "VerificationReport 0.1.0"/);
   assert.match(output.files.find((file) => file.path === "quality-gates.json").contents, /"visualSimilarity": 85/);
   const handoffSummary = JSON.parse(output.files.find((file) => file.path === "handoff-summary.json").contents);
   assert.equal(handoffSummary.version, "0.1.0");
   assert.equal(handoffSummary.positioning, "AI UI Production System");
+  assert.equal(handoffSummary.quality.reportSchemaFile, "verification-report.schema.json");
   assert.deepEqual(handoffSummary.sourceOfTruth, {
     file: "layerdoc.json",
     schemaFile: "layerdoc.schema.json",
@@ -1081,6 +1130,7 @@ test("writeProjectExportPackage writes every package file under the target direc
   assert.equal(existsSync(join(directory, "asset-index.json")), true);
   assert.equal(existsSync(join(directory, "production-manifest.json")), true);
   assert.equal(existsSync(join(directory, "production-manifest.schema.json")), true);
+  assert.equal(existsSync(join(directory, "verification-report.schema.json")), true);
   assert.equal(existsSync(join(directory, "handoff-summary.json")), true);
   assert.equal(existsSync(join(directory, "analysis-plan.schema.json")), true);
   assert.equal(existsSync(join(directory, "analysis-plan-audit.json")), true);
@@ -1154,6 +1204,23 @@ test("exported handoff verifier checks the production manifest schema contract",
   assert.match(failed.stdout, /production_manifest_schema_mismatch/);
   assert.match(failed.stdout, /production-manifest\.schema\.json/);
   assert.match(failed.stdout, /project_integration_manifest/);
+});
+
+test("exported handoff verifier checks the verification report schema contract", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-verification-report-schema-verifier-"));
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const schemaPath = join(directory, "verification-report.schema.json");
+  const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
+  schema.properties.evidence.properties.visual.properties.kind.enum = ["none"];
+  writeFileSync(schemaPath, `${JSON.stringify(schema, null, 2)}\n`);
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-handoff.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /verification_report_schema_mismatch/);
+  assert.match(failed.stdout, /verification-report\.schema\.json/);
+  assert.match(failed.stdout, /html-screenshot/);
 });
 
 test("exported production manifest verifier validates the integration entrypoint independently", () => {

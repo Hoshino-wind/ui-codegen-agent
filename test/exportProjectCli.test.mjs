@@ -99,6 +99,7 @@ test("export project CLI writes a project package from a LayerDoc file", () => {
     "src/ProductionHomepage.tsx",
     "tsconfig.json",
     "verification-report.json",
+    "verification-report.schema.json",
     "vite.config.ts"
   ].sort());
   assert.equal(existsSync(join(outputDir, "src", "ProductionHomepage.tsx")), true);
@@ -124,6 +125,7 @@ test("export project CLI writes a project package from a LayerDoc file", () => {
   assert.equal(existsSync(join(outputDir, "layerdoc-audit.json")), true);
   assert.equal(existsSync(join(outputDir, "layerdoc.schema.json")), true);
   assert.equal(existsSync(join(outputDir, "verification-report.json")), true);
+  assert.equal(existsSync(join(outputDir, "verification-report.schema.json")), true);
   assert.equal(existsSync(join(outputDir, "quality-gates.json")), true);
   assert.match(readFileSync(join(outputDir, "src", "ProductionHomepage.tsx"), "utf8"), /Exported from LayerDoc CLI/);
   assert.match(readFileSync(join(outputDir, "src", "App.tsx"), "utf8"), /<ProductionHomepage \/>/);
@@ -141,6 +143,7 @@ test("export project CLI writes a project package from a LayerDoc file", () => {
   assert.match(readFileSync(join(outputDir, "production-manifest.json"), "utf8"), /"role": "project_integration_manifest"/);
   assert.match(readFileSync(join(outputDir, "ci-workflow.json"), "utf8"), /"kind": "project_ci_workflow"/);
   assert.match(readFileSync(join(outputDir, "production-manifest.schema.json"), "utf8"), /"title": "ProjectProductionManifest 0.1.0"/);
+  assert.match(readFileSync(join(outputDir, "verification-report.schema.json"), "utf8"), /"title": "VerificationReport 0.1.0"/);
   assert.match(readFileSync(join(outputDir, "handoff-summary.json"), "utf8"), /"positioning": "AI UI Production System"/);
   assert.match(readFileSync(join(outputDir, "layerdoc-audit.json"), "utf8"), /"assetCompliance"/);
   assert.match(readFileSync(join(outputDir, "layerdoc.schema.json"), "utf8"), /"const": "layerdoc"/);
