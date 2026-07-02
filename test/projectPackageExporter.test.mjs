@@ -168,6 +168,39 @@ function createRegenerationExportDoc() {
   return doc;
 }
 
+function createHeroSectionCandidate() {
+  return {
+    requestId: "regen-hero-1",
+    section: {
+      id: "hero",
+      name: "Hero",
+      bounds: { x: 0, y: 0, width: 1440, height: 860 },
+      layerIds: ["hero-title", "hero-cta"]
+    },
+    layers: [
+      {
+        id: "hero-title",
+        sectionId: "hero",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 120, y: 120, width: 720, height: 96 },
+        content: { text: "Reviewed production hero" }
+      },
+      {
+        id: "hero-cta",
+        sectionId: "hero",
+        kind: "button",
+        track: "component",
+        editable: true,
+        bounds: { x: 120, y: 260, width: 180, height: 48 },
+        content: { text: "Apply candidate" }
+      }
+    ],
+    components: [{ id: "RegeneratedHero", layerIds: ["hero-title", "hero-cta"], exportable: true }]
+  };
+}
+
 function createInteractiveExportDoc() {
   return createLayerDoc({
     name: "Interactive Homepage",
@@ -385,6 +418,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     "quality-gates.json",
     "section-candidate.schema.json",
     "scripts/verify-analysis-plan.mjs",
+    "scripts/apply-section-candidate.mjs",
     "scripts/verify-contract.mjs",
     "scripts/verify-gates.mjs",
     "scripts/verify-handoff.mjs",
@@ -410,6 +444,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:image-manifest": "node scripts\/verify-image-manifest\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:preview": "node scripts\/verify-preview\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:gates": "node scripts\/verify-gates\.mjs"/);
+  assert.match(output.files.find((file) => file.path === "package.json").contents, /"apply:section-candidate": "node scripts\/apply-section-candidate\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:layerdoc": "node scripts\/verify-layerdoc\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:contract": "node scripts\/verify-contract\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:section-candidate": "node scripts\/verify-section-candidate\.mjs"/);
@@ -611,6 +646,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
       "npm run verify:image-manifest",
       "npm run verify:layerdoc",
       "npm run verify:contract",
+      "npm run apply:section-candidate",
       "npm run verify:section-candidate",
       "npm run verify:gates"
     ]
@@ -632,6 +668,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_layer_style_missing/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /project_section_order_mismatch/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-layerdoc.mjs").contents, /layerdoc\.json/);
+  assert.match(output.files.find((file) => file.path === "scripts/apply-section-candidate.mjs").contents, /apply:section-candidate/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /preview\.html/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /verification-report\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-section-candidate.mjs").contents, /section-candidate\.schema\.json/);
@@ -1401,36 +1438,7 @@ test("exported section candidate verifier script validates reviewed regeneration
   writeProjectExportPackage(output, directory);
 
   const candidatePath = join(directory, "hero-candidate.json");
-  writeFileSync(candidatePath, `${JSON.stringify({
-    requestId: "regen-hero-1",
-    section: {
-      id: "hero",
-      name: "Hero",
-      bounds: { x: 0, y: 0, width: 1440, height: 860 },
-      layerIds: ["hero-title", "hero-cta"]
-    },
-    layers: [
-      {
-        id: "hero-title",
-        sectionId: "hero",
-        kind: "text",
-        track: "component",
-        editable: true,
-        bounds: { x: 120, y: 120, width: 720, height: 96 },
-        content: { text: "Reviewed production hero" }
-      },
-      {
-        id: "hero-cta",
-        sectionId: "hero",
-        kind: "button",
-        track: "component",
-        editable: true,
-        bounds: { x: 120, y: 260, width: 180, height: 48 },
-        content: { text: "Apply candidate" }
-      }
-    ],
-    components: [{ id: "RegeneratedHero", layerIds: ["hero-title", "hero-cta"], exportable: true }]
-  }, null, 2)}\n`);
+  writeFileSync(candidatePath, `${JSON.stringify(createHeroSectionCandidate(), null, 2)}\n`);
 
   const passed = spawnSync(process.execPath, ["scripts/verify-section-candidate.mjs", "--input", candidatePath], {
     cwd: directory,
@@ -1454,6 +1462,48 @@ test("exported section candidate verifier script validates reviewed regeneration
   assert.notEqual(failed.status, 0);
   assert.match(failed.stdout, /section_candidate_section_missing/);
   assert.match(failed.stdout, /missing-section/);
+});
+
+test("exported section candidate apply script updates LayerDoc and derived handoff artifacts", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-section-candidate-apply-"));
+  const output = createProjectExportPackage(createRegenerationExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const candidatePath = join(directory, "hero-candidate.json");
+  writeFileSync(candidatePath, `${JSON.stringify(createHeroSectionCandidate(), null, 2)}\n`);
+
+  const applied = spawnSync(process.execPath, ["scripts/apply-section-candidate.mjs", "--section", "hero", "--input", candidatePath], {
+    cwd: directory,
+    encoding: "utf8"
+  });
+  assert.equal(applied.status, 0, applied.stderr);
+  assert.match(applied.stdout, /"applied": true/);
+  assert.match(applied.stdout, /"sectionId": "hero"/);
+
+  const layerDoc = JSON.parse(readFileSync(join(directory, "layerdoc.json"), "utf8"));
+  assert.deepEqual(layerDoc.sections[0].layerIds, ["hero-title", "hero-cta"]);
+  assert.equal(layerDoc.layers.find((layer) => layer.id === "hero-title").content.text, "Reviewed production hero");
+  assert.equal(layerDoc.generation.sectionRequests[0].status, "applied");
+
+  const contract = JSON.parse(readFileSync(join(directory, "integration-contract.json"), "utf8"));
+  assert.deepEqual(contract.sections[0].layerIds, ["hero-title", "hero-cta"]);
+  assert.equal(contract.generationRequests[0].status, "applied");
+
+  const componentSource = readFileSync(join(directory, "src", "ProductionHomepage.tsx"), "utf8");
+  assert.match(componentSource, /data-layer-id="hero-title"/);
+  assert.match(componentSource, /Reviewed production hero/);
+  const previewSource = readFileSync(join(directory, "preview.html"), "utf8");
+  assert.match(previewSource, /data-layer-id="hero-title"/);
+  assert.match(previewSource, /Reviewed production hero/);
+
+  const layerDocVerification = spawnSync(process.execPath, ["scripts/verify-layerdoc.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.equal(layerDocVerification.status, 0, layerDocVerification.stderr);
+
+  const contractVerification = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.equal(contractVerification.status, 0, contractVerification.stderr);
+
+  const handoffVerification = spawnSync(process.execPath, ["scripts/verify-handoff.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.equal(handoffVerification.status, 0, handoffVerification.stderr);
 });
 
 test("exported quality gate script passes and fails from project files", () => {

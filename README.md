@@ -87,7 +87,10 @@ The repository currently implements the core LayerDoc domain layer:
 - Export `section-candidate.schema.json` with project packages so AI workers
   and Studio imports share a verifiable contract for reviewed regeneration
   results, plus an exported `verify:section-candidate` script that checks a
-  candidate against the current LayerDoc section graph before it is applied.
+  candidate against the current LayerDoc section graph before it is applied and
+  an exported `apply:section-candidate` script that rewrites `layerdoc.json`,
+  `integration-contract.json`, `handoff-summary.json`, `preview.html`, and the
+  React component from the accepted candidate.
 - Export a `handoff-summary.json` with the source LayerDoc hash, entry
   component, contract counts, regeneration request count, verifier scores,
   audit status, and verification commands so CI or downstream importers can

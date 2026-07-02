@@ -495,6 +495,7 @@ function packageJsonFor(manifest: ProjectExportManifest): string {
       "verify:image-manifest": "node scripts/verify-image-manifest.mjs",
       "verify:layerdoc": "node scripts/verify-layerdoc.mjs",
       "verify:contract": "node scripts/verify-contract.mjs",
+      "apply:section-candidate": "node scripts/apply-section-candidate.mjs",
       "verify:section-candidate": "node scripts/verify-section-candidate.mjs",
       "verify:preview": "node scripts/verify-preview.mjs",
       "verify:gates": "node scripts/verify-gates.mjs"
@@ -652,7 +653,7 @@ for (const path of manifestFiles) {
 }
 
 pushIf(packageScripts.verify !== "${PROJECT_VERIFY_CHAIN}", failures, "package_verify_chain_mismatch", "package.json verify script must run the full handoff verification chain.");
-for (const scriptName of ["verify:handoff", "verify:analysis-plan", "verify:image-manifest", "verify:layerdoc", "verify:contract", "verify:section-candidate", "verify:preview", "verify:gates"]) {
+for (const scriptName of ["verify:handoff", "verify:analysis-plan", "verify:image-manifest", "verify:layerdoc", "verify:contract", "apply:section-candidate", "verify:section-candidate", "verify:preview", "verify:gates"]) {
   pushIf(typeof packageScripts[scriptName] !== "string", failures, "package_verify_script_missing", \`package.json scripts must include \${scriptName}.\`);
 }
 
@@ -792,6 +793,1135 @@ if (!hasAnalysisPlan) {
     process.exitCode = 1;
   }
 }
+`;
+}
+
+function sectionCandidateApplyScriptFor(): string {
+  return `import { createHash } from "node:crypto";
+import { readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+const usage = "Usage: npm run apply:section-candidate -- --section <section-id> --input <candidate.json>";
+
+function readProjectJson(path) {
+  return JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
+}
+
+function readInputJson(path) {
+  return JSON.parse(readFileSync(resolve(path), "utf8"));
+}
+
+function writeProjectText(path, value) {
+  writeFileSync(new URL(path, import.meta.url), value);
+}
+
+function writeProjectJson(path, value) {
+  writeProjectText(path, stableJson(value));
+}
+
+function stableJson(value) {
+  return JSON.stringify(value, null, 2) + "\\n";
+}
+
+function sha256(value) {
+  return "sha256:" + createHash("sha256").update(value).digest("hex");
+}
+
+function parseArgs(args) {
+  const options = { sectionId: null, input: null };
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "-h" || arg === "--help") {
+      process.stdout.write(usage + "\\n");
+      process.exit(0);
+    }
+    if (arg === "--section") {
+      options.sectionId = args[index + 1] ?? null;
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith("--section=")) {
+      options.sectionId = arg.slice("--section=".length);
+      continue;
+    }
+    if (arg === "--input") {
+      options.input = args[index + 1] ?? null;
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith("--input=")) {
+      options.input = arg.slice("--input=".length);
+      continue;
+    }
+    throw new Error("Unknown argument " + arg + ". " + usage);
+  }
+  if (!options.sectionId || !options.input) {
+    throw new Error(usage);
+  }
+  return options;
+}
+
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function issue(code, path, message) {
+  return { code, path, message };
+}
+
+function pushIf(condition, failures, code, message) {
+  if (condition) {
+    failures.push({ code, message });
+  }
+}
+
+function assertNoFailures(failures, label) {
+  if (failures.length > 0) {
+    const error = new Error(label + " failed: " + JSON.stringify(failures));
+    error.failures = failures;
+    throw error;
+  }
+}
+
+function idsFrom(items) {
+  return new Set(asArray(items).map((item) => item?.id).filter(Boolean));
+}
+
+function validateCandidate(candidate, sectionId, layerDoc) {
+  const failures = [];
+  if (!isRecord(candidate)) {
+    return [{ code: "section_candidate_invalid", message: "Section candidate must be an object." }];
+  }
+
+  const section = candidate.section;
+  const layers = asArray(candidate.layers);
+  pushIf(!isRecord(section), failures, "section_candidate_section_invalid", "Section candidate section must be an object.");
+  pushIf(!Array.isArray(candidate.layers), failures, "section_candidate_layers_invalid", "Section candidate layers must be an array.");
+  if (!isRecord(section)) {
+    return failures;
+  }
+
+  const targetSection = asArray(layerDoc.sections).find((item) => item.id === sectionId);
+  pushIf(!targetSection, failures, "section_candidate_target_missing", "Target section " + sectionId + " does not exist in layerdoc.json.");
+  pushIf(section.id !== sectionId, failures, "section_candidate_section_mismatch", "Candidate section " + section.id + " must replace section " + sectionId + ".");
+
+  if (candidate.requestId) {
+    const request = asArray(layerDoc.generation?.sectionRequests).find((item) => item.id === candidate.requestId);
+    pushIf(!request, failures, "section_candidate_request_missing", "Regeneration request " + candidate.requestId + " does not exist in layerdoc.json.");
+    pushIf(Boolean(request) && request.sectionId !== sectionId, failures, "section_candidate_request_section_mismatch", "Regeneration request " + candidate.requestId + " does not belong to section " + sectionId + ".");
+  }
+
+  const declaredLayerIds = new Set(asArray(section.layerIds));
+  const layerIds = idsFrom(layers);
+  pushIf(declaredLayerIds.size === 0, failures, "section_candidate_layer_ids_missing", "Candidate section.layerIds must contain at least one layer id.");
+  for (const layerId of declaredLayerIds) {
+    pushIf(!layerIds.has(layerId), failures, "section_candidate_layer_missing", "Candidate section.layerIds references missing layer " + layerId + ".");
+  }
+  for (const layer of layers) {
+    pushIf(!declaredLayerIds.has(layer?.id), failures, "section_candidate_layer_unlisted", "Candidate layer " + (layer?.id ?? "unknown") + " is not listed in section.layerIds.");
+    pushIf(layer?.sectionId !== sectionId, failures, "section_candidate_layer_section_mismatch", "Candidate layer " + (layer?.id ?? "unknown") + " must point at section " + sectionId + ".");
+  }
+
+  const assetIds = idsFrom(candidate.assets);
+  for (const layer of layers) {
+    if (layer?.track === "asset" || layer?.assetId) {
+      pushIf(!layer.assetId || !assetIds.has(layer.assetId), failures, "section_candidate_asset_missing", "Asset layer " + (layer?.id ?? "unknown") + " must reference an asset included in the candidate.");
+    }
+  }
+
+  const componentIds = idsFrom(candidate.components);
+  for (const component of asArray(candidate.components)) {
+    for (const layerId of asArray(component.layerIds)) {
+      pushIf(!layerIds.has(layerId), failures, "section_candidate_component_layer_missing", "Component " + component.id + " references missing candidate layer " + layerId + ".");
+    }
+  }
+  for (const interaction of asArray(candidate.interactions)) {
+    pushIf(!layerIds.has(interaction.layerId), failures, "section_candidate_interaction_layer_missing", "Interaction " + interaction.id + " references missing candidate layer " + interaction.layerId + ".");
+  }
+  for (const rule of asArray(candidate.responsiveRules)) {
+    const target = rule.target;
+    const exists =
+      (target?.type === "section" && target.id === sectionId) ||
+      (target?.type === "layer" && layerIds.has(target.id)) ||
+      (target?.type === "component" && componentIds.has(target.id));
+    pushIf(!exists, failures, "section_candidate_responsive_target_missing", "Responsive rule " + rule.id + " targets an object not included in the candidate.");
+  }
+
+  return failures;
+}
+
+function relativeBounds(bounds, origin) {
+  return {
+    x: bounds.x - origin.x,
+    y: bounds.y - origin.y,
+    width: bounds.width,
+    height: bounds.height
+  };
+}
+
+function reflowSectionStack(doc) {
+  let nextY = 0;
+  for (const section of doc.sections) {
+    const previousY = section.bounds.y;
+    const deltaY = nextY - previousY;
+    section.bounds = { ...section.bounds, y: nextY };
+    for (const layer of doc.layers) {
+      if (layer.sectionId === section.id || asArray(section.layerIds).includes(layer.id)) {
+        layer.bounds = { ...layer.bounds, y: layer.bounds.y + deltaY };
+      }
+    }
+    nextY += section.bounds.height;
+  }
+  doc.canvas.height = Math.max(doc.canvas.height, nextY);
+}
+
+function translateCandidateIntoSlot(candidate, targetSection) {
+  const deltaY = targetSection.bounds.y - candidate.section.bounds.y;
+  return {
+    ...candidate,
+    section: { ...clone(candidate.section), bounds: { ...candidate.section.bounds, y: targetSection.bounds.y } },
+    layers: asArray(candidate.layers).map((layer) => ({ ...clone(layer), bounds: { ...layer.bounds, y: layer.bounds.y + deltaY } })),
+    assets: asArray(candidate.assets).map(clone),
+    components: asArray(candidate.components).map(clone),
+    interactions: asArray(candidate.interactions).map(clone),
+    responsiveRules: asArray(candidate.responsiveRules).map(clone)
+  };
+}
+
+function candidateTargetsRule(rule, sectionId, oldLayerIds, oldComponentIds) {
+  return (
+    (rule.target?.type === "section" && rule.target.id === sectionId) ||
+    (rule.target?.type === "layer" && oldLayerIds.has(rule.target.id)) ||
+    (rule.target?.type === "component" && oldComponentIds.has(rule.target.id))
+  );
+}
+
+function applyCandidate(doc, sectionId, candidate) {
+  const next = clone(doc);
+  const sectionIndex = next.sections.findIndex((section) => section.id === sectionId);
+  if (sectionIndex === -1) {
+    throw new Error("Section " + sectionId + " was not found.");
+  }
+
+  const targetSection = next.sections[sectionIndex];
+  const applied = translateCandidateIntoSlot(candidate, targetSection);
+  const oldLayerIds = new Set([
+    ...asArray(targetSection.layerIds),
+    ...next.layers.filter((layer) => layer.sectionId === sectionId).map((layer) => layer.id)
+  ]);
+  const oldAssetIds = new Set(next.layers.filter((layer) => oldLayerIds.has(layer.id) && layer.assetId).map((layer) => layer.assetId));
+  const oldComponentIds = new Set(
+    next.components.filter((component) => asArray(component.layerIds).some((layerId) => oldLayerIds.has(layerId))).map((component) => component.id)
+  );
+
+  next.sections[sectionIndex] = applied.section;
+  next.layers = [
+    ...next.layers.filter((layer) => !oldLayerIds.has(layer.id) && layer.sectionId !== sectionId),
+    ...applied.layers
+  ];
+  const retainedAssetIds = new Set(next.layers.map((layer) => layer.assetId).filter(Boolean));
+  next.assets = [
+    ...next.assets.filter((asset) => !oldAssetIds.has(asset.id) || retainedAssetIds.has(asset.id)),
+    ...applied.assets
+  ];
+  next.components = [
+    ...next.components.filter((component) => !oldComponentIds.has(component.id)),
+    ...applied.components
+  ];
+  next.interactions = [
+    ...next.interactions.filter((interaction) => !oldLayerIds.has(interaction.layerId)),
+    ...applied.interactions
+  ];
+  next.responsive.rules = [
+    ...next.responsive.rules.filter((rule) => !candidateTargetsRule(rule, sectionId, oldLayerIds, oldComponentIds)),
+    ...applied.responsiveRules
+  ];
+
+  if (candidate.requestId) {
+    const request = next.generation.sectionRequests.find((item) => item.id === candidate.requestId);
+    if (!request) {
+      throw new Error("Regeneration request " + candidate.requestId + " was not found.");
+    }
+    if (request.sectionId !== sectionId) {
+      throw new Error("Regeneration request " + candidate.requestId + " does not belong to section " + sectionId + ".");
+    }
+    request.status = "applied";
+  }
+
+  reflowSectionStack(next);
+  return next;
+}
+
+function classifyLayer(layer) {
+  if (["text", "button", "nav", "card", "form", "input", "list", "table", "icon"].includes(layer.kind)) {
+    return "component";
+  }
+  if (["image", "background"].includes(layer.kind)) {
+    return "asset";
+  }
+  if (["chart", "map", "scene3d"].includes(layer.kind)) {
+    return "approximation";
+  }
+  return "layout";
+}
+
+function isPositiveRect(rect) {
+  return rect && rect.width > 0 && rect.height > 0;
+}
+
+function fitsCanvas(rect, canvas) {
+  return rect.x >= 0 && rect.y >= 0 && rect.x + rect.width <= canvas.width && rect.y + rect.height <= canvas.height;
+}
+
+function collectDuplicateIds(ids) {
+  const seen = new Set();
+  const duplicates = new Set();
+  for (const id of ids) {
+    if (seen.has(id)) {
+      duplicates.add(id);
+    }
+    seen.add(id);
+  }
+  return duplicates;
+}
+
+function validateLayerDoc(doc) {
+  const issues = [];
+  const sections = asArray(doc.sections);
+  const layers = asArray(doc.layers);
+  const assets = asArray(doc.assets);
+  const components = asArray(doc.components);
+  const interactions = asArray(doc.interactions);
+  const responsiveRules = asArray(doc.responsive?.rules);
+  const sectionRequests = asArray(doc.generation?.sectionRequests);
+  const canvas = doc.canvas ?? {};
+  const sectionIds = new Set(sections.map((section) => section.id));
+  const layerIds = new Set(layers.map((layer) => layer.id));
+  const componentIds = new Set(components.map((component) => component.id));
+  const sectionsById = new Map(sections.map((section) => [section.id, section]));
+  const layersById = new Map(layers.map((layer) => [layer.id, layer]));
+  const assetIds = new Set(assets.map((asset) => asset.id));
+
+  if (doc.schema !== "layerdoc") {
+    issues.push(issue("schema_invalid", "schema", "LayerDoc schema must be layerdoc."));
+  }
+  if (doc.version !== "0.1.0") {
+    issues.push(issue("version_invalid", "version", "LayerDoc version must be 0.1.0."));
+  }
+
+  for (const id of collectDuplicateIds([
+    ...sections.map((section) => section.id),
+    ...layers.map((layer) => layer.id),
+    ...assets.map((asset) => asset.id),
+    ...components.map((component) => component.id),
+    ...interactions.map((interaction) => interaction.id),
+    ...responsiveRules.map((rule) => rule.id),
+    ...sectionRequests.map((request) => request.id)
+  ])) {
+    issues.push(issue("duplicate_id", id, "Duplicate id " + id + " appears in the LayerDoc graph."));
+  }
+
+  for (const [index, section] of sections.entries()) {
+    const path = "sections[" + index + "]";
+    if (!isPositiveRect(section.bounds)) {
+      issues.push(issue("bounds_invalid", path + ".bounds", "Section " + section.id + " has non-positive bounds."));
+    } else if (!fitsCanvas(section.bounds, canvas)) {
+      issues.push(issue("bounds_outside_canvas", path + ".bounds", "Section " + section.id + " exceeds the canvas."));
+    }
+    if (section.visible !== false && asArray(section.layerIds).length === 0) {
+      issues.push(issue("section_empty", path + ".layerIds", "Visible section " + section.id + " must contain at least one layer."));
+    }
+    for (const layerId of asArray(section.layerIds)) {
+      const layer = layersById.get(layerId);
+      if (!layer) {
+        issues.push(issue("layer_missing", path + ".layerIds", "Section " + section.id + " references missing layer " + layerId + "."));
+      } else if (layer.sectionId !== section.id) {
+        issues.push(issue("layer_section_mismatch", path + ".layerIds", "Section " + section.id + " includes layer " + layerId + " but that layer points elsewhere."));
+      }
+    }
+  }
+
+  for (const [index, layer] of layers.entries()) {
+    const path = "layers[" + index + "]";
+    if (!isPositiveRect(layer.bounds)) {
+      issues.push(issue("bounds_invalid", path + ".bounds", "Layer " + layer.id + " has non-positive bounds."));
+    } else if (!fitsCanvas(layer.bounds, canvas)) {
+      issues.push(issue("bounds_outside_canvas", path + ".bounds", "Layer " + layer.id + " exceeds the canvas."));
+    }
+    if (layer.sectionId) {
+      const section = sectionsById.get(layer.sectionId);
+      if (!section) {
+        issues.push(issue("section_missing", path + ".sectionId", "Layer " + layer.id + " references missing section " + layer.sectionId + "."));
+      } else if (!asArray(section.layerIds).includes(layer.id)) {
+        issues.push(issue("layer_section_mismatch", path + ".sectionId", "Layer " + layer.id + " points at section " + layer.sectionId + " but that section does not include it."));
+      }
+    }
+    if (layer.track !== classifyLayer(layer)) {
+      issues.push(issue("track_mismatch", path + ".track", "Layer " + layer.id + " is " + layer.kind + " but is routed to " + layer.track + "."));
+    }
+    if (layer.track === "asset" && (!layer.assetId || !assetIds.has(layer.assetId))) {
+      issues.push(issue("asset_missing", path + ".assetId", "Asset layer " + layer.id + " does not point at a known asset."));
+    }
+  }
+
+  for (const [index, component] of components.entries()) {
+    for (const layerId of asArray(component.layerIds)) {
+      if (!layerIds.has(layerId)) {
+        issues.push(issue("layer_missing", "components[" + index + "].layerIds", "Component " + component.id + " references missing layer " + layerId + "."));
+      }
+    }
+  }
+  for (const [index, interaction] of interactions.entries()) {
+    if (!layerIds.has(interaction.layerId)) {
+      issues.push(issue("layer_missing", "interactions[" + index + "].layerId", "Interaction " + interaction.id + " references missing layer " + interaction.layerId + "."));
+    }
+  }
+  for (const [index, rule] of responsiveRules.entries()) {
+    const target = rule.target;
+    const targetExists =
+      (target?.type === "section" && sectionIds.has(target.id)) ||
+      (target?.type === "layer" && layerIds.has(target.id)) ||
+      (target?.type === "component" && componentIds.has(target.id));
+    if (!targetExists) {
+      issues.push(issue("responsive_target_missing", "responsive.rules[" + index + "].target.id", "Responsive rule " + rule.id + " targets a missing object."));
+    }
+  }
+  for (const [index, request] of sectionRequests.entries()) {
+    if (!sectionIds.has(request.sectionId)) {
+      issues.push(issue("section_missing", "generation.sectionRequests[" + index + "].sectionId", "Regeneration request " + request.id + " references missing section " + request.sectionId + "."));
+    }
+  }
+
+  return issues;
+}
+
+function area(rect) {
+  return rect ? Math.max(0, rect.width) * Math.max(0, rect.height) : 0;
+}
+
+function ratio(part, whole) {
+  return Math.round((part / Math.max(1, whole)) * 100) / 100;
+}
+
+function intersection(left, right) {
+  const x1 = Math.max(left.x, right.x);
+  const y1 = Math.max(left.y, right.y);
+  const x2 = Math.min(left.x + left.width, right.x + right.width);
+  const y2 = Math.min(left.y + left.height, right.y + right.height);
+  return { x: x1, y: y1, width: Math.max(0, x2 - x1), height: Math.max(0, y2 - y1) };
+}
+
+function scoreProjectFit(doc) {
+  const canvasArea = Math.max(1, doc.canvas.width * doc.canvas.height);
+  const assetCoverageRatio = ratio(asArray(doc.assets).reduce((sum, asset) => sum + area(asset.bounds), 0), canvasArea);
+  const largestAssetRatio = Math.max(0, ...asArray(doc.assets).map((asset) => area(asset.bounds) / canvasArea));
+  const exportableComponents = asArray(doc.components).filter((component) => component.exportable).length;
+  const editableComponentLayers = asArray(doc.layers).filter((layer) => layer.track === "component" && layer.editable).length;
+  const fullPageBitmapRisk = assetCoverageRatio > 0.6 || largestAssetRatio > 0.5;
+  let score = 50;
+  score += Math.min(30, exportableComponents * 15);
+  score += Math.min(10, editableComponentLayers * 5);
+  score -= fullPageBitmapRisk ? 40 : 0;
+  return { projectFitScore: Math.max(0, Math.min(100, score)), assetCoverageRatio, fullPageBitmapRisk };
+}
+
+function percentage(part, whole) {
+  return whole === 0 ? 100 : Math.round((part / whole) * 100);
+}
+
+function componentScore(doc) {
+  const componentLayers = asArray(doc.layers).filter((layer) => layer.track === "component");
+  const coveredLayerIds = new Set(asArray(doc.components).flatMap((component) => asArray(component.layerIds)));
+  return percentage(componentLayers.filter((layer) => coveredLayerIds.has(layer.id)).length, componentLayers.length);
+}
+
+function createVerificationReport(doc) {
+  const issues = validateLayerDoc(doc);
+  const projectFit = scoreProjectFit(doc);
+  const structuralIssues = issues.filter((item) => item.code !== "track_mismatch");
+  return {
+    visualSimilarity: null,
+    visualDiff: null,
+    visualProblemAreas: [],
+    evidence: {
+      visual: {
+        kind: "none",
+        label: "Not captured",
+        description: "No visual candidate has been compared yet."
+      }
+    },
+    structureScore: structuralIssues.length === 0 ? 100 : Math.max(0, 100 - structuralIssues.length * 20),
+    componentScore: componentScore(doc),
+    projectFitScore: projectFit.projectFitScore,
+    issues
+  };
+}
+
+function layerDocWithReport(doc, report) {
+  return {
+    ...doc,
+    verification: {
+      scores: {
+        visualSimilarity: report.visualSimilarity,
+        structureScore: report.structureScore,
+        componentScore: report.componentScore,
+        projectFitScore: report.projectFitScore
+      },
+      issues: report.issues.map(clone),
+      visualProblemAreas: []
+    }
+  };
+}
+
+function countTracks(layers) {
+  const counts = { component: 0, asset: 0, approximation: 0, layout: 0 };
+  for (const layer of layers) {
+    counts[layer.track] = (counts[layer.track] ?? 0) + 1;
+  }
+  return counts;
+}
+
+function editableCoverage(doc) {
+  const byId = new Map(asArray(doc.layers).map((layer) => [layer.id, layer]));
+  const visibleSections = asArray(doc.sections).filter((section) => section.visible !== false);
+  const visibleLayerGroups = visibleSections.map((section) => asArray(section.layerIds).map((layerId) => byId.get(layerId)).filter(Boolean));
+  const visibleLayers = visibleLayerGroups.flat();
+  const sectionsWithoutEditableLayers = visibleSections
+    .filter((section, index) => !visibleLayerGroups[index].some((layer) => layer.editable))
+    .map((section) => section.id);
+  return {
+    visibleSections: visibleSections.length,
+    sectionsWithEditableLayers: visibleSections.length - sectionsWithoutEditableLayers.length,
+    editableSectionRatio: ratio(visibleSections.length - sectionsWithoutEditableLayers.length, visibleSections.length),
+    editableLayerRatio: ratio(visibleLayers.filter((layer) => layer.editable).length, visibleLayers.length),
+    sectionsWithoutEditableLayers
+  };
+}
+
+function riskySectionAssets(doc, fullPageBitmapRisk) {
+  if (fullPageBitmapRisk) {
+    return [];
+  }
+  const byId = new Map(asArray(doc.layers).map((layer) => [layer.id, layer]));
+  return asArray(doc.sections).flatMap((section) =>
+    asArray(section.layerIds).flatMap((layerId) => {
+      const layer = byId.get(layerId);
+      if (!layer?.assetId || layer.kind !== "image" || layer.track !== "asset") {
+        return [];
+      }
+      const coverageRatio = ratio(area(intersection(layer.bounds, section.bounds)), area(section.bounds));
+      return coverageRatio > 0.8 ? [{ sectionId: section.id, assetId: layer.assetId, coverageRatio }] : [];
+    })
+  );
+}
+
+function createLayerDocAudit(doc) {
+  const issues = validateLayerDoc(doc);
+  const projectFit = scoreProjectFit(doc);
+  const canvasArea = doc.canvas.width * doc.canvas.height;
+  const sectionAssets = riskySectionAssets(doc, projectFit.fullPageBitmapRisk);
+  const assetIssues = issues.filter((item) => item.code === "asset_missing");
+  const findings = [];
+  if (projectFit.fullPageBitmapRisk) {
+    findings.push("Potential full-page bitmap shortcut: asset coverage is " + projectFit.assetCoverageRatio + ".");
+  }
+  if (sectionAssets.length > 0) {
+    findings.push("Potential section bitmap shortcut: " + sectionAssets.length + " section asset(s) cover most of their section.");
+  }
+  if (assetIssues.length > 0) {
+    findings.push(assetIssues.length + " asset reference issue(s) found.");
+  }
+
+  return {
+    summary: {
+      sections: asArray(doc.sections).length,
+      layers: asArray(doc.layers).length,
+      editableLayers: asArray(doc.layers).filter((layer) => layer.editable).length,
+      components: asArray(doc.components).length,
+      exportableComponents: asArray(doc.components).filter((component) => component.exportable).length,
+      assets: asArray(doc.assets).length,
+      interactions: asArray(doc.interactions).length,
+      responsiveRules: asArray(doc.responsive?.rules).length
+    },
+    tracks: countTracks(asArray(doc.layers)),
+    structure: { valid: issues.length === 0, issues },
+    editableCoverage: editableCoverage(doc),
+    assetCompliance: {
+      passed: !projectFit.fullPageBitmapRisk && sectionAssets.length === 0 && assetIssues.length === 0,
+      assetCoverageRatio: projectFit.assetCoverageRatio,
+      fullPageBitmapRisk: projectFit.fullPageBitmapRisk,
+      riskyAssets: asArray(doc.assets)
+        .map((asset) => ({ id: asset.id, coverageRatio: ratio(area(asset.bounds), canvasArea) }))
+        .filter((asset) => asset.coverageRatio > 0.5),
+      riskySectionAssets: sectionAssets,
+      findings
+    },
+    sectionBreakdown: asArray(doc.sections).map((section) => {
+      const sectionLayers = asArray(section.layerIds)
+        .map((layerId) => asArray(doc.layers).find((layer) => layer.id === layerId))
+        .filter(Boolean);
+      return {
+        sectionId: section.id,
+        name: section.name,
+        visible: section.visible !== false,
+        layerCount: sectionLayers.length,
+        editableLayerCount: sectionLayers.filter((layer) => layer.editable).length,
+        tracks: countTracks(sectionLayers)
+      };
+    })
+  };
+}
+
+function scoreAttributeValue(value) {
+  return value === null || value === undefined ? "n/a" : String(value);
+}
+
+function verificationDataAttributes(doc) {
+  return {
+    "data-verification-visual-similarity": scoreAttributeValue(doc.verification?.scores?.visualSimilarity),
+    "data-verification-structure-score": scoreAttributeValue(doc.verification?.scores?.structureScore),
+    "data-verification-component-score": scoreAttributeValue(doc.verification?.scores?.componentScore),
+    "data-verification-project-fit-score": scoreAttributeValue(doc.verification?.scores?.projectFitScore),
+    "data-verification-issues": String(asArray(doc.verification?.issues).length)
+  };
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function escapeText(value) {
+  const tick = String.fromCharCode(96);
+  return String(value).replaceAll("\\\\", "\\\\\\\\").replaceAll(tick, "\\\\" + tick).replaceAll("$", "\\\\$");
+}
+
+function cssAttributeValue(value) {
+  return String(value).replaceAll("\\\\", "\\\\\\\\").replaceAll('"', '\\\\"');
+}
+
+function selectorFor(attribute, value) {
+  return "[" + attribute + "=\\"" + cssAttributeValue(value) + "\\"]";
+}
+
+function selectorForTarget(target) {
+  if (target.type === "section") {
+    return selectorFor("data-section-id", target.id);
+  }
+  if (target.type === "component") {
+    return selectorFor("data-component-id", target.id);
+  }
+  return selectorFor("data-layer-id", target.id);
+}
+
+function visibleSections(doc) {
+  return asArray(doc.sections).filter((section) => section.visible !== false);
+}
+
+function hiddenSectionIds(doc) {
+  return new Set(asArray(doc.sections).filter((section) => section.visible === false).map((section) => section.id));
+}
+
+function visibleLayers(doc) {
+  const hiddenIds = hiddenSectionIds(doc);
+  return asArray(doc.layers).filter((layer) => !layer.sectionId || !hiddenIds.has(layer.sectionId));
+}
+
+function visibleLayerIds(doc) {
+  return new Set(visibleLayers(doc).map((layer) => layer.id));
+}
+
+function visibleComponentIds(doc, layerIds) {
+  return new Set(asArray(doc.components).filter((component) => asArray(component.layerIds).some((layerId) => layerIds.has(layerId))).map((component) => component.id));
+}
+
+function isVisibleTarget(target, sectionIds, layerIds, componentIds) {
+  if (target.type === "section") {
+    return sectionIds.has(target.id);
+  }
+  if (target.type === "component") {
+    return componentIds.has(target.id);
+  }
+  return layerIds.has(target.id);
+}
+
+function pxDeclaration(property, value) {
+  return typeof value === "number" && Number.isFinite(value) ? property + ":" + value + "px !important;" : null;
+}
+
+function rawDeclaration(property, value) {
+  return typeof value === "string" && value.length > 0 ? property + ":" + value + " !important;" : null;
+}
+
+function numericDeclaration(property, value) {
+  return typeof value === "number" && Number.isFinite(value) ? property + ":" + value + " !important;" : null;
+}
+
+function paddingValue(padding) {
+  const vertical = padding.y ?? padding.top ?? padding.bottom ?? 0;
+  const horizontal = padding.x ?? padding.left ?? padding.right ?? 0;
+  return vertical + "px " + horizontal + "px";
+}
+
+function responsiveDeclarations(changes) {
+  const declarations = [];
+  const bounds = changes?.bounds;
+  const style = changes?.style;
+  if (isRecord(bounds)) {
+    declarations.push(pxDeclaration("left", bounds.x), pxDeclaration("top", bounds.y), pxDeclaration("width", bounds.width), pxDeclaration("height", bounds.height));
+  }
+  if (isRecord(style)) {
+    declarations.push(
+      rawDeclaration("background-color", style.backgroundColor),
+      rawDeclaration("color", style.textColor),
+      rawDeclaration("border-color", style.borderColor),
+      pxDeclaration("border-radius", style.borderRadius),
+      rawDeclaration("font-family", style.fontFamily),
+      pxDeclaration("font-size", style.fontSize),
+      numericDeclaration("font-weight", style.fontWeight),
+      pxDeclaration("line-height", style.lineHeight),
+      pxDeclaration("letter-spacing", style.letterSpacing),
+      numericDeclaration("opacity", style.opacity),
+      pxDeclaration("gap", style.gap)
+    );
+    if (isRecord(style.padding)) {
+      declarations.push("padding:" + paddingValue(style.padding) + " !important;");
+    }
+  }
+  if (changes?.visible === false) {
+    declarations.push("display:none !important;");
+  }
+  return declarations.filter(Boolean);
+}
+
+function renderResponsiveCss(doc) {
+  const sectionIds = new Set(visibleSections(doc).map((section) => section.id));
+  const layerIds = visibleLayerIds(doc);
+  const componentIds = visibleComponentIds(doc, layerIds);
+  return asArray(doc.responsive?.rules)
+    .filter((rule) => isVisibleTarget(rule.target, sectionIds, layerIds, componentIds))
+    .flatMap((rule) => {
+      const declarations = responsiveDeclarations(rule.changes);
+      if (declarations.length === 0) {
+        return [];
+      }
+      return ["@media " + rule.query + " {\\n  " + selectorForTarget(rule.target) + " {\\n    " + declarations.join("\\n    ") + "\\n  }\\n}"];
+    })
+    .join("\\n\\n");
+}
+
+function rectDeclarations(bounds) {
+  return ["position:absolute", "left:" + bounds.x + "px", "top:" + bounds.y + "px", "width:" + bounds.width + "px", "height:" + bounds.height + "px"];
+}
+
+function htmlStyleFor(bounds, style) {
+  const declarations = [...rectDeclarations(bounds)];
+  if (style?.backgroundColor) declarations.push("background-color:" + escapeHtml(style.backgroundColor));
+  if (style?.textColor) declarations.push("color:" + escapeHtml(style.textColor));
+  if (style?.borderColor) declarations.push("border-color:" + escapeHtml(style.borderColor));
+  if (style?.borderRadius !== undefined) declarations.push("border-radius:" + style.borderRadius + "px");
+  if (style?.fontFamily) declarations.push("font-family:" + escapeHtml(style.fontFamily));
+  if (style?.fontSize !== undefined) declarations.push("font-size:" + style.fontSize + "px");
+  if (style?.fontWeight !== undefined) declarations.push("font-weight:" + style.fontWeight);
+  if (style?.lineHeight !== undefined) declarations.push("line-height:" + style.lineHeight + "px");
+  if (style?.letterSpacing !== undefined) declarations.push("letter-spacing:" + style.letterSpacing + "px");
+  if (style?.padding) declarations.push("padding:" + paddingValue(style.padding));
+  if (style?.gap !== undefined) declarations.push("gap:" + style.gap + "px");
+  if (style?.opacity !== undefined) declarations.push("opacity:" + style.opacity);
+  return declarations.join(";");
+}
+
+function dataAttributes(attrs) {
+  return Object.entries(attrs).map(([name, value]) => name + "=\\"" + escapeHtml(value) + "\\"").join(" ");
+}
+
+function assetById(doc, assetId) {
+  return assetId ? asArray(doc.assets).find((asset) => asset.id === assetId) : undefined;
+}
+
+function interactionsForLayer(doc, layerId) {
+  return asArray(doc.interactions).filter((interaction) => interaction.layerId === layerId);
+}
+
+function htmlInteractionAttributes(doc, layer) {
+  const interactions = interactionsForLayer(doc, layer.id);
+  if (interactions.length === 0) {
+    return "";
+  }
+  return " data-interaction-ids=\\"" + escapeHtml(interactions.map((interaction) => interaction.id).join(" ")) + "\\"" +
+    " data-interaction-events=\\"" + escapeHtml(interactions.map((interaction) => interaction.event).join(" ")) + "\\"" +
+    " data-interaction-actions=\\"" + escapeHtml(interactions.map((interaction) => interaction.action).join(" ")) + "\\"";
+}
+
+function renderHtmlLayer(doc, layer, bounds = layer.bounds) {
+  const common = "data-layer-id=\\"" + escapeHtml(layer.id) + "\\" data-kind=\\"" + layer.kind + "\\" data-track=\\"" + layer.track + "\\"" + htmlInteractionAttributes(doc, layer) + " style=\\"" + htmlStyleFor(bounds, layer.style) + "\\"";
+  if (layer.track === "asset") {
+    const asset = assetById(doc, layer.assetId);
+    return "<img " + common + " src=\\"" + escapeHtml(asset?.uri ?? "") + "\\" alt=\\"" + escapeHtml(layer.content?.alt ?? "") + "\\" />";
+  }
+  const text = escapeHtml(layer.content?.text ?? "");
+  if (layer.kind === "button") {
+    return "<button " + common + " type=\\"button\\">" + text + "</button>";
+  }
+  if (layer.kind === "input") {
+    return "<input " + common + " value=\\"" + text + "\\" />";
+  }
+  return "<div " + common + ">" + text + "</div>";
+}
+
+function sectionLayers(doc, section) {
+  const byId = new Map(asArray(doc.layers).map((layer) => [layer.id, layer]));
+  return asArray(section.layerIds).map((layerId) => byId.get(layerId)).filter(Boolean);
+}
+
+function sectionComponents(doc, section) {
+  const sectionLayerIds = new Set(asArray(section.layerIds));
+  return asArray(doc.components).filter((component) => component.exportable && asArray(component.layerIds).some((layerId) => sectionLayerIds.has(layerId)));
+}
+
+function renderHtmlComponent(doc, component, origin, visibleIds) {
+  const componentLayers = asArray(component.layerIds)
+    .map((layerId) => asArray(doc.layers).find((layer) => layer.id === layerId))
+    .filter((layer) => layer && visibleIds.has(layer.id))
+    .map((layer) => "      " + renderHtmlLayer(doc, layer, relativeBounds(layer.bounds, origin)))
+    .join("\\n");
+  return "<div data-component-id=\\"" + escapeHtml(component.id) + "\\" style=\\"position:absolute;inset:0;\\">\\n" + componentLayers + "\\n    </div>";
+}
+
+function renderHtmlSection(doc, section, visibleIds) {
+  const components = sectionComponents(doc, section);
+  const componentLayerIds = new Set(components.flatMap((component) => asArray(component.layerIds).filter((layerId) => visibleIds.has(layerId))));
+  const componentNodes = components.map((component) => "    " + renderHtmlComponent(doc, component, section.bounds, visibleIds));
+  const layerNodes = sectionLayers(doc, section)
+    .filter((layer) => !componentLayerIds.has(layer.id))
+    .map((layer) => "    " + renderHtmlLayer(doc, layer, relativeBounds(layer.bounds, section.bounds)));
+  return "<section data-section-id=\\"" + escapeHtml(section.id) + "\\" style=\\"" + rectDeclarations(section.bounds).join(";") + "\\">\\n" +
+    [...componentNodes, ...layerNodes].join("\\n") + "\\n  </section>";
+}
+
+function renderHtmlPreview(doc) {
+  const background = escapeHtml(doc.canvas.background ?? "#ffffff");
+  const sectionLayerIds = new Set(visibleSections(doc).flatMap((section) => asArray(section.layerIds)));
+  const visibleIds = visibleLayerIds(doc);
+  const sections = visibleSections(doc).map((section) => renderHtmlSection(doc, section, visibleIds)).join("\\n    ");
+  const layers = visibleLayers(doc).filter((layer) => !sectionLayerIds.has(layer.id)).map((layer) => renderHtmlLayer(doc, layer)).join("\\n    ");
+  const body = [sections, layers].filter(Boolean).join("\\n    ");
+  const responsiveCss = renderResponsiveCss(doc);
+  const responsiveStyle = responsiveCss ? "\\n    <style>\\n" + responsiveCss.replace(/<\\/style/gi, "<\\\\/style") + "\\n    </style>" : "";
+  return "<!doctype html>\\n<html lang=\\"en\\">\\n  <head>\\n    <meta charset=\\"utf-8\\" />\\n    <title>" + escapeHtml(doc.metadata.name) + "</title>\\n    " +
+    responsiveStyle + "\\n  </head>\\n  <body style=\\"margin:0;background:" + background + ";\\">\\n    <main data-layerdoc=\\"" + doc.version + "\\" " +
+    dataAttributes(verificationDataAttributes(doc)) + " style=\\"position:relative;width:" + doc.canvas.width + "px;height:" + doc.canvas.height + "px;overflow:hidden;background:" + background + ";\\">\\n    " +
+    body + "\\n    </main>\\n  </body>\\n</html>";
+}
+
+function inlineStyle(bounds, style) {
+  const entries = ["left: " + bounds.x, "top: " + bounds.y, "width: " + bounds.width, "height: " + bounds.height];
+  if (style?.backgroundColor) entries.push("backgroundColor: " + JSON.stringify(style.backgroundColor));
+  if (style?.textColor) entries.push("color: " + JSON.stringify(style.textColor));
+  if (style?.borderColor) entries.push("borderColor: " + JSON.stringify(style.borderColor));
+  if (style?.borderRadius !== undefined) entries.push("borderRadius: " + style.borderRadius);
+  if (style?.fontFamily) entries.push("fontFamily: " + JSON.stringify(style.fontFamily));
+  if (style?.fontSize !== undefined) entries.push("fontSize: " + style.fontSize);
+  if (style?.fontWeight !== undefined) entries.push("fontWeight: " + style.fontWeight);
+  if (style?.lineHeight !== undefined) entries.push("lineHeight: " + JSON.stringify(style.lineHeight + "px"));
+  if (style?.letterSpacing !== undefined) entries.push("letterSpacing: " + JSON.stringify(style.letterSpacing + "px"));
+  if (style?.padding) entries.push("padding: " + JSON.stringify(paddingValue(style.padding)));
+  if (style?.gap !== undefined) entries.push("gap: " + style.gap);
+  if (style?.opacity !== undefined) entries.push("opacity: " + style.opacity);
+  return "{{ " + entries.join(", ") + " }}";
+}
+
+function reactInteractionAttributes(doc, layer) {
+  const interactions = interactionsForLayer(doc, layer.id);
+  if (interactions.length === 0) {
+    return "";
+  }
+  return " data-interaction-ids=\\"" + escapeHtml(interactions.map((interaction) => interaction.id).join(" ")) + "\\"" +
+    " data-interaction-events=\\"" + escapeHtml(interactions.map((interaction) => interaction.event).join(" ")) + "\\"" +
+    " data-interaction-actions=\\"" + escapeHtml(interactions.map((interaction) => interaction.action).join(" ")) + "\\"";
+}
+
+function renderReactLayer(doc, layer, bounds = layer.bounds) {
+  const baseProps = "data-layer-id=\\"" + escapeHtml(layer.id) + "\\" data-kind=\\"" + layer.kind + "\\" data-track=\\"" + layer.track + "\\"" + reactInteractionAttributes(doc, layer) + " className=\\"absolute\\" style=" + inlineStyle(bounds, layer.style);
+  if (layer.track === "asset") {
+    const asset = assetById(doc, layer.assetId);
+    return "<img " + baseProps + " src=\\"" + escapeHtml(asset?.uri ?? "") + "\\" alt=\\"" + escapeHtml(layer.content?.alt ?? "") + "\\" />";
+  }
+  const text = escapeText(layer.content?.text ?? "");
+  if (layer.kind === "button") {
+    return "<button " + baseProps + " type=\\"button\\">" + text + "</button>";
+  }
+  return "<div " + baseProps + ">" + text + "</div>";
+}
+
+function toPascalCase(value) {
+  const normalized = String(value).split(/[^A-Za-z0-9]+/).filter(Boolean).map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join("");
+  return normalized && /^[A-Z]/.test(normalized) ? normalized : "LayerDocComponent";
+}
+
+function componentFunctionName(component) {
+  return /^[A-Z][A-Za-z0-9]*$/.test(component.id) ? component.id : toPascalCase(component.id);
+}
+
+function renderReactComponent(doc, component, visibleIds) {
+  const layers = asArray(component.layerIds)
+    .map((layerId) => asArray(doc.layers).find((layer) => layer.id === layerId))
+    .filter((layer) => layer && visibleIds.has(layer.id));
+  if (layers.length === 0) {
+    return null;
+  }
+  const section = asArray(doc.sections).find((candidate) => candidate.id === layers[0].sectionId);
+  const origin = section?.bounds ?? { x: 0, y: 0, width: doc.canvas.width, height: doc.canvas.height };
+  const componentLayers = layers.map((layer) => "      " + renderReactLayer(doc, layer, relativeBounds(layer.bounds, origin))).join("\\n");
+  return "function " + componentFunctionName(component) + "() {\\n  return (\\n    <div data-component-id=\\"" + escapeHtml(component.id) + "\\" className=\\"absolute inset-0\\">\\n" +
+    componentLayers + "\\n    </div>\\n  );\\n}\\n";
+}
+
+function renderReactSection(doc, section, visibleIds) {
+  const components = sectionComponents(doc, section);
+  const componentLayerIds = new Set(components.flatMap((component) => asArray(component.layerIds).filter((layerId) => visibleIds.has(layerId))));
+  const componentCalls = components.map((component) => "        <" + componentFunctionName(component) + " />");
+  const layers = sectionLayers(doc, section)
+    .filter((layer) => !componentLayerIds.has(layer.id))
+    .map((layer) => "        " + renderReactLayer(doc, layer, relativeBounds(layer.bounds, section.bounds)));
+  return "      <section data-section-id=\\"" + escapeHtml(section.id) + "\\" className=\\"absolute\\" style=" + inlineStyle(section.bounds) + ">\\n" +
+    [...componentCalls, ...layers].join("\\n") + "\\n      </section>";
+}
+
+function jsxDataAttributes(attrs) {
+  return Object.entries(attrs).map(([name, value]) => " " + name + "=\\"" + escapeHtml(value) + "\\"").join("");
+}
+
+function exportReactTailwind(doc, componentName) {
+  const visibleIds = visibleLayerIds(doc);
+  const componentFunctions = asArray(doc.components)
+    .filter((component) => component.exportable && asArray(component.layerIds).some((layerId) => visibleIds.has(layerId)))
+    .map((component) => renderReactComponent(doc, component, visibleIds))
+    .filter(Boolean)
+    .join("\\n");
+  const sections = visibleSections(doc).map((section) => renderReactSection(doc, section, visibleIds)).join("\\n");
+  const sectionLayerIds = new Set(visibleSections(doc).flatMap((section) => asArray(section.layerIds)));
+  const orphanLayers = asArray(doc.layers).filter((layer) => !layer.sectionId && !sectionLayerIds.has(layer.id)).map((layer) => "      " + renderReactLayer(doc, layer)).join("\\n");
+  const responsiveCss = renderResponsiveCss(doc);
+  const tick = String.fromCharCode(96);
+  const responsiveStyle = responsiveCss ? "      <style>{" + tick + escapeText(responsiveCss) + tick + "}</style>" : "";
+  const body = [responsiveStyle, sections, orphanLayers].filter(Boolean).join("\\n");
+  return (componentFunctions ? componentFunctions + "\\n" : "") +
+    "export function " + componentName + "() {\\n  return (\\n    <main data-layerdoc-version=\\"" + doc.version + "\\"" + jsxDataAttributes(verificationDataAttributes(doc)) +
+    " className=\\"relative overflow-hidden\\" style={{ width: " + doc.canvas.width + ", height: " + doc.canvas.height + ", background: " + JSON.stringify(doc.canvas.background ?? "#ffffff") + " }}>\\n" +
+    body + "\\n    </main>\\n  );\\n}\\n";
+}
+
+function selectorForResponsiveTarget(doc, target) {
+  if (target?.type === "section") {
+    return selectorFor("data-section-id", target.id);
+  }
+  if (target?.type === "layer") {
+    return selectorFor("data-layer-id", target.id);
+  }
+  const component = asArray(doc.components).find((candidate) => candidate.id === target?.id);
+  return component?.exportable ? selectorFor("data-component-id", target.id) : null;
+}
+
+function createIntegrationContract(doc, componentName, componentFile, sourceHash) {
+  const sections = visibleSections(doc);
+  const layers = visibleLayers(doc);
+  const visibleSectionIds = new Set(sections.map((section) => section.id));
+  const visibleLayerIdSet = new Set(layers.map((layer) => layer.id));
+  const components = asArray(doc.components).filter((component) => asArray(component.layerIds).some((layerId) => visibleLayerIdSet.has(layerId)));
+  const visibleComponentIdSet = new Set(components.map((component) => component.id));
+  const responsiveRules = asArray(doc.responsive?.rules).filter((rule) => isVisibleTarget(rule.target, visibleSectionIds, visibleLayerIdSet, visibleComponentIdSet));
+  const sectionsById = new Map(asArray(doc.sections).map((section) => [section.id, section]));
+  const componentIdsByLayerId = new Map();
+  for (const component of components) {
+    for (const layerId of asArray(component.layerIds).filter((candidate) => visibleLayerIdSet.has(candidate))) {
+      componentIdsByLayerId.set(layerId, [...(componentIdsByLayerId.get(layerId) ?? []), component.id]);
+    }
+  }
+  return {
+    version: "0.1.0",
+    layerDoc: { file: "layerdoc.json", hash: sourceHash, schema: doc.schema, version: doc.version },
+    component: {
+      name: componentName,
+      file: "src/" + componentFile,
+      rootSelector: selectorFor("data-layerdoc-version", doc.version),
+      verificationAttributes: verificationDataAttributes(doc)
+    },
+    preview: {
+      file: "preview.html",
+      rootSelector: selectorFor("data-layerdoc", doc.version),
+      verificationAttributes: verificationDataAttributes(doc)
+    },
+    sections: sections.map((section) => ({
+      id: section.id,
+      name: section.name,
+      selector: selectorFor("data-section-id", section.id),
+      layerIds: [...asArray(section.layerIds)]
+    })),
+    layers: layers.map((layer) => ({
+      id: layer.id,
+      kind: layer.kind,
+      track: layer.track,
+      editable: layer.editable,
+      sectionId: layer.sectionId ?? null,
+      componentIds: componentIdsByLayerId.get(layer.id) ?? [],
+      assetId: layer.assetId ?? null,
+      selector: selectorFor("data-layer-id", layer.id),
+      interactionIds: asArray(doc.interactions).filter((interaction) => interaction.layerId === layer.id).map((interaction) => interaction.id)
+    })),
+    components: components.map((component) => ({
+      id: component.id,
+      exportable: component.exportable,
+      selector: component.exportable ? selectorFor("data-component-id", component.id) : null,
+      layerIds: asArray(component.layerIds).filter((layerId) => visibleLayerIdSet.has(layerId))
+    })),
+    assets: asArray(doc.assets).map((asset) => ({
+      id: asset.id,
+      type: asset.type,
+      source: asset.source,
+      uri: asset.uri ?? null,
+      usedByLayerIds: layers.filter((layer) => layer.assetId === asset.id).map((layer) => layer.id)
+    })),
+    interactions: asArray(doc.interactions).filter((interaction) => visibleLayerIdSet.has(interaction.layerId)).map((interaction) => ({
+      id: interaction.id,
+      layerId: interaction.layerId,
+      event: interaction.event,
+      action: interaction.action,
+      selector: selectorFor("data-layer-id", interaction.layerId)
+    })),
+    responsiveRules: responsiveRules.map((rule) => ({
+      id: rule.id,
+      query: rule.query,
+      target: { ...rule.target },
+      selector: selectorForResponsiveTarget(doc, rule.target),
+      changes: { ...rule.changes }
+    })),
+    generationRequests: asArray(doc.generation?.sectionRequests).map((request) => ({
+      id: request.id,
+      sectionId: request.sectionId,
+      prompt: request.prompt,
+      status: request.status,
+      requestedAt: request.requestedAt,
+      selector: visibleSectionIds.has(request.sectionId) ? selectorFor("data-section-id", request.sectionId) : null,
+      sectionVisible: sectionsById.get(request.sectionId)?.visible !== false
+    }))
+  };
+}
+
+function visualProblemSummaryFor(report) {
+  const areas = asArray(report.visualProblemAreas);
+  return {
+    total: areas.length,
+    affectedLayerIds: Array.from(new Set(areas.map((area) => area.affectedLayerId).filter(Boolean))),
+    unmapped: areas.filter((area) => !area.affectedLayerId).length,
+    areas
+  };
+}
+
+function updateHandoffSummary(handoff, manifest, contract, audit, report) {
+  return {
+    ...handoff,
+    sourceOfTruth: { file: "layerdoc.json", schemaFile: "layerdoc.schema.json", hash: manifest.layerDocHash },
+    entrypoint: {
+      component: contract.component.name,
+      file: contract.component.file,
+      rootSelector: contract.component.rootSelector
+    },
+    contract: {
+      file: manifest.integrationContract,
+      sections: contract.sections.length,
+      layers: contract.layers.length,
+      components: contract.components.length,
+      assets: contract.assets.filter((asset) => asArray(asset.usedByLayerIds).length > 0).length,
+      interactions: contract.interactions.length,
+      responsiveRules: contract.responsiveRules.length,
+      generationRequests: contract.generationRequests.length
+    },
+    sectionRegeneration: {
+      candidateSchemaFile: manifest.sectionCandidateSchema,
+      requestCount: contract.generationRequests.length
+    },
+    quality: {
+      ...handoff.quality,
+      scores: {
+        visual_similarity: report.visualSimilarity,
+        structure_score: report.structureScore,
+        component_score: report.componentScore,
+        project_fit_score: report.projectFitScore
+      },
+      visualEvidence: report.evidence.visual,
+      visualProblems: visualProblemSummaryFor(report),
+      referenceVisual: manifest.referenceVisual,
+      gatesFile: "quality-gates.json"
+    },
+    audit: {
+      file: "layerdoc-audit.json",
+      assetCompliancePassed: audit.assetCompliance.passed,
+      structureValid: audit.structure.valid,
+      editableCoverage: audit.editableCoverage
+    }
+  };
+}
+
+const options = parseArgs(process.argv.slice(2));
+const candidate = readInputJson(options.input);
+const currentLayerDoc = readProjectJson("../layerdoc.json");
+const manifest = readProjectJson("../manifest.json");
+const handoff = readProjectJson("../handoff-summary.json");
+const candidateFailures = validateCandidate(candidate, options.sectionId, currentLayerDoc);
+assertNoFailures(candidateFailures, "Section candidate validation");
+
+const appliedLayerDoc = applyCandidate(currentLayerDoc, options.sectionId, candidate);
+const report = createVerificationReport(appliedLayerDoc);
+const nextLayerDoc = layerDocWithReport(appliedLayerDoc, report);
+const layerDocFailures = validateLayerDoc(nextLayerDoc);
+assertNoFailures(layerDocFailures, "Applied LayerDoc validation");
+
+const nextHash = sha256(stableJson(nextLayerDoc));
+const audit = createLayerDocAudit(nextLayerDoc);
+const componentName = manifest.componentName;
+const componentFile = componentName + ".tsx";
+manifest.layerDocHash = nextHash;
+manifest.scores = report;
+manifest.audit = audit;
+
+const contract = createIntegrationContract(nextLayerDoc, componentName, componentFile, nextHash);
+const nextHandoff = updateHandoffSummary(handoff, manifest, contract, audit, report);
+
+writeProjectJson("../layerdoc.json", nextLayerDoc);
+writeProjectJson("../verification-report.json", report);
+writeProjectJson("../layerdoc-audit.json", audit);
+writeProjectJson("../manifest.json", manifest);
+writeProjectJson("../integration-contract.json", contract);
+writeProjectJson("../handoff-summary.json", nextHandoff);
+writeProjectText("../preview.html", renderHtmlPreview(nextLayerDoc));
+writeProjectText("../src/" + componentFile, exportReactTailwind(nextLayerDoc, componentName));
+
+process.stdout.write(JSON.stringify({
+  applied: true,
+  sectionId: options.sectionId,
+  requestId: candidate.requestId ?? null,
+  layerCount: asArray(candidate.layers).length,
+  layerDocHash: nextHash,
+  visualSimilarity: report.visualSimilarity,
+  filesWritten: [
+    "layerdoc.json",
+    "verification-report.json",
+    "layerdoc-audit.json",
+    "manifest.json",
+    "integration-contract.json",
+    "handoff-summary.json",
+    "preview.html",
+    "src/" + componentFile
+  ]
+}, null, 2) + "\\n");
 `;
 }
 
@@ -2736,6 +3866,7 @@ Run locally:
 - \`npm run verify:image-manifest\`
 - \`npm run verify:layerdoc\`
 - \`npm run verify:contract\`
+- \`npm run apply:section-candidate -- --section section-id --input path/to/section-candidate.json\`
 - \`npm run verify:section-candidate -- --input path/to/section-candidate.json\`
 - \`npm run verify:gates\`
 
@@ -2760,6 +3891,8 @@ Verification:
 - Run \`npm run verify:layerdoc\` after editing \`layerdoc.json\` to catch broken graph references before integration.
 - Run \`npm run verify:contract\` to confirm \`integration-contract.json\` still matches the LayerDoc source, project selectors, preview selectors, section order, layer bounds, layer style, layer copy, assets, responsive CSS, and interaction metadata.
 - Run \`npm run verify:section-candidate -- --input path/to/section-candidate.json\` before applying a reviewed regeneration result to confirm it matches \`${manifest.sectionCandidateSchema}\` and the current LayerDoc section graph.
+- Run \`npm run apply:section-candidate -- --section section-id --input path/to/section-candidate.json\` to apply a verified candidate into \`layerdoc.json\` and regenerate the project contract, handoff, preview, and React component from the updated LayerDoc.
+- Applying a candidate clears visual similarity evidence to \`Not captured\`; rerun \`npm run verify:preview\` with a fresh screenshot before enforcing gates.
 - Hidden sections remain editable in \`layerdoc.json\` but are intentionally omitted from rendered project, preview, and responsive CSS contract requirements.
 - Put the original target visual at \`${manifest.referenceVisual.file}\`.
 - Run \`npm run verify:gates\` after preview verification to enforce score thresholds and LayerDoc asset compliance.
@@ -2785,6 +3918,7 @@ function handoffCommands(): ProjectHandoffCommand[] {
     { label: "Verify Image Manifest artifacts", command: "npm run verify:image-manifest" },
     { label: "Verify LayerDoc source", command: "npm run verify:layerdoc" },
     { label: "Verify integration contract", command: "npm run verify:contract" },
+    { label: "Apply reviewed section candidate", command: "npm run apply:section-candidate" },
     { label: "Verify section candidate", command: "npm run verify:section-candidate" },
     { label: "Enforce quality gates", command: "npm run verify:gates" }
   ];
@@ -2896,6 +4030,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     "quality-gates.json",
     SECTION_CANDIDATE_SCHEMA_FILE,
     ...(options.referencePng ? [referenceVisual.file] : []),
+    "scripts/apply-section-candidate.mjs",
     "scripts/verify-analysis-plan.mjs",
     "scripts/verify-contract.mjs",
     "scripts/verify-gates.mjs",
@@ -2963,6 +4098,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
       { path: "quality-gates.json", contents: stableJson(defaultVerificationGates) },
       { path: SECTION_CANDIDATE_SCHEMA_FILE, contents: stableJson(createSectionRegenerationCandidateJsonSchema()) },
       ...(options.referencePng ? [{ path: referenceVisual.file, contents: options.referencePng }] : []),
+      { path: "scripts/apply-section-candidate.mjs", contents: sectionCandidateApplyScriptFor() },
       { path: "scripts/verify-analysis-plan.mjs", contents: analysisPlanVerifierScriptFor() },
       { path: "scripts/verify-contract.mjs", contents: contractVerifierScriptFor() },
       { path: "scripts/verify-gates.mjs", contents: qualityGateScriptFor() },

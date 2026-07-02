@@ -75,6 +75,7 @@ test("export project CLI writes a project package from a LayerDoc file", () => {
     "package.json",
     "preview.html",
     "quality-gates.json",
+    "scripts/apply-section-candidate.mjs",
     "scripts/verify-analysis-plan.mjs",
     "scripts/verify-contract.mjs",
     "scripts/verify-gates.mjs",
