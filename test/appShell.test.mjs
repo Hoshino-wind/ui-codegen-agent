@@ -173,6 +173,17 @@ test("app shell exposes quality gate status in the verifier surface", () => {
   assert.match(source, /Quality gate/);
 });
 
+test("app shell derives workflow state from real preview, export, and verifier data", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /workflowGateResult/);
+  assert.match(source, /editableLayerCount: workspace\.doc\.layers\.filter/);
+  assert.match(source, /previewReady: workspace\.previewHtml\.length > 0/);
+  assert.match(source, /visualSimilarity: workspace\.report\.visualSimilarity/);
+  assert.match(source, /structuralIssueCount: workspace\.report\.structureBreakdown\.structuralIssueCount/);
+  assert.match(source, /qualityGatePassed: workflowGateResult\.passed/);
+});
+
 test("app shell exposes project fit breakdown in the verifier surface", () => {
   const appSource = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
   const cssSource = readFileSync(join(rootDir, "src", "app", "styles.css"), "utf8");

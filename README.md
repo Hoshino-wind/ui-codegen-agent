@@ -172,6 +172,10 @@ The repository currently implements the core LayerDoc domain layer:
 - Validate that provenance during Studio import, package export verification,
   and LayerDoc checks so broken source-of-structure metadata cannot silently
   enter the production chain.
+- Derive the Studio workflow sidebar from real source, LayerDoc, editable-layer,
+  HTML preview, React export, visual evidence, and quality-gate state so the
+  console shows the first incomplete production stage instead of a static
+  progress list.
 
 The first target page type is an AI-generated marketing homepage with 8-15
 sections/layers.

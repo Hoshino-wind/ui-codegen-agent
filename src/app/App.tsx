@@ -1421,14 +1421,22 @@ export function App() {
   const [verifierReference, setVerifierReference] = useState<VerifierSnapshot | null>(null);
   const [verifierError, setVerifierError] = useState<string | null>(null);
   const referenceOverlaySrc = useMemo(() => createReferenceOverlayDataUrl(workspace.referencePng), [workspace.referencePng]);
+  const workflowGateResult = evaluateVerificationGates(workspace.report, {}, {
+    assetCompliance: workspace.audit.assetCompliance,
+    editableCoverage: workspace.audit.editableCoverage
+  });
   const workflow = createWorkflowSummary({
     sourceUri: intake.sourceImage.uri,
     intakeSectionCount: intake.analysisPlan.sections.length,
     intakeLayerCount: intake.layerCount,
     layerDocSectionCount: workspace.doc.sections.length,
     layerDocLayerCount: workspace.doc.layers.length,
+    editableLayerCount: workspace.doc.layers.filter((layer) => layer.editable).length,
+    previewReady: workspace.previewHtml.length > 0,
     exportFileName: workspace.reactExport.fileName,
-    issueCount: workspace.report.issues.length
+    visualSimilarity: workspace.report.visualSimilarity,
+    structuralIssueCount: workspace.report.structureBreakdown.structuralIssueCount,
+    qualityGatePassed: workflowGateResult.passed
   });
 
   function updateWorkspace(next: EditorWorkspace, message = "LayerDoc updated") {
