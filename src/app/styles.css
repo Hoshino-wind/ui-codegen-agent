@@ -1812,6 +1812,74 @@ button {
   color: #166534;
 }
 
+.project-fit-breakdown {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  background: #f0fdf4;
+}
+
+.project-fit-breakdown.blocked {
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+.project-fit-head,
+.project-fit-grid {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.project-fit-head {
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.project-fit-head span {
+  color: #166534;
+  font-size: 10px;
+  font-weight: 820;
+}
+
+.project-fit-breakdown.blocked .project-fit-head span {
+  color: #9a3412;
+}
+
+.project-fit-head strong {
+  color: #14532d;
+  font-size: 12px;
+  font-weight: 820;
+}
+
+.project-fit-breakdown.blocked .project-fit-head strong {
+  color: #7c2d12;
+}
+
+.project-fit-grid {
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.project-fit-grid span {
+  overflow: hidden;
+  padding: 4px 6px;
+  border-radius: 6px;
+  color: #14532d;
+  background: rgba(255, 255, 255, 0.78);
+  font-size: 10px;
+  font-weight: 740;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-fit-breakdown.blocked .project-fit-grid span {
+  color: #7c2d12;
+}
+
 .verifier-issue-list {
   display: grid;
   gap: 6px;

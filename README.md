@@ -143,7 +143,10 @@ The repository currently implements the core LayerDoc domain layer:
 - Report editable coverage at the visible-section level so reviewers can catch
   visual-only page regions even when the overall layer count looks healthy.
 - Compare reference and candidate PNG screenshots and write a pixel diff image.
-- Produce a verifier report with separate score dimensions.
+- Produce a verifier report with separate score dimensions and a
+  `projectFitBreakdown` explaining the project integration score from baseline,
+  exportable components, editable component layers, asset coverage, and bitmap
+  shortcut risk.
 - Write current verifier scores back into `LayerDoc.verification` so saved
   LayerDoc files carry quality state while screenshot evidence remains in the
   external verifier report.
@@ -409,6 +412,11 @@ structure_score     editable structure and reference integrity
 component_score     component grouping and exportability
 project_fit_score   readiness for target project integration
 ```
+
+`project_fit_score` is also emitted with `projectFitBreakdown` in
+`verification-report.json`, `handoff-summary.json`, and
+`production-manifest.json`, so downstream CI can see whether the score came from
+real exportable/editable structure or was held back by bitmap shortcut risk.
 
 Pixel similarity alone is not enough. A bitmap can look perfect while being a
 poor engineering asset.

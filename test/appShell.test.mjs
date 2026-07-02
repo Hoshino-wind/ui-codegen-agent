@@ -173,6 +173,18 @@ test("app shell exposes quality gate status in the verifier surface", () => {
   assert.match(source, /Quality gate/);
 });
 
+test("app shell exposes project fit breakdown in the verifier surface", () => {
+  const appSource = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+  const cssSource = readFileSync(join(rootDir, "src", "app", "styles.css"), "utf8");
+
+  assert.match(appSource, /projectFitBreakdown/);
+  assert.match(appSource, /Project fit/);
+  assert.match(appSource, /asset coverage/);
+  assert.match(appSource, /exportable/);
+  assert.match(appSource, /editable comp/);
+  assert.match(cssSource, /\.project-fit-breakdown/);
+});
+
 test("app shell exposes structural verifier issues in the verifier surface", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 

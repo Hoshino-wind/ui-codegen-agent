@@ -1251,6 +1251,7 @@ function VerifierStrip({
 }) {
   const visualDiff = workspace.report.visualDiff;
   const visualEvidence = workspace.report.evidence.visual;
+  const projectFitBreakdown = workspace.report.projectFitBreakdown;
   const candidateLabel = visualEvidence.kind === "layerdoc-raster" ? "LayerDoc raster fallback" : "HTML preview screenshot";
   const problemAreaAnnotations = createProblemAreaAnnotationsFromReport(workspace.report.visualProblemAreas, {
     scale: 1
@@ -1308,6 +1309,17 @@ function VerifierStrip({
           <span>Quality gate</span>
           <strong>{gateResult.passed ? "passed" : "blocked"}</strong>
           {gateResult.failures.length > 0 ? <small>{gateResult.failures.slice(0, 2).join(" / ")}</small> : null}
+        </div>
+        <div className={`project-fit-breakdown ${projectFitBreakdown.fullPageBitmapRisk ? "blocked" : "passed"}`}>
+          <div className="project-fit-head">
+            <span>Project fit</span>
+            <strong>{formatScore(projectFitBreakdown.finalScore)}</strong>
+          </div>
+          <div className="project-fit-grid">
+            <span>{Math.round(projectFitBreakdown.assetCoverageRatio * 100)}% asset coverage</span>
+            <span>{projectFitBreakdown.exportableComponents} exportable</span>
+            <span>{projectFitBreakdown.editableComponentLayers} editable comp</span>
+          </div>
         </div>
         <div className={`verifier-issue-list ${workspace.report.issues.length === 0 ? "passed" : "blocked"}`}>
           <div className="verifier-issue-head">

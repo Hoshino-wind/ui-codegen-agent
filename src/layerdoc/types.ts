@@ -290,4 +290,15 @@ export interface ProjectFitScore {
   projectFitScore: number;
   assetCoverageRatio: number;
   fullPageBitmapRisk: boolean;
+  baseScore: number;
+  exportableComponents: number;
+  editableComponentLayers: number;
+  contributions: Array<{
+    id: string;
+    label: string;
+    delta: number;
+    count?: number;
+    maximum?: number;
+    triggered?: boolean;
+  }>;
 }

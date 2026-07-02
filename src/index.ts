@@ -109,6 +109,7 @@ export type {
 export type {
   VerificationEvidence,
   VerificationInput,
+  VerificationProjectFitBreakdown,
   VerificationReport,
   VerificationVisualEvidence,
   VerificationVisualEvidenceKind,

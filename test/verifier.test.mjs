@@ -43,6 +43,41 @@ test("createVerificationReport separates visual, structure, component, and proje
   assert.equal(report.structureScore, 100);
   assert.equal(report.componentScore, 100);
   assert.equal(report.projectFitScore, 75);
+  assert.deepEqual(report.projectFitBreakdown, {
+    baseScore: 50,
+    finalScore: 75,
+    assetCoverageRatio: 0.04,
+    fullPageBitmapRisk: false,
+    exportableComponents: 1,
+    editableComponentLayers: 2,
+    contributions: [
+      {
+        id: "base",
+        label: "LayerDoc project-ready baseline",
+        delta: 50
+      },
+      {
+        id: "exportable-components",
+        label: "Exportable components",
+        delta: 15,
+        count: 1,
+        maximum: 30
+      },
+      {
+        id: "editable-component-layers",
+        label: "Editable component layers",
+        delta: 10,
+        count: 2,
+        maximum: 10
+      },
+      {
+        id: "full-page-bitmap-risk",
+        label: "Full-page bitmap risk",
+        delta: 0,
+        triggered: false
+      }
+    ]
+  });
   assert.equal(report.evidence.visual.kind, "none");
   assert.deepEqual(report.issues, []);
 });

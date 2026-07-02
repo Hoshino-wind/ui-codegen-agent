@@ -514,6 +514,16 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.deepEqual(productionManifestSchema.properties.sourceOfTruth.required, ["type", "file", "schemaFile", "hash", "editable"]);
   assert.deepEqual(productionManifestSchema.properties.generated.required, ["react", "preview", "contract", "assets"]);
   assert.equal(productionManifestSchema.properties.quality.properties.scores.required.includes("visual_similarity"), true);
+  assert.equal(productionManifestSchema.properties.quality.required.includes("projectFitBreakdown"), true);
+  assert.deepEqual(productionManifestSchema.properties.quality.properties.projectFitBreakdown.required, [
+    "baseScore",
+    "finalScore",
+    "assetCoverageRatio",
+    "fullPageBitmapRisk",
+    "exportableComponents",
+    "editableComponentLayers",
+    "contributions"
+  ]);
   assert.deepEqual(productionManifestSchema.properties.runbooks.required, ["backtest", "ci"]);
   assert.equal(productionManifestSchema.properties.integrationSteps.items.required.includes("command"), true);
   assert.equal(productionManifest.role, "project_integration_manifest");
@@ -567,6 +577,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     component_score: output.manifest.scores.componentScore,
     project_fit_score: output.manifest.scores.projectFitScore
   });
+  assert.deepEqual(productionManifest.quality.projectFitBreakdown, output.manifest.scores.projectFitBreakdown);
   assert.deepEqual(productionManifest.runbooks.backtest, {
     file: "backtest-runbook.json",
     kind: "studio_backtest_runbook"
@@ -801,6 +812,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     component_score: output.manifest.scores.componentScore,
     project_fit_score: output.manifest.scores.projectFitScore
   });
+  assert.deepEqual(handoffSummary.quality.projectFitBreakdown, output.manifest.scores.projectFitBreakdown);
   assert.equal(handoffSummary.quality.visualEvidence.kind, "none");
   assert.deepEqual(handoffSummary.quality.visualProblems, {
     total: 0,

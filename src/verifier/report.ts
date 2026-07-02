@@ -1,6 +1,6 @@
 import { scoreProjectFit } from "../layerdoc/scoring.js";
 import { validateLayerDoc } from "../layerdoc/validation.js";
-import type { LayerDoc, LayerNode, Rect, VerificationIssue, VerificationVisualProblemArea } from "../layerdoc/types.js";
+import type { LayerDoc, LayerNode, ProjectFitScore, Rect, VerificationIssue, VerificationVisualProblemArea } from "../layerdoc/types.js";
 import type { PngSnapshotComparisonResult } from "./visualDiff.js";
 
 export interface VerificationInput {
@@ -21,6 +21,16 @@ export interface VerificationEvidence {
   visual: VerificationVisualEvidence;
 }
 
+export interface VerificationProjectFitBreakdown {
+  baseScore: number;
+  finalScore: number;
+  assetCoverageRatio: number;
+  fullPageBitmapRisk: boolean;
+  exportableComponents: number;
+  editableComponentLayers: number;
+  contributions: ProjectFitScore["contributions"];
+}
+
 export interface VerificationReport {
   visualSimilarity: number | null;
   visualDiff: PngSnapshotComparisonResult | null;
@@ -29,6 +39,7 @@ export interface VerificationReport {
   structureScore: number;
   componentScore: number;
   projectFitScore: number;
+  projectFitBreakdown: VerificationProjectFitBreakdown;
   issues: VerificationIssue[];
 }
 
@@ -149,6 +160,18 @@ function visualProblemAreasFor(doc: LayerDoc, visualDiff: PngSnapshotComparisonR
   });
 }
 
+function projectFitBreakdownFor(projectFit: ProjectFitScore): VerificationProjectFitBreakdown {
+  return {
+    baseScore: projectFit.baseScore,
+    finalScore: projectFit.projectFitScore,
+    assetCoverageRatio: projectFit.assetCoverageRatio,
+    fullPageBitmapRisk: projectFit.fullPageBitmapRisk,
+    exportableComponents: projectFit.exportableComponents,
+    editableComponentLayers: projectFit.editableComponentLayers,
+    contributions: projectFit.contributions.map((contribution) => ({ ...contribution }))
+  };
+}
+
 /**
  * Combine verifier dimensions without pretending they measure the same thing.
  * Pixel similarity comes from screenshots; structure and component scores come
@@ -169,6 +192,7 @@ export function createVerificationReport(doc: LayerDoc, input: VerificationInput
     structureScore: structureScore(doc, validation.issues),
     componentScore: componentScore(doc),
     projectFitScore: projectFit.projectFitScore,
+    projectFitBreakdown: projectFitBreakdownFor(projectFit),
     issues: validation.issues
   };
 }
