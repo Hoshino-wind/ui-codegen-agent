@@ -38,6 +38,7 @@ export interface ProjectExportManifest {
   integrationContract: string;
   handoffSummary: string;
   productionManifest: string;
+  productionManifestSchema: string;
   assetIndex: string;
   sectionCandidateSchema: string;
   referenceVisual: ProjectReferenceVisual;
@@ -328,6 +329,7 @@ const PROJECT_VERIFY_CHAIN =
 const ASSET_INDEX_FILE = "asset-index.json";
 const SECTION_CANDIDATE_SCHEMA_FILE = "section-candidate.schema.json";
 const PRODUCTION_MANIFEST_FILE = "production-manifest.json";
+const PRODUCTION_MANIFEST_SCHEMA_FILE = "production-manifest.schema.json";
 
 function toKebabCase(value: string): string {
   return value
@@ -721,6 +723,154 @@ function referenceVisualFor(sourceImage: LayerDoc["metadata"]["sourceImage"]): P
   };
 }
 
+function createProductionManifestJsonSchema(): Record<string, unknown> {
+  const scoreProperties = {
+    visual_similarity: { type: ["number", "null"], minimum: 0, maximum: 100 },
+    structure_score: { type: "number", minimum: 0, maximum: 100 },
+    component_score: { type: "number", minimum: 0, maximum: 100 },
+    project_fit_score: { type: "number", minimum: 0, maximum: 100 }
+  };
+
+  const commandProperties = {
+    full: { const: "npm run verify" },
+    preview: { const: "npm run verify:preview" },
+    gates: { const: "npm run verify:gates" }
+  };
+
+  return {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    title: "ProjectProductionManifest 0.1.0",
+    type: "object",
+    additionalProperties: false,
+    required: ["version", "system", "role", "sourceOfTruth", "generated", "quality", "regeneration", "integrationSteps"],
+    properties: {
+      version: { const: "0.1.0" },
+      system: { const: "AI UI Production System" },
+      role: { const: "project_integration_manifest" },
+      sourceOfTruth: {
+        type: "object",
+        additionalProperties: false,
+        required: ["type", "file", "schemaFile", "hash", "editable"],
+        properties: {
+          type: { const: "LayerDoc" },
+          file: { const: "layerdoc.json" },
+          schemaFile: { const: "layerdoc.schema.json" },
+          hash: { type: "string", pattern: "^sha256:[a-f0-9]{64}$" },
+          editable: { const: true }
+        }
+      },
+      intake: {
+        type: "object",
+        additionalProperties: true
+      },
+      generated: {
+        type: "object",
+        additionalProperties: false,
+        required: ["react", "preview", "contract", "assets"],
+        properties: {
+          react: {
+            type: "object",
+            additionalProperties: false,
+            required: ["component", "file", "rootSelector", "styling"],
+            properties: {
+              component: { type: "string", minLength: 1 },
+              file: { type: "string", minLength: 1 },
+              rootSelector: { type: "string", minLength: 1 },
+              styling: { const: "tailwind" }
+            }
+          },
+          preview: {
+            type: "object",
+            additionalProperties: false,
+            required: ["file", "rootSelector", "verifierCommand"],
+            properties: {
+              file: { const: "preview.html" },
+              rootSelector: { type: "string", minLength: 1 },
+              verifierCommand: { const: "npm run verify:preview" }
+            }
+          },
+          contract: {
+            type: "object",
+            additionalProperties: false,
+            required: ["file", "verifierCommand", "sections", "layers", "components", "assets", "interactions", "responsiveRules"],
+            properties: {
+              file: { const: "integration-contract.json" },
+              verifierCommand: { const: "npm run verify:contract" },
+              sections: { type: "integer", minimum: 0 },
+              layers: { type: "integer", minimum: 0 },
+              components: { type: "integer", minimum: 0 },
+              assets: { type: "integer", minimum: 0 },
+              interactions: { type: "integer", minimum: 0 },
+              responsiveRules: { type: "integer", minimum: 0 }
+            }
+          },
+          assets: {
+            type: "object",
+            additionalProperties: true,
+            required: ["file", "total", "used", "visibleInProject", "bySource", "byType"],
+            properties: {
+              file: { const: ASSET_INDEX_FILE },
+              total: { type: "integer", minimum: 0 },
+              used: { type: "integer", minimum: 0 },
+              visibleInProject: { type: "integer", minimum: 0 },
+              bySource: { type: "object" },
+              byType: { type: "object" }
+            }
+          }
+        }
+      },
+      quality: {
+        type: "object",
+        additionalProperties: true,
+        required: ["reportFile", "gatesFile", "scores", "visualEvidence", "commands"],
+        properties: {
+          reportFile: { const: "verification-report.json" },
+          gatesFile: { const: "quality-gates.json" },
+          scores: {
+            type: "object",
+            additionalProperties: false,
+            required: ["visual_similarity", "structure_score", "component_score", "project_fit_score"],
+            properties: scoreProperties
+          },
+          visualEvidence: { type: "object" },
+          commands: {
+            type: "object",
+            additionalProperties: false,
+            required: ["full", "preview", "gates"],
+            properties: commandProperties
+          }
+        }
+      },
+      regeneration: {
+        type: "object",
+        additionalProperties: true,
+        required: ["candidateSchemaFile", "requestCount", "applicationCount", "commands"],
+        properties: {
+          candidateSchemaFile: { const: SECTION_CANDIDATE_SCHEMA_FILE },
+          requestCount: { type: "integer", minimum: 0 },
+          applicationCount: { type: "integer", minimum: 0 },
+          commands: { type: "object" }
+        }
+      },
+      integrationSteps: {
+        type: "array",
+        minItems: 1,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["id", "label", "command", "required"],
+          properties: {
+            id: { type: "string", minLength: 1 },
+            label: { type: "string", minLength: 1 },
+            command: { type: "string", minLength: 1 },
+            required: { type: "boolean" }
+          }
+        }
+      }
+    }
+  };
+}
+
 function qualityGateScriptFor(): string {
   return `import { readFileSync } from "node:fs";
 
@@ -894,11 +1044,14 @@ const assetIndexPath = manifest.assetIndex ?? "${ASSET_INDEX_FILE}";
 const assetIndex = fileExists(assetIndexPath) ? readJson("../" + assetIndexPath) : null;
 const productionManifestPath = manifest.productionManifest ?? "${PRODUCTION_MANIFEST_FILE}";
 const productionManifest = fileExists(productionManifestPath) ? readJson("../" + productionManifestPath) : null;
+const productionManifestSchemaPath = manifest.productionManifestSchema ?? "${PRODUCTION_MANIFEST_SCHEMA_FILE}";
+const productionManifestSchema = fileExists(productionManifestSchemaPath) ? readJson("../" + productionManifestSchemaPath) : null;
 const expectedAssetIndex = expectedAssetIndexFrom(layerDoc, contract, manifest);
 const expectedAssetIndexSummary = {
   file: assetIndexPath,
   ...expectedAssetIndex.summary
 };
+const expectedProductionManifestSchema = ${stableJson(createProductionManifestJsonSchema())};
 const expectedProductionManifest = {
   version: "0.1.0",
   system: "AI UI Production System",
@@ -983,6 +1136,7 @@ pushIf(manifest.source !== "layerdoc", failures, "manifest_source_invalid", "man
 pushIf(manifest.handoffSummary !== "handoff-summary.json", failures, "manifest_handoff_file_mismatch", "manifest.json handoffSummary must be handoff-summary.json.");
 pushIf(manifest.assetIndex !== "${ASSET_INDEX_FILE}", failures, "manifest_asset_index_mismatch", "manifest.json assetIndex must be ${ASSET_INDEX_FILE}.");
 pushIf(manifest.productionManifest !== "${PRODUCTION_MANIFEST_FILE}", failures, "manifest_production_manifest_mismatch", "manifest.json productionManifest must be ${PRODUCTION_MANIFEST_FILE}.");
+pushIf(manifest.productionManifestSchema !== "${PRODUCTION_MANIFEST_SCHEMA_FILE}", failures, "manifest_production_manifest_schema_mismatch", "manifest.json productionManifestSchema must be ${PRODUCTION_MANIFEST_SCHEMA_FILE}.");
 pushIf(manifest.sectionCandidateSchema !== "${SECTION_CANDIDATE_SCHEMA_FILE}", failures, "manifest_section_candidate_schema_mismatch", "manifest.json sectionCandidateSchema must be ${SECTION_CANDIDATE_SCHEMA_FILE}.");
 pushIf(handoff.source !== "layerdoc", failures, "handoff_source_invalid", "handoff-summary.json source must be layerdoc.");
 pushIf(handoff.positioning !== "AI UI Production System", failures, "handoff_positioning_invalid", "handoff-summary.json positioning must identify the AI UI Production System.");
@@ -992,8 +1146,10 @@ pushIf(handoff.sourceOfTruth?.hash !== actualLayerDocHash, failures, "handoff_so
 pushIf(manifest.layerDocHash !== actualLayerDocHash, failures, "manifest_layerdoc_hash_mismatch", "manifest.json layerDocHash must match the current layerdoc.json hash.");
 pushIf(!manifestFiles.includes("${ASSET_INDEX_FILE}"), failures, "asset_index_not_listed", "manifest.json files must include ${ASSET_INDEX_FILE}.");
 pushIf(!manifestFiles.includes("${PRODUCTION_MANIFEST_FILE}"), failures, "production_manifest_not_listed", "manifest.json files must include ${PRODUCTION_MANIFEST_FILE}.");
+pushIf(!manifestFiles.includes("${PRODUCTION_MANIFEST_SCHEMA_FILE}"), failures, "production_manifest_schema_not_listed", "manifest.json files must include ${PRODUCTION_MANIFEST_SCHEMA_FILE}.");
 pushIf(!fileExists(assetIndexPath), failures, "asset_index_missing", "manifest.json assetIndex must point at an existing file.");
 pushIf(!fileExists(productionManifestPath), failures, "production_manifest_missing", "manifest.json productionManifest must point at an existing file.");
+pushIf(!fileExists(productionManifestSchemaPath), failures, "production_manifest_schema_missing", "manifest.json productionManifestSchema must point at an existing file.");
 pushIf(!fileExists(manifest.sectionCandidateSchema), failures, "section_candidate_schema_missing", "manifest.json sectionCandidateSchema must point at an existing file.");
 
 pushIf(!manifestFiles.includes("scripts/verify-handoff.mjs"), failures, "handoff_verifier_not_listed", "manifest.json files must include scripts/verify-handoff.mjs.");
@@ -1031,6 +1187,7 @@ pushIf(handoff.sectionRegeneration?.applicationCount !== (contract.generationApp
 pushIf(stableJson(assetIndex) !== stableJson(expectedAssetIndex), failures, "asset_index_mismatch", "asset-index.json does not match LayerDoc and integration-contract assets. Expected " + stableJson(expectedAssetIndex) + " Received " + stableJson(assetIndex));
 pushIf(stableJson(handoff.assetIndex) !== stableJson(expectedAssetIndexSummary), failures, "handoff_asset_index_mismatch", "handoff-summary.json assetIndex must summarize asset-index.json.");
 pushIf(stableJson(productionManifest) !== stableJson(expectedProductionManifest), failures, "production_manifest_mismatch", "production-manifest.json must match LayerDoc, integration contract, asset index, quality report, and handoff metadata. Expected " + stableJson(expectedProductionManifest) + " Received " + stableJson(productionManifest));
+pushIf(stableJson(productionManifestSchema) !== stableJson(expectedProductionManifestSchema), failures, "production_manifest_schema_mismatch", "production-manifest.schema.json must match the exported ProjectProductionManifest contract. Expected " + stableJson(expectedProductionManifestSchema) + " Received " + stableJson(productionManifestSchema));
 
 pushIf(handoff.quality?.referenceVisual?.file !== manifest.referenceVisual?.file, failures, "handoff_reference_visual_mismatch", "handoff reference visual must match manifest referenceVisual.");
 pushIf(handoff.quality?.gatesFile !== "quality-gates.json", failures, "handoff_gates_file_mismatch", "handoff quality gatesFile must be quality-gates.json.");
@@ -4663,6 +4820,7 @@ Generated assets:
 - \`src/${manifest.componentName}.tsx\`: React + Tailwind component export
 - \`preview.html\`: deterministic HTML verification preview
 - \`${manifest.productionManifest}\`: recommended integration entrypoint for downstream projects, tying LayerDoc, generated React, preview, contract, assets, quality gates, and regeneration commands together
+- \`${manifest.productionManifestSchema}\`: JSON Schema for validating the production manifest before project ingestion
 - \`handoff-summary.json\`: machine-readable integration summary for CI, importers, and downstream project handoff
 - \`integration-contract.json\`: stable mapping from visible LayerDoc objects to project files and DOM selectors
 - \`${manifest.assetIndex}\`: machine-readable asset inventory with source, usage, visible-project, section, component, and selector mapping
@@ -4907,6 +5065,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     "package.json",
     "preview.html",
     PRODUCTION_MANIFEST_FILE,
+    PRODUCTION_MANIFEST_SCHEMA_FILE,
     "quality-gates.json",
     SECTION_CANDIDATE_SCHEMA_FILE,
     ...(options.referencePng ? [referenceVisual.file] : []),
@@ -4936,6 +5095,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     integrationContract: "integration-contract.json",
     handoffSummary: "handoff-summary.json",
     productionManifest: PRODUCTION_MANIFEST_FILE,
+    productionManifestSchema: PRODUCTION_MANIFEST_SCHEMA_FILE,
     assetIndex: ASSET_INDEX_FILE,
     sectionCandidateSchema: SECTION_CANDIDATE_SCHEMA_FILE,
     referenceVisual,
@@ -4983,6 +5143,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
       { path: "package.json", contents: packageJsonFor(manifest) },
       { path: "preview.html", contents: renderHtmlPreview(sourceDoc) },
       { path: PRODUCTION_MANIFEST_FILE, contents: stableJson(productionManifest) },
+      { path: PRODUCTION_MANIFEST_SCHEMA_FILE, contents: stableJson(createProductionManifestJsonSchema()) },
       { path: "quality-gates.json", contents: stableJson(defaultVerificationGates) },
       { path: SECTION_CANDIDATE_SCHEMA_FILE, contents: stableJson(createSectionRegenerationCandidateJsonSchema()) },
       ...(options.referencePng ? [{ path: referenceVisual.file, contents: options.referencePng }] : []),

@@ -112,6 +112,8 @@ The repository currently implements the core LayerDoc domain layer:
   entrypoint, tying the editable LayerDoc source, generated React component,
   HTML preview, integration contract, asset index, quality gates, and section
   regeneration commands into one stable file.
+- Export `production-manifest.schema.json` so downstream importers and CI can
+  validate that project integration entrypoint before ingesting generated UI.
 - Export an `asset-index.json` that inventories LayerDoc assets by source/type,
   usage, visible-project inclusion, section/component ownership, and DOM
   selectors so downstream project importers can wire media without reverse

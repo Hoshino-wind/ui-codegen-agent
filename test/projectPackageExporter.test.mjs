@@ -390,6 +390,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.equal(output.manifest.integrationContract, "integration-contract.json");
   assert.equal(output.manifest.handoffSummary, "handoff-summary.json");
   assert.equal(output.manifest.productionManifest, "production-manifest.json");
+  assert.equal(output.manifest.productionManifestSchema, "production-manifest.schema.json");
   assert.equal(output.manifest.sectionCandidateSchema, "section-candidate.schema.json");
   assert.equal(output.manifest.assetIndex, "asset-index.json");
   assert.deepEqual(output.manifest.referenceVisual, {
@@ -422,6 +423,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     "package.json",
     "preview.html",
     "production-manifest.json",
+    "production-manifest.schema.json",
     "quality-gates.json",
     "section-candidate.schema.json",
     "scripts/verify-analysis-plan.mjs",
@@ -470,13 +472,31 @@ test("createProjectExportPackage returns project-ready files derived from one La
   const contract = JSON.parse(output.files.find((file) => file.path === "integration-contract.json").contents);
   const manifest = JSON.parse(output.files.find((file) => file.path === "manifest.json").contents);
   const productionManifest = JSON.parse(output.files.find((file) => file.path === "production-manifest.json").contents);
+  const productionManifestSchema = JSON.parse(output.files.find((file) => file.path === "production-manifest.schema.json").contents);
   const assetIndex = JSON.parse(output.files.find((file) => file.path === "asset-index.json").contents);
   const exportedLayerDoc = JSON.parse(output.files.find((file) => file.path === "layerdoc.json").contents);
   assert.deepEqual(manifest.referenceVisual, output.manifest.referenceVisual);
   assert.deepEqual(manifest.analysisPlan, output.manifest.analysisPlan);
   assert.deepEqual(manifest.analysisPlanAudit, output.manifest.analysisPlanAudit);
   assert.equal(manifest.productionManifest, output.manifest.productionManifest);
+  assert.equal(manifest.productionManifestSchema, output.manifest.productionManifestSchema);
   assert.equal(manifest.assetIndex, output.manifest.assetIndex);
+  assert.equal(productionManifestSchema.title, "ProjectProductionManifest 0.1.0");
+  assert.deepEqual(productionManifestSchema.required, [
+    "version",
+    "system",
+    "role",
+    "sourceOfTruth",
+    "generated",
+    "quality",
+    "regeneration",
+    "integrationSteps"
+  ]);
+  assert.equal(productionManifestSchema.properties.role.const, "project_integration_manifest");
+  assert.deepEqual(productionManifestSchema.properties.sourceOfTruth.required, ["type", "file", "schemaFile", "hash", "editable"]);
+  assert.deepEqual(productionManifestSchema.properties.generated.required, ["react", "preview", "contract", "assets"]);
+  assert.equal(productionManifestSchema.properties.quality.properties.scores.required.includes("visual_similarity"), true);
+  assert.equal(productionManifestSchema.properties.integrationSteps.items.required.includes("command"), true);
   assert.equal(productionManifest.role, "project_integration_manifest");
   assert.deepEqual(productionManifest.sourceOfTruth, {
     type: "LayerDoc",
@@ -765,6 +785,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:section-application/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /manifest reference visual/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /production-manifest\.json/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /production-manifest\.schema\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /recommended integration entrypoint/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /handoff-summary\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /asset-index\.json/);
@@ -845,6 +866,7 @@ test("writeProjectExportPackage writes every package file under the target direc
   assert.equal(existsSync(join(directory, "integration-contract.json")), true);
   assert.equal(existsSync(join(directory, "asset-index.json")), true);
   assert.equal(existsSync(join(directory, "production-manifest.json")), true);
+  assert.equal(existsSync(join(directory, "production-manifest.schema.json")), true);
   assert.equal(existsSync(join(directory, "handoff-summary.json")), true);
   assert.equal(existsSync(join(directory, "analysis-plan.schema.json")), true);
   assert.equal(existsSync(join(directory, "analysis-plan-audit.json")), true);
@@ -900,6 +922,23 @@ test("exported handoff verifier checks the production manifest against project h
   assert.match(failed.stdout, /production_manifest_mismatch/);
   assert.match(failed.stdout, /production-manifest\.json/);
   assert.match(failed.stdout, /src\/ProductionHomepage\.tsx/);
+});
+
+test("exported handoff verifier checks the production manifest schema contract", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-production-manifest-schema-verifier-"));
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const schemaPath = join(directory, "production-manifest.schema.json");
+  const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
+  schema.properties.role.const = "stale_manifest_role";
+  writeFileSync(schemaPath, `${JSON.stringify(schema, null, 2)}\n`);
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-handoff.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /production_manifest_schema_mismatch/);
+  assert.match(failed.stdout, /production-manifest\.schema\.json/);
+  assert.match(failed.stdout, /project_integration_manifest/);
 });
 
 test("createProjectExportPackage can include the visual reference PNG as a binary file", () => {

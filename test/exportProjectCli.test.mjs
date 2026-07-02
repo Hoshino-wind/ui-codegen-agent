@@ -76,6 +76,7 @@ test("export project CLI writes a project package from a LayerDoc file", () => {
     "package.json",
     "preview.html",
     "production-manifest.json",
+    "production-manifest.schema.json",
     "quality-gates.json",
     "scripts/apply-section-candidate.mjs",
     "scripts/verify-analysis-plan.mjs",
@@ -110,6 +111,7 @@ test("export project CLI writes a project package from a LayerDoc file", () => {
   assert.equal(existsSync(join(outputDir, "asset-index.json")), true);
   assert.equal(existsSync(join(outputDir, "handoff-summary.json")), true);
   assert.equal(existsSync(join(outputDir, "production-manifest.json")), true);
+  assert.equal(existsSync(join(outputDir, "production-manifest.schema.json")), true);
   assert.equal(existsSync(join(outputDir, "integration-contract.json")), true);
   assert.equal(existsSync(join(outputDir, "layerdoc-audit.json")), true);
   assert.equal(existsSync(join(outputDir, "layerdoc.schema.json")), true);
@@ -126,6 +128,7 @@ test("export project CLI writes a project package from a LayerDoc file", () => {
   assert.match(readFileSync(join(outputDir, "package.json"), "utf8"), /"verify:gates"/);
   assert.match(readFileSync(join(outputDir, "package.json"), "utf8"), /"verify:layerdoc"/);
   assert.match(readFileSync(join(outputDir, "production-manifest.json"), "utf8"), /"role": "project_integration_manifest"/);
+  assert.match(readFileSync(join(outputDir, "production-manifest.schema.json"), "utf8"), /"title": "ProjectProductionManifest 0.1.0"/);
   assert.match(readFileSync(join(outputDir, "handoff-summary.json"), "utf8"), /"positioning": "AI UI Production System"/);
   assert.match(readFileSync(join(outputDir, "layerdoc-audit.json"), "utf8"), /"assetCompliance"/);
   assert.match(readFileSync(join(outputDir, "layerdoc.schema.json"), "utf8"), /"const": "layerdoc"/);
