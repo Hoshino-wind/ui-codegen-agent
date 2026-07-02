@@ -194,6 +194,19 @@ export function createProjectPackageZipDownload(workspace: EditorWorkspace): Lay
   };
 }
 
+export function createBacktestHandoffDownload(workspace: EditorWorkspace): LayerDocDownloadArtifact {
+  const handoff = workspace.projectExport.files.find((file) => file.path === workspace.projectExport.manifest.handoffSummary);
+  if (!handoff || typeof handoff.contents !== "string") {
+    throw new Error("Project package does not contain a text handoff summary.");
+  }
+
+  return {
+    fileName: workspace.projectExport.manifest.handoffSummary,
+    mimeType: "application/json",
+    contents: handoff.contents
+  };
+}
+
 export function createVerificationReportDownload(workspace: EditorWorkspace): LayerDocDownloadArtifact {
   return {
     fileName: "verification-report.json",

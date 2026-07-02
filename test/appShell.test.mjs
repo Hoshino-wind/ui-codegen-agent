@@ -73,6 +73,9 @@ test("app shell exposes project backtest handoff commands", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 
   assert.match(source, /Backtest Handoff/);
+  assert.match(source, /Save Backtest/);
+  assert.match(source, /createBacktestHandoffDownload/);
+  assert.match(source, /saveBacktestHandoffFile/);
   assert.match(source, /npm run pipeline:homepage --/);
   assert.match(source, /--verify-project/);
   assert.match(source, /npm run materialize:project --/);

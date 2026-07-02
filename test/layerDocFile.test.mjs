@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   createAnalysisTaskPackageDownload,
   createAnalysisPlanDownload,
+  createBacktestHandoffDownload,
   createLayerDocDownload,
   createProjectPackageDownload,
   createProjectPackageZipDownload,
@@ -295,6 +296,22 @@ test("createProjectPackageDownload serializes every project package file in one 
   assert.match(payload.files.find((file) => file.path === "src/ProductionHomepage.tsx").contents, /export function ProductionHomepage/);
   assert.match(payload.files.find((file) => file.path === "preview.html").contents, /data-layerdoc/);
   assert.match(payload.files.find((file) => file.path === "layerdoc.json").contents, /"schema": "layerdoc"/);
+  assert.equal(artifact.contents.endsWith("\n"), true);
+});
+
+test("createBacktestHandoffDownload exposes the project handoff summary as a direct Studio artifact", () => {
+  const workspace = createWorkspaceFromLayerDocJson(JSON.stringify(createSampleHomepageLayerDoc()));
+  const artifact = createBacktestHandoffDownload(workspace);
+  const payload = JSON.parse(artifact.contents);
+
+  assert.equal(artifact.fileName, "handoff-summary.json");
+  assert.equal(artifact.mimeType, "application/json");
+  assert.equal(payload.positioning, "AI UI Production System");
+  assert.equal(payload.source, "layerdoc");
+  assert.equal(payload.sourceOfTruth.file, "layerdoc.json");
+  assert.equal(payload.quality.referenceVisual.file, "reference.png");
+  assert.equal(Array.isArray(payload.commands), true);
+  assert.equal(payload.commands.some((entry) => /verify:preview/.test(entry.command)), true);
   assert.equal(artifact.contents.endsWith("\n"), true);
 });
 

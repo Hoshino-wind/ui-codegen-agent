@@ -57,6 +57,7 @@ import {
 import {
   createAnalysisTaskPackageDownload,
   createAnalysisPlanDownload,
+  createBacktestHandoffDownload,
   createLayerDocDownload,
   createProjectPackageDownload,
   createProjectPackageZipDownload,
@@ -876,10 +877,12 @@ function SectionOrder({
 
 function ProjectExportPanel({
   workspace,
+  onDownloadBacktest,
   onDownload,
   onDownloadZip
 }: {
   workspace: EditorWorkspace;
+  onDownloadBacktest: () => void;
   onDownload: () => void;
   onDownloadZip: () => void;
 }) {
@@ -920,6 +923,10 @@ function ProjectExportPanel({
           <span>Backtest Handoff</span>
           <strong>project.verification</strong>
         </div>
+        <button className="export-package-download" type="button" onClick={onDownloadBacktest}>
+          <Download size={13} />
+          Save Backtest
+        </button>
         <code>{pipelineBacktestCommand}</code>
         <code>{materializeBacktestCommand}</code>
       </div>
@@ -1462,6 +1469,12 @@ export function App() {
     setLastAction(`Exported ${artifact.fileName}`);
   }
 
+  function saveBacktestHandoffFile() {
+    const artifact = createBacktestHandoffDownload(workspace);
+    downloadArtifact(artifact);
+    setLastAction(`Saved ${artifact.fileName}`);
+  }
+
   function downloadVerifierReport(sourceWorkspace = workspace) {
     const artifact = createVerificationReportDownload(sourceWorkspace);
     downloadArtifact(artifact);
@@ -1603,7 +1616,12 @@ export function App() {
           onUploadFile={(file) => void importPngFile(file)}
           uploadError={uploadError}
         />
-        <ProjectExportPanel workspace={workspace} onDownload={exportProjectPackage} onDownloadZip={exportProjectZip} />
+        <ProjectExportPanel
+          workspace={workspace}
+          onDownloadBacktest={saveBacktestHandoffFile}
+          onDownload={exportProjectPackage}
+          onDownloadZip={exportProjectZip}
+        />
         <SectionOrder
           workspace={workspace}
           onCandidateFile={(section, file) => void importSectionCandidateFile(section, file)}
