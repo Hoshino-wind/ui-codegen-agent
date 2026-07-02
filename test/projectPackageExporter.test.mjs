@@ -406,11 +406,13 @@ test("createProjectExportPackage returns project-ready files derived from one La
     layerCount: 2,
     uri: "/references/analysis-plan.json"
   });
+  assert.equal(output.manifest.analysisTaskFile, "analysis-task.json");
   assert.deepEqual(output.manifest.analysisPlanAudit, createExportAnalysisPlanAudit());
   assert.equal(output.manifest.analysisPlanSchema, "analysis-plan.schema.json");
   assert.equal(output.manifest.analysisPlanAuditFile, "analysis-plan-audit.json");
   assert.deepEqual(paths, [
     "README.md",
+    "analysis-task.json",
     "analysis-plan-audit.json",
     "analysis-plan.schema.json",
     "asset-index.json",
@@ -477,10 +479,12 @@ test("createProjectExportPackage returns project-ready files derived from one La
   const manifest = JSON.parse(output.files.find((file) => file.path === "manifest.json").contents);
   const productionManifest = JSON.parse(output.files.find((file) => file.path === "production-manifest.json").contents);
   const productionManifestSchema = JSON.parse(output.files.find((file) => file.path === "production-manifest.schema.json").contents);
+  const analysisTask = JSON.parse(output.files.find((file) => file.path === "analysis-task.json").contents);
   const backtestRunbook = JSON.parse(output.files.find((file) => file.path === "backtest-runbook.json").contents);
   const assetIndex = JSON.parse(output.files.find((file) => file.path === "asset-index.json").contents);
   const exportedLayerDoc = JSON.parse(output.files.find((file) => file.path === "layerdoc.json").contents);
   assert.deepEqual(manifest.referenceVisual, output.manifest.referenceVisual);
+  assert.equal(manifest.analysisTaskFile, output.manifest.analysisTaskFile);
   assert.deepEqual(manifest.analysisPlan, output.manifest.analysisPlan);
   assert.deepEqual(manifest.analysisPlanAudit, output.manifest.analysisPlanAudit);
   assert.equal(manifest.productionManifest, output.manifest.productionManifest);
@@ -513,6 +517,19 @@ test("createProjectExportPackage returns project-ready files derived from one La
     hash: output.manifest.layerDocHash,
     editable: true
   });
+  assert.equal(productionManifest.intake.analysisTaskFile, "analysis-task.json");
+  assert.equal(analysisTask.kind, "homepage-png-analysis");
+  assert.equal(analysisTask.name, "Production Homepage");
+  assert.deepEqual(analysisTask.sourceImage, {
+    uri: "/references/production-homepage.png",
+    width: 1440,
+    height: 900
+  });
+  assert.equal(analysisTask.outputContract.schemaFile, "analysis-plan.schema.json");
+  assert.equal(analysisTask.outputContract.minSections, 8);
+  assert.equal(analysisTask.outputContract.maxSections, 15);
+  assert.equal(analysisTask.constraints.some((constraint) => /full PNG/.test(constraint)), true);
+  assert.match(analysisTask.operatorPrompt, /Image -> HomepageAnalysisPlan -> LayerDoc/);
   assert.deepEqual(productionManifest.generated.react, {
     component: "ProductionHomepage",
     file: "src/ProductionHomepage.tsx",
@@ -702,6 +719,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.deepEqual(handoffSummary.sourceAnalysisPlan, output.manifest.analysisPlan);
   assert.deepEqual(handoffSummary.sourceAnalysisPlanAudit, output.manifest.analysisPlanAudit);
   assert.deepEqual(handoffSummary.sourceAnalysisPlanFiles, {
+    taskFile: "analysis-task.json",
     schemaFile: "analysis-plan.schema.json",
     auditFile: "analysis-plan-audit.json"
   });
@@ -783,6 +801,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "scripts/verify-handoff.mjs").contents, /asset-index\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-handoff.mjs").contents, /package\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-analysis-plan.mjs").contents, /analysis-plan-audit\.json/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-analysis-plan.mjs").contents, /analysis-task\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-analysis-plan.mjs").contents, /analysis-plan\.schema\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-image-manifest.mjs").contents, /image-manifest\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-image-manifest.mjs").contents, /manifest\.json/);
@@ -808,6 +827,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:handoff/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:analysis-plan/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /analysis-task\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:image-manifest/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:gates/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:contract/);
@@ -1878,6 +1898,23 @@ test("exported analysis plan verifier script validates handoff artifacts", () =>
   const passed = spawnSync(process.execPath, ["scripts/verify-analysis-plan.mjs"], { cwd: directory, encoding: "utf8" });
   assert.equal(passed.status, 0, passed.stderr);
   assert.match(passed.stdout, /"passed": true/);
+
+  const taskPath = join(directory, "analysis-task.json");
+  const task = JSON.parse(readFileSync(taskPath, "utf8"));
+  const staleTask = {
+    ...task,
+    sourceImage: {
+      ...task.sourceImage,
+      width: 1280
+    }
+  };
+  writeFileSync(taskPath, `${JSON.stringify(staleTask, null, 2)}\n`);
+
+  const failedTask = spawnSync(process.execPath, ["scripts/verify-analysis-plan.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failedTask.status, 0);
+  assert.match(failedTask.stdout, /analysis_task_source_mismatch/);
+  assert.match(failedTask.stdout, /analysis-task\.json/);
+  writeFileSync(taskPath, `${JSON.stringify(task, null, 2)}\n`);
 
   const auditPath = join(directory, "analysis-plan-audit.json");
   const staleAudit = JSON.parse(readFileSync(auditPath, "utf8"));

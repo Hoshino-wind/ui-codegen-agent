@@ -73,6 +73,9 @@ The repository currently implements the core LayerDoc domain layer:
 - Create a model-ready homepage analysis task package from a source PNG, including
   schema handoff, classification tracks, acceptance gates, and anti-bitmap
   constraints for the vision/manual decomposition step.
+- Preserve that decomposition task as `analysis-task.json` inside project
+  packages when Analysis Plan provenance exists, so downstream reviewers can
+  audit what the vision/manual step was asked to produce.
 - Upload a PNG in the browser to initialize Analysis Plan dimensions.
 - Render a deterministic HTML preview with section, component, and layer DOM markers.
 - Overlay the source PNG on top of Canvas/HTML preview with controlled opacity
@@ -261,7 +264,10 @@ It writes `analysis-task.json` and `analysis-plan.schema.json`. In Studio, the
 same Save Task action produces a ZIP package; when the PNG was uploaded in the
 browser, that ZIP also includes `source.png` and the task points to it. The task
 package is the model-facing handoff for producing `analysis-plan.json`; the
-image still does not become the editable source of truth.
+image still does not become the editable source of truth. Project packages that
+carry Analysis Plan provenance also include `analysis-task.json`, and the
+exported `verify:analysis-plan` command checks that it still matches the source
+image, schema contract, and 8-15 section requirement.
 
 Before LayerDoc build, the standalone verifier can audit that structure without
 running the full homepage pipeline:

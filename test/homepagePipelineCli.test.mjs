@@ -78,9 +78,11 @@ test("homepage pipeline CLI runs PNG intake, verification, and project export", 
   const summary = JSON.parse(result.stdout);
   const pipelineReport = JSON.parse(readFileSync(join(outputDir, "pipeline-report.json"), "utf8"));
   const projectManifest = JSON.parse(readFileSync(join(outputDir, "project", "manifest.json"), "utf8"));
+  const projectAnalysisTask = JSON.parse(readFileSync(join(outputDir, "project", "analysis-task.json"), "utf8"));
   const projectAnalysisPlan = JSON.parse(readFileSync(join(outputDir, "project", "analysis-plan.json"), "utf8"));
   const projectImageManifest = JSON.parse(readFileSync(join(outputDir, "project", "image-manifest.json"), "utf8"));
   const handoffSummary = JSON.parse(readFileSync(join(outputDir, "project", "handoff-summary.json"), "utf8"));
+  const productionManifest = JSON.parse(readFileSync(join(outputDir, "project", "production-manifest.json"), "utf8"));
 
   assert.equal(summary.name, "Pipeline Homepage");
   assert.equal(summary.passed, true);
@@ -93,6 +95,7 @@ test("homepage pipeline CLI runs PNG intake, verification, and project export", 
   assert.equal(existsSync(join(outputDir, "intake", "assets", "hero-crop.png")), true);
   assert.equal(existsSync(join(outputDir, "project", "src", "ProductionHomepage.tsx")), true);
   assert.equal(existsSync(join(outputDir, "project", "reference.png")), true);
+  assert.equal(existsSync(join(outputDir, "project", "analysis-task.json")), true);
   assert.equal(existsSync(join(outputDir, "project", "analysis-plan.json")), true);
   assert.equal(existsSync(join(outputDir, "project", "image-manifest.json")), true);
   assert.equal(existsSync(join(outputDir, "project", "analysis-plan.schema.json")), true);
@@ -110,17 +113,28 @@ test("homepage pipeline CLI runs PNG intake, verification, and project export", 
   assert.equal(pipelineReport.project.referencePath, join(outputDir, "project", "reference.png"));
   assert.deepEqual(pipelineReport.project.copiedAssets.sort(), ["assets/hero-crop.png", "public/assets/hero-crop.png"]);
   assert.equal(projectManifest.analysisPlanFile, "analysis-plan.json");
+  assert.equal(projectManifest.analysisTaskFile, "analysis-task.json");
   assert.equal(projectManifest.imageManifestFile, "image-manifest.json");
   assert.equal(projectManifest.analysisPlanSchema, "analysis-plan.schema.json");
   assert.equal(projectManifest.analysisPlanAuditFile, "analysis-plan-audit.json");
+  assert.equal(projectManifest.files.includes("analysis-task.json"), true);
   assert.equal(projectManifest.files.includes("reference.png"), true);
   assert.deepEqual([...readFileSync(join(outputDir, "project", "reference.png"))], [...readFileSync(inputPath)]);
   assert.equal(handoffSummary.sourceImageManifestFile, "image-manifest.json");
   assert.deepEqual(handoffSummary.sourceAnalysisPlanFiles, {
+    taskFile: "analysis-task.json",
     planFile: "analysis-plan.json",
     schemaFile: "analysis-plan.schema.json",
     auditFile: "analysis-plan-audit.json"
   });
+  assert.equal(productionManifest.intake.analysisTaskFile, "analysis-task.json");
+  assert.equal(projectAnalysisTask.kind, "homepage-png-analysis");
+  assert.equal(projectAnalysisTask.name, "Pipeline Homepage");
+  assert.equal(projectAnalysisTask.sourceImage.width, 640);
+  assert.equal(projectAnalysisTask.sourceImage.height, 960);
+  assert.equal(projectAnalysisTask.outputContract.schemaFile, "analysis-plan.schema.json");
+  assert.equal(projectAnalysisTask.outputContract.minSections, 8);
+  assert.equal(projectAnalysisTask.outputContract.maxSections, 15);
   assert.equal(projectAnalysisPlan.name, "Pipeline Homepage");
   assert.equal(projectAnalysisPlan.sections.length, 8);
   assert.equal(projectAnalysisPlan.sections.reduce((total, section) => total + section.layers.length, 0), 18);
