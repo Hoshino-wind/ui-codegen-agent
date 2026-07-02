@@ -327,6 +327,10 @@ npm run backtest:homepage -- \
   --component ProductionHomepage
 ```
 
+The Studio Project Package panel shows this command next to the lower-level
+pipeline/materialize commands so operators can pick the full MVP backtest or a
+specific handoff verification path.
+
 Studio JSON handoffs are also materializable: binary files are represented as
 base64 entries in `project-package.json`, and `parseProjectExportPackageJson`
 plus `writeProjectExportPackage` can restore the package into a runnable project

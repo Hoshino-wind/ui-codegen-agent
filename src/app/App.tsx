@@ -106,6 +106,12 @@ const pipelineBacktestCommand = [
   "--verify-project"
 ].join(" ");
 
+const homepageBacktestCommand = [
+  "npm run backtest:homepage --",
+  "--out artifacts/homepage-backtest",
+  "--component ProductionHomepage"
+].join(" ");
+
 const materializeBacktestCommand = [
   "npm run materialize:project --",
   "--input artifacts/project-package.json",
@@ -937,12 +943,14 @@ function ProjectExportPanel({
       <div className="project-backtest-card">
         <div className="project-backtest-head">
           <span>Backtest Handoff</span>
-          <strong>project.verification</strong>
+          <strong>backtest-report.json</strong>
+          <small>project.verification</small>
         </div>
         <button className="export-package-download" type="button" onClick={onDownloadBacktest}>
           <Download size={13} />
           Save Backtest
         </button>
+        <code>{homepageBacktestCommand}</code>
         <code>{pipelineBacktestCommand}</code>
         <code>{materializeBacktestCommand}</code>
       </div>

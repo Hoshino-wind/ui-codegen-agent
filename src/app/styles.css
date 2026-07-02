@@ -849,6 +849,7 @@ button {
 .project-backtest-head {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 8px;
   min-width: 0;
@@ -867,6 +868,16 @@ button {
   color: var(--accent);
   font-size: 10px;
   font-weight: 840;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-backtest-head small {
+  flex: 1 0 100%;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 760;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

@@ -99,16 +99,20 @@ test("app shell exposes a project ZIP export action", () => {
 
 test("app shell exposes project backtest handoff commands", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+  const styles = readFileSync(join(rootDir, "src", "app", "styles.css"), "utf8");
 
   assert.match(source, /Backtest Handoff/);
   assert.match(source, /Save Backtest/);
   assert.match(source, /createBacktestHandoffDownload/);
   assert.match(source, /saveBacktestHandoffFile/);
+  assert.match(source, /npm run backtest:homepage --/);
+  assert.match(source, /backtest-report\.json/);
   assert.match(source, /npm run pipeline:homepage --/);
   assert.match(source, /--verify-project/);
   assert.match(source, /npm run materialize:project --/);
   assert.match(source, /--verify-preview/);
   assert.match(source, /project\.verification/);
+  assert.match(styles, /\.project-backtest-head small/);
 });
 
 test("app shell exposes reviewed section candidate import for regeneration results", () => {
