@@ -43,6 +43,7 @@ export interface ProjectExportManifest {
   source: "layerdoc";
   layerDocHash: string;
   integrationContract: string;
+  integrationContractSchema: "integration-contract.schema.json";
   handoffSummary: string;
   backtestRunbook: string;
   ciWorkflow: string;
@@ -103,6 +104,7 @@ export interface ProjectHandoffSummary {
   };
   contract: {
     file: string;
+    schemaFile: string;
     sections: number;
     layers: number;
     components: number;
@@ -402,6 +404,7 @@ export interface ProjectProductionManifest {
     };
     contract: {
       file: string;
+      schemaFile: "integration-contract.schema.json";
       verifierCommand: "npm run verify:contract";
       sections: number;
       layers: number;
@@ -466,6 +469,7 @@ const ASSET_INDEX_FILE = "asset-index.json";
 const BACKTEST_RUNBOOK_FILE = "backtest-runbook.json";
 const CI_WORKFLOW_FILE = "ci-workflow.json";
 const EDIT_AUDIT_FILE = "edit-audit.json";
+const INTEGRATION_CONTRACT_SCHEMA_FILE = "integration-contract.schema.json";
 const SECTION_CANDIDATE_SCHEMA_FILE = "section-candidate.schema.json";
 const PRODUCTION_MANIFEST_FILE = "production-manifest.json";
 const PRODUCTION_MANIFEST_SCHEMA_FILE = "production-manifest.schema.json";
@@ -917,6 +921,216 @@ function referenceVisualFor(sourceImage: LayerDoc["metadata"]["sourceImage"]): P
   };
 }
 
+export function createProjectIntegrationContractJsonSchema(): Record<string, unknown> {
+  const stringArray = {
+    type: "array",
+    items: { type: "string", minLength: 1 }
+  };
+  const selector = { type: ["string", "null"] };
+  const verificationAttributes = {
+    type: "object",
+    additionalProperties: { type: "string" }
+  };
+  const responsiveTarget = {
+    type: "object",
+    additionalProperties: false,
+    required: ["type", "id"],
+    properties: {
+      type: { enum: ["section", "layer", "component"] },
+      id: { type: "string", minLength: 1 }
+    }
+  };
+
+  return {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    title: "ProjectIntegrationContract 0.1.0",
+    type: "object",
+    additionalProperties: false,
+    required: [
+      "version",
+      "layerDoc",
+      "component",
+      "preview",
+      "sections",
+      "layers",
+      "components",
+      "assets",
+      "interactions",
+      "responsiveRules",
+      "generationRequests",
+      "generationApplications"
+    ],
+    properties: {
+      version: { const: "0.1.0" },
+      layerDoc: {
+        type: "object",
+        additionalProperties: false,
+        required: ["file", "hash", "schema", "version"],
+        properties: {
+          file: { const: "layerdoc.json" },
+          hash: { type: "string", pattern: "^sha256:[a-f0-9]{64}$" },
+          schema: { const: "layerdoc" },
+          version: { type: "string", minLength: 1 }
+        }
+      },
+      component: {
+        type: "object",
+        additionalProperties: false,
+        required: ["name", "file", "rootSelector", "verificationAttributes"],
+        properties: {
+          name: { type: "string", minLength: 1 },
+          file: { type: "string", pattern: "^src/.+\\.tsx$" },
+          rootSelector: { type: "string", minLength: 1 },
+          verificationAttributes
+        }
+      },
+      preview: {
+        type: "object",
+        additionalProperties: false,
+        required: ["file", "rootSelector", "verificationAttributes"],
+        properties: {
+          file: { const: "preview.html" },
+          rootSelector: { type: "string", minLength: 1 },
+          verificationAttributes
+        }
+      },
+      sections: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["id", "name", "selector", "layerIds"],
+          properties: {
+            id: { type: "string", minLength: 1 },
+            name: { type: "string", minLength: 1 },
+            selector: { type: "string", minLength: 1 },
+            layerIds: stringArray
+          }
+        }
+      },
+      layers: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["id", "kind", "track", "editable", "sectionId", "componentIds", "assetId", "selector", "interactionIds"],
+          properties: {
+            id: { type: "string", minLength: 1 },
+            kind: {
+              enum: ["section", "group", "text", "button", "nav", "card", "form", "input", "list", "table", "image", "icon", "background", "chart", "map", "scene3d"]
+            },
+            track: { enum: ["component", "asset", "approximation", "layout"] },
+            editable: { type: "boolean" },
+            sectionId: { type: ["string", "null"] },
+            componentIds: stringArray,
+            assetId: { type: ["string", "null"] },
+            selector: { type: "string", minLength: 1 },
+            interactionIds: stringArray
+          }
+        }
+      },
+      components: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["id", "exportable", "selector", "layerIds"],
+          properties: {
+            id: { type: "string", minLength: 1 },
+            exportable: { type: "boolean" },
+            selector,
+            layerIds: stringArray
+          }
+        }
+      },
+      assets: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["id", "type", "source", "uri", "usedByLayerIds"],
+          properties: {
+            id: { type: "string", minLength: 1 },
+            type: { enum: ["image", "video", "font", "json", "model", "other"] },
+            source: { enum: ["reference-crop", "generated", "uploaded", "remote", "project"] },
+            uri: { type: ["string", "null"] },
+            usedByLayerIds: stringArray
+          }
+        }
+      },
+      interactions: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["id", "layerId", "event", "action", "selector"],
+          properties: {
+            id: { type: "string", minLength: 1 },
+            layerId: { type: "string", minLength: 1 },
+            event: { enum: ["click", "hover", "focus", "input", "submit"] },
+            action: { type: "string", minLength: 1 },
+            selector: { type: "string", minLength: 1 }
+          }
+        }
+      },
+      responsiveRules: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["id", "query", "target", "selector", "changes"],
+          properties: {
+            id: { type: "string", minLength: 1 },
+            query: { type: "string", minLength: 1 },
+            target: responsiveTarget,
+            selector,
+            changes: {
+              type: "object",
+              additionalProperties: true
+            }
+          }
+        }
+      },
+      generationRequests: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["id", "sectionId", "prompt", "status", "requestedAt", "selector", "sectionVisible"],
+          properties: {
+            id: { type: "string", minLength: 1 },
+            sectionId: { type: "string", minLength: 1 },
+            prompt: { type: "string", minLength: 1 },
+            status: { enum: ["requested", "running", "applied", "rejected", "reverted"] },
+            requestedAt: { type: "string", minLength: 1 },
+            selector,
+            sectionVisible: { type: "boolean" }
+          }
+        }
+      },
+      generationApplications: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["id", "sectionId", "requestId", "status", "appliedAt", "revertedAt", "selector", "previousLayerIds", "appliedLayerIds"],
+          properties: {
+            id: { type: "string", minLength: 1 },
+            sectionId: { type: "string", minLength: 1 },
+            requestId: { type: ["string", "null"] },
+            status: { enum: ["applied", "reverted"] },
+            appliedAt: { type: "string", minLength: 1 },
+            revertedAt: { type: ["string", "null"] },
+            selector,
+            previousLayerIds: stringArray,
+            appliedLayerIds: stringArray
+          }
+        }
+      }
+    }
+  };
+}
+
 function createProductionManifestJsonSchema(): Record<string, unknown> {
   const scoreProperties = {
     visual_similarity: { type: ["number", "null"], minimum: 0, maximum: 100 },
@@ -986,9 +1200,10 @@ function createProductionManifestJsonSchema(): Record<string, unknown> {
           contract: {
             type: "object",
             additionalProperties: false,
-            required: ["file", "verifierCommand", "sections", "layers", "components", "assets", "interactions", "responsiveRules"],
+            required: ["file", "schemaFile", "verifierCommand", "sections", "layers", "components", "assets", "interactions", "responsiveRules"],
             properties: {
               file: { const: "integration-contract.json" },
+              schemaFile: { const: INTEGRATION_CONTRACT_SCHEMA_FILE },
               verifierCommand: { const: "npm run verify:contract" },
               sections: { type: "integer", minimum: 0 },
               layers: { type: "integer", minimum: 0 },
@@ -1372,6 +1587,8 @@ const productionManifestPath = manifest.productionManifest ?? "${PRODUCTION_MANI
 const productionManifest = fileExists(productionManifestPath) ? readJson("../" + productionManifestPath) : null;
 const productionManifestSchemaPath = manifest.productionManifestSchema ?? "${PRODUCTION_MANIFEST_SCHEMA_FILE}";
 const productionManifestSchema = fileExists(productionManifestSchemaPath) ? readJson("../" + productionManifestSchemaPath) : null;
+const integrationContractSchemaPath = manifest.integrationContractSchema ?? "${INTEGRATION_CONTRACT_SCHEMA_FILE}";
+const integrationContractSchema = fileExists(integrationContractSchemaPath) ? readJson("../" + integrationContractSchemaPath) : null;
 const verificationReportSchemaPath = manifest.verificationReportSchema ?? "${VERIFICATION_REPORT_SCHEMA_FILE}";
 const verificationReportSchema = fileExists(verificationReportSchemaPath) ? readJson("../" + verificationReportSchemaPath) : null;
 const actualLayerDocHash = sha256(stableJson(layerDoc));
@@ -1399,6 +1616,7 @@ function expectedEditAuditSummary(audit) {
   };
 }
 const expectedProductionManifestSchema = ${stableJson(createProductionManifestJsonSchema())};
+const expectedIntegrationContractSchema = ${stableJson(createProjectIntegrationContractJsonSchema())};
 const expectedVerificationReportSchema = ${stableJson(createVerificationReportJsonSchema())};
 const expectedProductionManifest = {
   version: "0.1.0",
@@ -1432,6 +1650,7 @@ const expectedProductionManifest = {
     },
     contract: {
       file: manifest.integrationContract,
+      schemaFile: integrationContractSchemaPath,
       verifierCommand: "npm run verify:contract",
       sections: contract.sections?.length ?? 0,
       layers: contract.layers?.length ?? 0,
@@ -1561,6 +1780,7 @@ pushIf(manifest.handoffSummary !== "handoff-summary.json", failures, "manifest_h
 pushIf(manifest.backtestRunbook !== "${BACKTEST_RUNBOOK_FILE}", failures, "manifest_backtest_runbook_mismatch", "manifest.json backtestRunbook must be ${BACKTEST_RUNBOOK_FILE}.");
 pushIf(manifest.ciWorkflow !== "${CI_WORKFLOW_FILE}", failures, "manifest_ci_workflow_mismatch", "manifest.json ciWorkflow must be ${CI_WORKFLOW_FILE}.");
 pushIf(manifest.assetIndex !== "${ASSET_INDEX_FILE}", failures, "manifest_asset_index_mismatch", "manifest.json assetIndex must be ${ASSET_INDEX_FILE}.");
+pushIf(manifest.integrationContractSchema !== "${INTEGRATION_CONTRACT_SCHEMA_FILE}", failures, "manifest_integration_contract_schema_mismatch", "manifest.json integrationContractSchema must be ${INTEGRATION_CONTRACT_SCHEMA_FILE}.");
 pushIf(manifest.productionManifest !== "${PRODUCTION_MANIFEST_FILE}", failures, "manifest_production_manifest_mismatch", "manifest.json productionManifest must be ${PRODUCTION_MANIFEST_FILE}.");
 pushIf(manifest.productionManifestSchema !== "${PRODUCTION_MANIFEST_SCHEMA_FILE}", failures, "manifest_production_manifest_schema_mismatch", "manifest.json productionManifestSchema must be ${PRODUCTION_MANIFEST_SCHEMA_FILE}.");
 pushIf(manifest.verificationReportSchema !== "${VERIFICATION_REPORT_SCHEMA_FILE}", failures, "manifest_verification_report_schema_mismatch", "manifest.json verificationReportSchema must be ${VERIFICATION_REPORT_SCHEMA_FILE}.");
@@ -1575,6 +1795,7 @@ pushIf(!manifestFiles.includes("${ASSET_INDEX_FILE}"), failures, "asset_index_no
 pushIf(!manifestFiles.includes("${BACKTEST_RUNBOOK_FILE}"), failures, "backtest_runbook_not_listed", "manifest.json files must include ${BACKTEST_RUNBOOK_FILE}.");
 pushIf(!manifestFiles.includes("${CI_WORKFLOW_FILE}"), failures, "ci_workflow_not_listed", "manifest.json files must include ${CI_WORKFLOW_FILE}.");
 pushIf(Boolean(editAuditPath) && !manifestFiles.includes(editAuditPath), failures, "edit_audit_not_listed", "manifest.json files must include edit-audit.json when editAuditFile is set.");
+pushIf(!manifestFiles.includes("${INTEGRATION_CONTRACT_SCHEMA_FILE}"), failures, "integration_contract_schema_not_listed", "manifest.json files must include ${INTEGRATION_CONTRACT_SCHEMA_FILE}.");
 pushIf(!manifestFiles.includes("${PRODUCTION_MANIFEST_FILE}"), failures, "production_manifest_not_listed", "manifest.json files must include ${PRODUCTION_MANIFEST_FILE}.");
 pushIf(!manifestFiles.includes("${PRODUCTION_MANIFEST_SCHEMA_FILE}"), failures, "production_manifest_schema_not_listed", "manifest.json files must include ${PRODUCTION_MANIFEST_SCHEMA_FILE}.");
 pushIf(!manifestFiles.includes("${VERIFICATION_REPORT_SCHEMA_FILE}"), failures, "verification_report_schema_not_listed", "manifest.json files must include ${VERIFICATION_REPORT_SCHEMA_FILE}.");
@@ -1582,6 +1803,7 @@ pushIf(!fileExists(assetIndexPath), failures, "asset_index_missing", "manifest.j
 pushIf(!fileExists(backtestRunbookPath), failures, "backtest_runbook_missing", "manifest.json backtestRunbook must point at an existing file.");
 pushIf(!fileExists(ciWorkflowPath), failures, "ci_workflow_missing", "manifest.json ciWorkflow must point at an existing file.");
 pushIf(Boolean(editAuditPath) && !fileExists(editAuditPath), failures, "edit_audit_missing", "manifest.json editAuditFile must point at an existing file.");
+pushIf(!fileExists(integrationContractSchemaPath), failures, "integration_contract_schema_missing", "manifest.json integrationContractSchema must point at an existing file.");
 pushIf(!fileExists(productionManifestPath), failures, "production_manifest_missing", "manifest.json productionManifest must point at an existing file.");
 pushIf(!fileExists(productionManifestSchemaPath), failures, "production_manifest_schema_missing", "manifest.json productionManifestSchema must point at an existing file.");
 pushIf(!fileExists(verificationReportSchemaPath), failures, "verification_report_schema_missing", "manifest.json verificationReportSchema must point at an existing file.");
@@ -1643,8 +1865,10 @@ pushIf(stableJson(ciWorkflow) !== stableJson(expectedCiWorkflow), failures, "ci_
 pushIf(stableJson(backtestRunbook) !== stableJson(expectedBacktestRunbook), failures, "backtest_runbook_mismatch", "backtest-runbook.json must match manifest.json, handoff-summary.json, and current LayerDoc hash. Expected " + stableJson(expectedBacktestRunbook) + " Received " + stableJson(backtestRunbook));
 pushIf(stableJson(productionManifest) !== stableJson(expectedProductionManifest), failures, "production_manifest_mismatch", "production-manifest.json must match LayerDoc, integration contract, asset index, quality report, and handoff metadata. Expected " + stableJson(expectedProductionManifest) + " Received " + stableJson(productionManifest));
 pushIf(stableJson(productionManifestSchema) !== stableJson(expectedProductionManifestSchema), failures, "production_manifest_schema_mismatch", "production-manifest.schema.json must match the exported ProjectProductionManifest contract. Expected " + stableJson(expectedProductionManifestSchema) + " Received " + stableJson(productionManifestSchema));
+pushIf(stableJson(integrationContractSchema) !== stableJson(expectedIntegrationContractSchema), failures, "integration_contract_schema_mismatch", "integration-contract.schema.json must match the exported ProjectIntegrationContract contract. Expected " + stableJson(expectedIntegrationContractSchema) + " Received " + stableJson(integrationContractSchema));
 pushIf(stableJson(verificationReportSchema) !== stableJson(expectedVerificationReportSchema), failures, "verification_report_schema_mismatch", "verification-report.schema.json must match the exported VerificationReport contract. Expected " + stableJson(expectedVerificationReportSchema) + " Received " + stableJson(verificationReportSchema));
 
+pushIf(handoff.contract?.schemaFile !== integrationContractSchemaPath, failures, "handoff_integration_contract_schema_mismatch", "handoff contract.schemaFile must match manifest integrationContractSchema.");
 pushIf(handoff.quality?.referenceVisual?.file !== manifest.referenceVisual?.file, failures, "handoff_reference_visual_mismatch", "handoff reference visual must match manifest referenceVisual.");
 pushIf(handoff.quality?.reportSchemaFile !== verificationReportSchemaPath, failures, "handoff_report_schema_file_mismatch", "handoff quality reportSchemaFile must match manifest verificationReportSchema.");
 pushIf(handoff.quality?.gatesFile !== "quality-gates.json", failures, "handoff_gates_file_mismatch", "handoff quality gatesFile must be quality-gates.json.");
@@ -1719,10 +1943,13 @@ const productionManifestPath = manifest.productionManifest ?? "${PRODUCTION_MANI
 const productionManifestSchemaPath = manifest.productionManifestSchema ?? "${PRODUCTION_MANIFEST_SCHEMA_FILE}";
 const productionManifest = fileExists(productionManifestPath) ? readJson("../" + productionManifestPath) : null;
 const productionManifestSchema = fileExists(productionManifestSchemaPath) ? readJson("../" + productionManifestSchemaPath) : null;
+const integrationContractSchemaPath = manifest.integrationContractSchema ?? "${INTEGRATION_CONTRACT_SCHEMA_FILE}";
+const integrationContractSchema = fileExists(integrationContractSchemaPath) ? readJson("../" + integrationContractSchemaPath) : null;
 const verificationReportSchemaPath = manifest.verificationReportSchema ?? "${VERIFICATION_REPORT_SCHEMA_FILE}";
 const verificationReportSchema = fileExists(verificationReportSchemaPath) ? readJson("../" + verificationReportSchemaPath) : null;
 const layerDocHash = sha256(stableJson(layerDoc));
 const expectedProductionManifestSchema = ${stableJson(createProductionManifestJsonSchema())};
+const expectedIntegrationContractSchema = ${stableJson(createProjectIntegrationContractJsonSchema())};
 const expectedVerificationReportSchema = ${stableJson(createVerificationReportJsonSchema())};
 const expectedAssetSummary = {
   file: assetIndexPath,
@@ -1760,6 +1987,7 @@ const expectedProductionManifest = {
     },
     contract: {
       file: manifest.integrationContract,
+      schemaFile: integrationContractSchemaPath,
       verifierCommand: "npm run verify:contract",
       sections: contract.sections?.length ?? 0,
       layers: contract.layers?.length ?? 0,
@@ -1820,13 +2048,16 @@ const expectedProductionManifest = {
 };
 
 const failures = [];
+pushIf(manifest.integrationContractSchema !== "${INTEGRATION_CONTRACT_SCHEMA_FILE}", failures, "manifest_integration_contract_schema_mismatch", "manifest.json integrationContractSchema must be ${INTEGRATION_CONTRACT_SCHEMA_FILE}.");
 pushIf(manifest.productionManifest !== "${PRODUCTION_MANIFEST_FILE}", failures, "manifest_production_manifest_mismatch", "manifest.json productionManifest must be ${PRODUCTION_MANIFEST_FILE}.");
 pushIf(manifest.productionManifestSchema !== "${PRODUCTION_MANIFEST_SCHEMA_FILE}", failures, "manifest_production_manifest_schema_mismatch", "manifest.json productionManifestSchema must be ${PRODUCTION_MANIFEST_SCHEMA_FILE}.");
 pushIf(manifest.verificationReportSchema !== "${VERIFICATION_REPORT_SCHEMA_FILE}", failures, "manifest_verification_report_schema_mismatch", "manifest.json verificationReportSchema must be ${VERIFICATION_REPORT_SCHEMA_FILE}.");
+pushIf(!fileExists(integrationContractSchemaPath), failures, "integration_contract_schema_missing", "integration contract schema file is missing: " + integrationContractSchemaPath);
 pushIf(!fileExists(productionManifestPath), failures, "production_manifest_missing", "production manifest file is missing: " + productionManifestPath);
 pushIf(!fileExists(productionManifestSchemaPath), failures, "production_manifest_schema_missing", "production manifest schema file is missing: " + productionManifestSchemaPath);
 pushIf(!fileExists(verificationReportSchemaPath), failures, "verification_report_schema_missing", "verification report schema file is missing: " + verificationReportSchemaPath);
 pushIf(stableJson(productionManifestSchema) !== stableJson(expectedProductionManifestSchema), failures, "production_manifest_schema_mismatch", "production-manifest.schema.json must match the exported contract. Expected " + stableJson(expectedProductionManifestSchema) + " Received " + stableJson(productionManifestSchema));
+pushIf(stableJson(integrationContractSchema) !== stableJson(expectedIntegrationContractSchema), failures, "integration_contract_schema_mismatch", "integration-contract.schema.json must match the exported contract. Expected " + stableJson(expectedIntegrationContractSchema) + " Received " + stableJson(integrationContractSchema));
 pushIf(stableJson(verificationReportSchema) !== stableJson(expectedVerificationReportSchema), failures, "verification_report_schema_mismatch", "verification-report.schema.json must match the exported contract. Expected " + stableJson(expectedVerificationReportSchema) + " Received " + stableJson(verificationReportSchema));
 pushIf(stableJson(productionManifest) !== stableJson(expectedProductionManifest), failures, "production_manifest_mismatch", "production-manifest.json must match LayerDoc, integration contract, asset index, quality report, and handoff metadata. Expected " + stableJson(expectedProductionManifest) + " Received " + stableJson(productionManifest));
 
@@ -1835,6 +2066,7 @@ const result = {
   failures,
   productionManifestPath,
   productionManifestSchemaPath,
+  integrationContractSchemaPath,
   verificationReportSchemaPath,
   layerDocHash
 };
@@ -3283,6 +3515,7 @@ function updateHandoffSummary(handoff, manifest, contract, audit, report, assetI
     },
     contract: {
       file: manifest.integrationContract,
+      schemaFile: manifest.integrationContractSchema,
       sections: contract.sections.length,
       layers: contract.layers.length,
       components: contract.components.length,
@@ -3356,6 +3589,7 @@ function updateProductionManifest(productionManifest, manifest, contract, report
       },
       contract: {
         file: manifest.integrationContract,
+        schemaFile: manifest.integrationContractSchema,
         verifierCommand: "npm run verify:contract",
         sections: contract.sections.length,
         layers: contract.layers.length,
@@ -3881,7 +4115,7 @@ if (!manifest.imageManifestFile) {
 }
 
 function contractVerifierScriptFor(): string {
-  return `import { readFileSync } from "node:fs";
+  return `import { existsSync, readFileSync } from "node:fs";
 
 function readJson(path) {
   return JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
@@ -3889,6 +4123,10 @@ function readJson(path) {
 
 function readText(path) {
   return readFileSync(new URL(path, import.meta.url), "utf8");
+}
+
+function fileExists(path) {
+  return existsSync(new URL(\`../\${path}\`, import.meta.url));
 }
 
 function stableJson(value) {
@@ -4474,6 +4712,9 @@ function expectedContractFrom(layerDoc, manifest) {
 const layerDoc = readJson("../layerdoc.json");
 const manifest = readJson("../manifest.json");
 const contract = readJson("../integration-contract.json");
+const contractSchemaPath = manifest.integrationContractSchema ?? "${INTEGRATION_CONTRACT_SCHEMA_FILE}";
+const contractSchema = fileExists(contractSchemaPath) ? readJson("../" + contractSchemaPath) : null;
+const expectedContractSchema = ${stableJson(createProjectIntegrationContractJsonSchema())};
 const expected = expectedContractFrom(layerDoc, manifest);
 const issues = [];
 
@@ -4482,6 +4723,30 @@ if (manifest.integrationContract !== "integration-contract.json") {
     "integration_contract_manifest_mismatch",
     "manifest.json.integrationContract",
     \`manifest.json points at \${manifest.integrationContract ?? "n/a"} instead of integration-contract.json.\`
+  ));
+}
+
+if (manifest.integrationContractSchema !== "${INTEGRATION_CONTRACT_SCHEMA_FILE}") {
+  issues.push(issue(
+    "integration_contract_schema_manifest_mismatch",
+    "manifest.json.integrationContractSchema",
+    \`manifest.json points at \${manifest.integrationContractSchema ?? "n/a"} instead of ${INTEGRATION_CONTRACT_SCHEMA_FILE}.\`
+  ));
+}
+
+if (!fileExists(contractSchemaPath)) {
+  issues.push(issue(
+    "integration_contract_schema_missing",
+    contractSchemaPath,
+    \`integration contract schema file is missing: \${contractSchemaPath}.\`
+  ));
+}
+
+if (stableJson(contractSchema) !== stableJson(expectedContractSchema)) {
+  issues.push(issue(
+    "integration_contract_schema_mismatch",
+    contractSchemaPath,
+    \`integration-contract.schema.json does not match the exported contract. Expected \${stableJson(expectedContractSchema)} Received \${stableJson(contractSchema)}\`
   ));
 }
 
@@ -4688,6 +4953,7 @@ try {
 const result = {
   passed: issues.length === 0,
   contractPath: "integration-contract.json",
+  contractSchemaPath,
   layerDocHash: manifest.layerDocHash ?? null,
   issues
 };
@@ -5604,6 +5870,7 @@ productionManifest.generated = {
   contract: {
     ...(productionManifest.generated?.contract ?? {}),
     file: manifest.integrationContract,
+    schemaFile: manifest.integrationContractSchema ?? "${INTEGRATION_CONTRACT_SCHEMA_FILE}",
     sections: contract.sections?.length ?? 0,
     layers: contract.layers?.length ?? 0,
     components: contract.components?.length ?? 0,
@@ -5784,7 +6051,7 @@ Generated assets:
 - \`${manifest.backtestRunbook}\`: machine-readable runbook for rerunning the homepage backtest, project materialization, and project-local verification commands
 - \`${manifest.ciWorkflow}\`: machine-readable CI workflow for installing, verifying preview/structure/gates, and building the generated project
 - \`handoff-summary.json\`: machine-readable integration summary for CI, importers, and downstream project handoff
-- \`integration-contract.json\`: stable mapping from visible LayerDoc objects to project files and DOM selectors
+- \`integration-contract.json\`, \`${manifest.integrationContractSchema}\`: stable mapping from visible LayerDoc objects to project files and DOM selectors, plus the schema for validating that handoff
 - \`${manifest.assetIndex}\`: machine-readable asset inventory with source, usage, visible-project, section, component, and selector mapping
 - \`manifest.json\`, \`layerdoc.schema.json\`: project package manifest and LayerDoc source contract
 - \`${manifest.sectionCandidateSchema}\`: reviewed section regeneration candidate contract for AI workers and Studio imports
@@ -5887,6 +6154,7 @@ function ciWorkflowPhases(): ProjectCiWorkflow["phases"] {
         "handoff-summary.json",
         "layerdoc.json",
         "integration-contract.json",
+        INTEGRATION_CONTRACT_SCHEMA_FILE,
         ASSET_INDEX_FILE
       ]
     },
@@ -5967,6 +6235,7 @@ function createHandoffSummary(
     },
     contract: {
       file: manifest.integrationContract,
+      schemaFile: manifest.integrationContractSchema,
       sections: contract.sections.length,
       layers: contract.layers.length,
       components: contract.components.length,
@@ -6107,6 +6376,7 @@ function createProductionManifest(
       },
       contract: {
         file: manifest.integrationContract,
+        schemaFile: manifest.integrationContractSchema,
         verifierCommand: "npm run verify:contract",
         sections: contract.sections.length,
         layers: contract.layers.length,
@@ -6201,6 +6471,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     "handoff-summary.json",
     "index.html",
     "integration-contract.json",
+    INTEGRATION_CONTRACT_SCHEMA_FILE,
     "layerdoc-audit.json",
     "layerdoc.schema.json",
     "layerdoc.json",
@@ -6239,6 +6510,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     source: "layerdoc",
     layerDocHash: sourceHash,
     integrationContract: "integration-contract.json",
+    integrationContractSchema: INTEGRATION_CONTRACT_SCHEMA_FILE,
     handoffSummary: "handoff-summary.json",
     backtestRunbook: BACKTEST_RUNBOOK_FILE,
     ciWorkflow: CI_WORKFLOW_FILE,
@@ -6303,6 +6575,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
       { path: "handoff-summary.json", contents: stableJson(handoffSummary) },
       { path: "index.html", contents: indexHtmlFor(options.componentName) },
       { path: "integration-contract.json", contents: stableJson(integrationContract) },
+      { path: INTEGRATION_CONTRACT_SCHEMA_FILE, contents: stableJson(createProjectIntegrationContractJsonSchema()) },
       { path: "layerdoc-audit.json", contents: stableJson(audit) },
       { path: "layerdoc.schema.json", contents: stableJson(createLayerDocJsonSchema()) },
       { path: "layerdoc.json", contents: stableJson(sourceDoc) },

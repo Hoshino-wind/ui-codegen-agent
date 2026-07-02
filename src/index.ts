@@ -14,6 +14,7 @@ export {
 export { createSectionRegenerationCandidateJsonSchema } from "./editor/sectionCandidateSchema.js";
 export { renderHtmlPreview } from "./exporters/htmlPreview.js";
 export {
+  createProjectIntegrationContractJsonSchema,
   createProjectExportPackage
 } from "./exporters/projectPackage.js";
 export {

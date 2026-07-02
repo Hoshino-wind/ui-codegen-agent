@@ -30,12 +30,13 @@ test("createEditorWorkspace derives preview, export, and verifier output from on
   assert.match(workspace.reactExport.code, /export function ProductionHomepage/);
   assert.equal(workspace.projectExport.manifest.componentName, "ProductionHomepage");
   assert.equal(workspace.projectExport.manifest.assetIndex, "asset-index.json");
+  assert.equal(workspace.projectExport.manifest.integrationContractSchema, "integration-contract.schema.json");
   assert.equal(workspace.projectExport.manifest.backtestRunbook, "backtest-runbook.json");
   assert.equal(workspace.projectExport.manifest.ciWorkflow, "ci-workflow.json");
   assert.equal(workspace.projectExport.manifest.productionManifest, "production-manifest.json");
   assert.equal(workspace.projectExport.manifest.productionManifestSchema, "production-manifest.schema.json");
   assert.equal(workspace.projectExport.manifest.verificationReportSchema, "verification-report.schema.json");
-  assert.equal(workspace.projectExport.files.length, 37);
+  assert.equal(workspace.projectExport.files.length, 38);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "backtest-runbook.json"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "ci-workflow.json"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "handoff-summary.json"), true);
@@ -44,6 +45,7 @@ test("createEditorWorkspace derives preview, export, and verifier output from on
   assert.equal(workspace.projectExport.files.some((file) => file.path === "asset-index.json"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "layerdoc.json"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "integration-contract.json"), true);
+  assert.equal(workspace.projectExport.files.some((file) => file.path === "integration-contract.schema.json"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "layerdoc.schema.json"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "section-candidate.schema.json"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "layerdoc-audit.json"), true);

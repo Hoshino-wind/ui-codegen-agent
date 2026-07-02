@@ -259,6 +259,7 @@ test("createProjectPackageDownload serializes every project package file in one 
       "handoff-summary.json",
       "index.html",
       "integration-contract.json",
+      "integration-contract.schema.json",
       "layerdoc-audit.json",
       "layerdoc.schema.json",
       "layerdoc.json",
@@ -292,6 +293,7 @@ test("createProjectPackageDownload serializes every project package file in one 
     ].sort()
   );
   assert.equal(payload.manifest.assetIndex, "asset-index.json");
+  assert.equal(payload.manifest.integrationContractSchema, "integration-contract.schema.json");
   assert.equal(payload.manifest.backtestRunbook, "backtest-runbook.json");
   assert.equal(payload.manifest.ciWorkflow, "ci-workflow.json");
   assert.equal(payload.manifest.productionManifest, "production-manifest.json");
@@ -300,6 +302,7 @@ test("createProjectPackageDownload serializes every project package file in one 
   assert.match(payload.files.find((file) => file.path === "asset-index.json").contents, /"source": "layerdoc"/);
   assert.match(payload.files.find((file) => file.path === "backtest-runbook.json").contents, /"kind": "studio_backtest_runbook"/);
   assert.match(payload.files.find((file) => file.path === "ci-workflow.json").contents, /"kind": "project_ci_workflow"/);
+  assert.match(payload.files.find((file) => file.path === "integration-contract.schema.json").contents, /"title": "ProjectIntegrationContract 0.1.0"/);
   assert.match(payload.files.find((file) => file.path === "production-manifest.json").contents, /"role": "project_integration_manifest"/);
   assert.match(payload.files.find((file) => file.path === "production-manifest.schema.json").contents, /"title": "ProjectProductionManifest 0.1.0"/);
   assert.match(payload.files.find((file) => file.path === "verification-report.schema.json").contents, /"title": "VerificationReport 0.1.0"/);
@@ -397,6 +400,7 @@ test("createProjectPackageZipDownload serializes the project package as a real Z
   assert.deepEqual(zipCentralDirectoryNames(artifact.contents).sort(), workspace.projectExport.files.map((file) => file.path).sort());
   assert.equal(zipCentralDirectoryNames(artifact.contents).includes("layerdoc-audit.json"), true);
   assert.equal(zipCentralDirectoryNames(artifact.contents).includes("integration-contract.json"), true);
+  assert.equal(zipCentralDirectoryNames(artifact.contents).includes("integration-contract.schema.json"), true);
   assert.equal(zipCentralDirectoryNames(artifact.contents).includes("ci-workflow.json"), true);
   assert.equal(zipCentralDirectoryNames(artifact.contents).includes("scripts/verify-contract.mjs"), true);
   assert.equal(zipCentralDirectoryNames(artifact.contents).includes("scripts/verify-handoff.mjs"), true);

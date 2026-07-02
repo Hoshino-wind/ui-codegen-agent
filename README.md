@@ -97,6 +97,8 @@ The repository currently implements the core LayerDoc domain layer:
   quality attributes in both project and preview surfaces. Hidden sections stay
   editable in `layerdoc.json` without being required in rendered project
   surfaces or responsive CSS contract checks.
+- Export `integration-contract.schema.json` so downstream importers can validate
+  the project DOM mapping contract before wiring generated code into a real app.
 - Apply reviewed section regeneration candidates back into LayerDoc by
   replacing one stable section id with new layers, assets, components,
   interactions, and responsive rules, then refreshing preview, React export,

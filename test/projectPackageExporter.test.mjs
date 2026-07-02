@@ -10,6 +10,7 @@ import { PNG } from "pngjs";
 import {
   createLayerDoc,
   createProjectExportPackage,
+  createProjectIntegrationContractJsonSchema,
   createVerificationReport,
   parseProjectExportPackageJson,
   writeProjectExportPackage
@@ -22,6 +23,40 @@ test("project package exporter stays browser-compatible for Studio exports", () 
   const source = readFileSync(join(process.cwd(), "src", "exporters", "projectPackage.ts"), "utf8");
 
   assert.doesNotMatch(source, /^import .*node:crypto/m);
+});
+
+test("createProjectIntegrationContractJsonSchema exposes the project integration handoff contract", () => {
+  const schema = createProjectIntegrationContractJsonSchema();
+
+  assert.equal(schema.title, "ProjectIntegrationContract 0.1.0");
+  assert.deepEqual(schema.required, [
+    "version",
+    "layerDoc",
+    "component",
+    "preview",
+    "sections",
+    "layers",
+    "components",
+    "assets",
+    "interactions",
+    "responsiveRules",
+    "generationRequests",
+    "generationApplications"
+  ]);
+  assert.deepEqual(schema.properties.component.required, ["name", "file", "rootSelector", "verificationAttributes"]);
+  assert.deepEqual(schema.properties.layers.items.required, [
+    "id",
+    "kind",
+    "track",
+    "editable",
+    "sectionId",
+    "componentIds",
+    "assetId",
+    "selector",
+    "interactionIds"
+  ]);
+  assert.equal(schema.properties.layers.items.properties.track.enum.includes("component"), true);
+  assert.deepEqual(schema.properties.responsiveRules.items.properties.target.properties.type.enum, ["section", "layer", "component"]);
 });
 
 function createExportAnalysisPlanAudit() {
@@ -390,6 +425,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.equal(output.manifest.componentName, "ProductionHomepage");
   assert.match(output.manifest.layerDocHash, /^sha256:[a-f0-9]{64}$/);
   assert.equal(output.manifest.integrationContract, "integration-contract.json");
+  assert.equal(output.manifest.integrationContractSchema, "integration-contract.schema.json");
   assert.equal(output.manifest.handoffSummary, "handoff-summary.json");
   assert.equal(output.manifest.backtestRunbook, "backtest-runbook.json");
   assert.equal(output.manifest.ciWorkflow, "ci-workflow.json");
@@ -425,6 +461,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     "handoff-summary.json",
     "index.html",
     "integration-contract.json",
+    "integration-contract.schema.json",
     "layerdoc-audit.json",
     "layerdoc.schema.json",
     "layerdoc.json",
@@ -485,6 +522,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "src/ProductionHomepage.tsx").contents, /export function ProductionHomepage/);
   assert.match(output.files.find((file) => file.path === "layerdoc.json").contents, /"schema": "layerdoc"/);
   const contract = JSON.parse(output.files.find((file) => file.path === "integration-contract.json").contents);
+  const contractSchema = JSON.parse(output.files.find((file) => file.path === "integration-contract.schema.json").contents);
   const manifest = JSON.parse(output.files.find((file) => file.path === "manifest.json").contents);
   const productionManifest = JSON.parse(output.files.find((file) => file.path === "production-manifest.json").contents);
   const productionManifestSchema = JSON.parse(output.files.find((file) => file.path === "production-manifest.schema.json").contents);
@@ -495,6 +533,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   const assetIndex = JSON.parse(output.files.find((file) => file.path === "asset-index.json").contents);
   const exportedLayerDoc = JSON.parse(output.files.find((file) => file.path === "layerdoc.json").contents);
   assert.deepEqual(manifest.referenceVisual, output.manifest.referenceVisual);
+  assert.equal(manifest.integrationContractSchema, output.manifest.integrationContractSchema);
   assert.equal(manifest.analysisTaskFile, output.manifest.analysisTaskFile);
   assert.deepEqual(manifest.analysisPlan, output.manifest.analysisPlan);
   assert.deepEqual(manifest.analysisPlanAudit, output.manifest.analysisPlanAudit);
@@ -504,6 +543,35 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.equal(manifest.backtestRunbook, output.manifest.backtestRunbook);
   assert.equal(manifest.ciWorkflow, output.manifest.ciWorkflow);
   assert.equal(manifest.assetIndex, output.manifest.assetIndex);
+  assert.deepEqual(contractSchema, createProjectIntegrationContractJsonSchema());
+  assert.equal(contractSchema.title, "ProjectIntegrationContract 0.1.0");
+  assert.deepEqual(contractSchema.required, [
+    "version",
+    "layerDoc",
+    "component",
+    "preview",
+    "sections",
+    "layers",
+    "components",
+    "assets",
+    "interactions",
+    "responsiveRules",
+    "generationRequests",
+    "generationApplications"
+  ]);
+  assert.deepEqual(contractSchema.properties.layerDoc.required, ["file", "hash", "schema", "version"]);
+  assert.deepEqual(contractSchema.properties.component.required, ["name", "file", "rootSelector", "verificationAttributes"]);
+  assert.deepEqual(contractSchema.properties.layers.items.required, [
+    "id",
+    "kind",
+    "track",
+    "editable",
+    "sectionId",
+    "componentIds",
+    "assetId",
+    "selector",
+    "interactionIds"
+  ]);
   assert.equal(productionManifestSchema.title, "ProjectProductionManifest 0.1.0");
   assert.deepEqual(productionManifestSchema.required, [
     "version",
@@ -519,6 +587,8 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.equal(productionManifestSchema.properties.role.const, "project_integration_manifest");
   assert.deepEqual(productionManifestSchema.properties.sourceOfTruth.required, ["type", "file", "schemaFile", "hash", "editable"]);
   assert.deepEqual(productionManifestSchema.properties.generated.required, ["react", "preview", "contract", "assets"]);
+  assert.equal(productionManifestSchema.properties.generated.properties.contract.required.includes("schemaFile"), true);
+  assert.equal(productionManifestSchema.properties.generated.properties.contract.properties.schemaFile.const, "integration-contract.schema.json");
   assert.equal(productionManifestSchema.properties.quality.required.includes("reportSchemaFile"), true);
   assert.equal(productionManifestSchema.properties.quality.properties.reportSchemaFile.const, "verification-report.schema.json");
   assert.equal(productionManifestSchema.properties.quality.properties.scores.required.includes("visual_similarity"), true);
@@ -622,6 +692,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   });
   assert.deepEqual(productionManifest.generated.contract, {
     file: "integration-contract.json",
+    schemaFile: "integration-contract.schema.json",
     verifierCommand: "npm run verify:contract",
     sections: 1,
     layers: 2,
@@ -851,6 +922,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   });
   assert.deepEqual(handoffSummary.contract, {
     file: "integration-contract.json",
+    schemaFile: "integration-contract.schema.json",
     sections: 1,
     layers: 2,
     components: 1,
@@ -1127,6 +1199,7 @@ test("writeProjectExportPackage writes every package file under the target direc
   assert.equal(written.files.length, output.files.length);
   assert.equal(existsSync(join(directory, "src", "ProductionHomepage.tsx")), true);
   assert.equal(existsSync(join(directory, "integration-contract.json")), true);
+  assert.equal(existsSync(join(directory, "integration-contract.schema.json")), true);
   assert.equal(existsSync(join(directory, "asset-index.json")), true);
   assert.equal(existsSync(join(directory, "production-manifest.json")), true);
   assert.equal(existsSync(join(directory, "production-manifest.schema.json")), true);
@@ -1204,6 +1277,23 @@ test("exported handoff verifier checks the production manifest schema contract",
   assert.match(failed.stdout, /production_manifest_schema_mismatch/);
   assert.match(failed.stdout, /production-manifest\.schema\.json/);
   assert.match(failed.stdout, /project_integration_manifest/);
+});
+
+test("exported handoff verifier checks the integration contract schema contract", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-integration-contract-schema-verifier-"));
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const schemaPath = join(directory, "integration-contract.schema.json");
+  const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
+  schema.properties.layers.items.properties.track.enum = ["asset"];
+  writeFileSync(schemaPath, `${JSON.stringify(schema, null, 2)}\n`);
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-handoff.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /integration_contract_schema_mismatch/);
+  assert.match(failed.stdout, /integration-contract\.schema\.json/);
+  assert.match(failed.stdout, /component/);
 });
 
 test("exported handoff verifier checks the verification report schema contract", () => {
@@ -1367,6 +1457,22 @@ test("exported integration contract verifier validates the handoff mapping", () 
   assert.match(failed.stdout, /integration_contract_mismatch/);
   assert.match(failed.stdout, /layers/);
   assert.match(failed.stdout, /stale-headline/);
+});
+
+test("exported integration contract verifier checks its schema contract", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-contract-schema-verifier-"));
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const schemaPath = join(directory, "integration-contract.schema.json");
+  const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
+  schema.properties.component.required = ["name"];
+  writeFileSync(schemaPath, `${JSON.stringify(schema, null, 2)}\n`);
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-contract.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /integration_contract_schema_mismatch/);
+  assert.match(failed.stdout, /rootSelector/);
 });
 
 test("exported integration contract verifier checks section regeneration requests", () => {
