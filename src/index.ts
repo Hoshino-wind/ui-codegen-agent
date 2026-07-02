@@ -36,6 +36,7 @@ export {
   updateAnalysisLayer,
   validateHomepageAnalysisPlan
 } from "./importers/homepageAnalysisPlan.js";
+export { createHomepageAnalysisTask } from "./importers/homepageAnalysisTask.js";
 export { createHomepageLayerDocFromPng } from "./importers/homepagePngPipeline.js";
 export { addHeroAnnotationSetToPlan, seedHomepageAnalysisPlan } from "./importers/homepageSeed.js";
 export { createLayerDocFromImageManifest } from "./importers/imageManifest.js";
@@ -167,6 +168,12 @@ export type {
   CreateHomepageAnalysisPlanInput,
   HomepageAnalysisPlan
 } from "./importers/homepageAnalysisPlan.js";
+export type {
+  CreateHomepageAnalysisTaskInput,
+  HomepageAnalysisTask,
+  HomepageAnalysisTaskSourceImage,
+  HomepageAnalysisTaskTrack
+} from "./importers/homepageAnalysisTask.js";
 export type {
   HomepagePngPipelineInput,
   HomepagePngPipelineResult

@@ -8,6 +8,7 @@ import { PNG } from "pngjs";
 
 import {
   addAnalysisLayer,
+  createHomepageAnalysisTask,
   createHomepageAnalysisPlanAudit,
   createHomepageAnalysisPlan,
   createHomepageAnalysisPlanJsonSchema,
@@ -55,6 +56,35 @@ test("createHomepageAnalysisPlan scaffolds eight homepage sections across the PN
   assert.deepEqual(plan.sections[0].bounds, { x: 0, y: 0, width: 160, height: 100 });
   assert.deepEqual(plan.sections[7].bounds, { x: 0, y: 700, width: 160, height: 100 });
   assert.deepEqual(validateHomepageAnalysisPlan(plan), []);
+});
+
+test("createHomepageAnalysisTask prepares a LayerDoc-first visual decomposition brief", () => {
+  const task = createHomepageAnalysisTask({
+    name: "AI homepage screenshot",
+    sourceImage: { uri: "references/homepage.png", width: 1440, height: 1760 },
+    outputSchemaFile: "analysis-plan.schema.json"
+  });
+
+  assert.equal(task.version, "0.1.0");
+  assert.equal(task.kind, "homepage-png-analysis");
+  assert.deepEqual(task.sourceImage, { uri: "references/homepage.png", width: 1440, height: 1760 });
+  assert.deepEqual(task.outputContract, {
+    artifact: "HomepageAnalysisPlan",
+    schemaFile: "analysis-plan.schema.json",
+    minSections: 8,
+    maxSections: 15,
+    requiredTopLevelKeys: ["name", "canvas", "sections"]
+  });
+  assert.deepEqual(task.classificationTracks.map((track) => track.track), [
+    "component",
+    "asset",
+    "approximation",
+    "layout"
+  ]);
+  assert.equal(task.acceptanceGates.includes("Every visible section has at least one editable layer."), true);
+  assert.equal(task.constraints.includes("Do not use the full PNG as one page-sized bitmap layer."), true);
+  assert.match(task.operatorPrompt, /Image -> HomepageAnalysisPlan -> LayerDoc -> HTML Preview -> React\/Tailwind -> Verifier/);
+  assert.match(task.operatorPrompt, /8-15 sections/);
 });
 
 test("addAnalysisLayer and updateAnalysisLayer edit the analysis plan without mutating the original", () => {

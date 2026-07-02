@@ -13,6 +13,7 @@
     "pipeline:homepage": "node dist/cli/homepagePipeline.js",
     "export:project": "node dist/cli/exportProject.js",
     "materialize:project": "node dist/cli/materializeProjectPackage.js",
+    "create:analysis-task": "node dist/cli/createAnalysisTask.js",
     "verify:analysis-plan": "node dist/cli/verifyAnalysisPlan.js",
     "verify:layerdoc": "node dist/cli/verifyLayerDoc.js",
     "test": "npm run build:lib && node --test test/*.test.mjs",

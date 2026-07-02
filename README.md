@@ -70,6 +70,9 @@ The repository currently implements the core LayerDoc domain layer:
 - Audit Analysis Plans before LayerDoc build with section coverage, track counts,
   blockers, and readiness evidence exposed in Studio, LayerDoc metadata,
   pipeline reports, and exported project handoff files.
+- Create a model-ready homepage analysis task package from a source PNG, including
+  schema handoff, classification tracks, acceptance gates, and anti-bitmap
+  constraints for the vision/manual decomposition step.
 - Upload a PNG in the browser to initialize Analysis Plan dimensions.
 - Render a deterministic HTML preview with section, component, and layer DOM markers.
 - Overlay the source PNG on top of Canvas/HTML preview with controlled opacity
@@ -223,6 +226,22 @@ const layerDoc = createLayerDocFromImageManifest(manifest);
 The analysis plan can come from a vision model, a crop workbench, or manual
 review. The PNG intake module deliberately does not invent semantics by itself;
 it only turns confirmed section/layer structure into project assets.
+
+Before asking a vision worker or human operator to decompose the PNG, create a
+task package that carries the source canvas, the HomepageAnalysisPlan schema,
+the 8-15 section requirement, classification tracks, and anti-bitmap
+constraints:
+
+```bash
+npm run create:analysis-task -- \
+  --input references/homepage.png \
+  --out artifacts/analysis-task \
+  --name "AI homepage"
+```
+
+It writes `analysis-task.json` and `analysis-plan.schema.json`. The task package
+is the model-facing handoff for producing `analysis-plan.json`; the image still
+does not become the editable source of truth.
 
 Before LayerDoc build, the standalone verifier can audit that structure without
 running the full homepage pipeline:
