@@ -108,6 +108,10 @@ The repository currently implements the core LayerDoc domain layer:
   component, contract counts, regeneration request/application counts, verifier
   scores, audit status, and verification commands so CI or downstream importers
   can consume the package without scraping README text.
+- Export a `production-manifest.json` as the recommended project integration
+  entrypoint, tying the editable LayerDoc source, generated React component,
+  HTML preview, integration contract, asset index, quality gates, and section
+  regeneration commands into one stable file.
 - Export an `asset-index.json` that inventories LayerDoc assets by source/type,
   usage, visible-project inclusion, section/component ownership, and DOM
   selectors so downstream project importers can wire media without reverse
@@ -125,9 +129,9 @@ The repository currently implements the core LayerDoc domain layer:
   LayerDoc files carry quality state while screenshot evidence remains in the
   external verifier report.
 - Sync exported preview verification back into `layerdoc.json`, package
-  manifests, handoff summaries, integration contracts, and rendered root
-  `data-verification-*` attributes so rerunning project verification stays
-  self-consistent after a screenshot diff.
+  manifests, `production-manifest.json`, handoff summaries, integration
+  contracts, and rendered root `data-verification-*` attributes so rerunning
+  project verification stays self-consistent after a screenshot diff.
 - Preserve uploaded PNG references in Studio project exports as `reference.png`
   so browser-built handoff packages can rerun visual verification like CLI
   pipeline packages.

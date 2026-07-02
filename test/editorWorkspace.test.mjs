@@ -30,8 +30,10 @@ test("createEditorWorkspace derives preview, export, and verifier output from on
   assert.match(workspace.reactExport.code, /export function ProductionHomepage/);
   assert.equal(workspace.projectExport.manifest.componentName, "ProductionHomepage");
   assert.equal(workspace.projectExport.manifest.assetIndex, "asset-index.json");
-  assert.equal(workspace.projectExport.files.length, 30);
+  assert.equal(workspace.projectExport.manifest.productionManifest, "production-manifest.json");
+  assert.equal(workspace.projectExport.files.length, 31);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "handoff-summary.json"), true);
+  assert.equal(workspace.projectExport.files.some((file) => file.path === "production-manifest.json"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "asset-index.json"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "layerdoc.json"), true);
   assert.equal(workspace.projectExport.files.some((file) => file.path === "integration-contract.json"), true);

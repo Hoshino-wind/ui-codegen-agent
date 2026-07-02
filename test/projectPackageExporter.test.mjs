@@ -389,6 +389,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.manifest.layerDocHash, /^sha256:[a-f0-9]{64}$/);
   assert.equal(output.manifest.integrationContract, "integration-contract.json");
   assert.equal(output.manifest.handoffSummary, "handoff-summary.json");
+  assert.equal(output.manifest.productionManifest, "production-manifest.json");
   assert.equal(output.manifest.sectionCandidateSchema, "section-candidate.schema.json");
   assert.equal(output.manifest.assetIndex, "asset-index.json");
   assert.deepEqual(output.manifest.referenceVisual, {
@@ -420,6 +421,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     "manifest.json",
     "package.json",
     "preview.html",
+    "production-manifest.json",
     "quality-gates.json",
     "section-candidate.schema.json",
     "scripts/verify-analysis-plan.mjs",
@@ -467,12 +469,58 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "layerdoc.json").contents, /"schema": "layerdoc"/);
   const contract = JSON.parse(output.files.find((file) => file.path === "integration-contract.json").contents);
   const manifest = JSON.parse(output.files.find((file) => file.path === "manifest.json").contents);
+  const productionManifest = JSON.parse(output.files.find((file) => file.path === "production-manifest.json").contents);
   const assetIndex = JSON.parse(output.files.find((file) => file.path === "asset-index.json").contents);
   const exportedLayerDoc = JSON.parse(output.files.find((file) => file.path === "layerdoc.json").contents);
   assert.deepEqual(manifest.referenceVisual, output.manifest.referenceVisual);
   assert.deepEqual(manifest.analysisPlan, output.manifest.analysisPlan);
   assert.deepEqual(manifest.analysisPlanAudit, output.manifest.analysisPlanAudit);
+  assert.equal(manifest.productionManifest, output.manifest.productionManifest);
   assert.equal(manifest.assetIndex, output.manifest.assetIndex);
+  assert.equal(productionManifest.role, "project_integration_manifest");
+  assert.deepEqual(productionManifest.sourceOfTruth, {
+    type: "LayerDoc",
+    file: "layerdoc.json",
+    schemaFile: "layerdoc.schema.json",
+    hash: output.manifest.layerDocHash,
+    editable: true
+  });
+  assert.deepEqual(productionManifest.generated.react, {
+    component: "ProductionHomepage",
+    file: "src/ProductionHomepage.tsx",
+    rootSelector: '[data-layerdoc-version="0.1.0"]',
+    styling: "tailwind"
+  });
+  assert.deepEqual(productionManifest.generated.contract, {
+    file: "integration-contract.json",
+    verifierCommand: "npm run verify:contract",
+    sections: 1,
+    layers: 2,
+    components: 1,
+    assets: 0,
+    interactions: 0,
+    responsiveRules: 1
+  });
+  assert.deepEqual(productionManifest.generated.assets, {
+    file: "asset-index.json",
+    total: 0,
+    used: 0,
+    visibleInProject: 0,
+    bySource: {},
+    byType: {}
+  });
+  assert.deepEqual(productionManifest.quality.scores, {
+    visual_similarity: output.manifest.scores.visualSimilarity,
+    structure_score: output.manifest.scores.structureScore,
+    component_score: output.manifest.scores.componentScore,
+    project_fit_score: output.manifest.scores.projectFitScore
+  });
+  assert.deepEqual(productionManifest.integrationSteps.map((step) => step.command), [
+    "npm install",
+    "npm run verify:preview",
+    "npm run verify",
+    "npm run build"
+  ]);
   assert.deepEqual(assetIndex.summary, {
     total: 0,
     used: 0,
@@ -716,6 +764,8 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:section-candidate/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:section-application/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /manifest reference visual/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /production-manifest\.json/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /recommended integration entrypoint/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /handoff-summary\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /asset-index\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /integration-contract\.json/);
@@ -794,6 +844,7 @@ test("writeProjectExportPackage writes every package file under the target direc
   assert.equal(existsSync(join(directory, "src", "ProductionHomepage.tsx")), true);
   assert.equal(existsSync(join(directory, "integration-contract.json")), true);
   assert.equal(existsSync(join(directory, "asset-index.json")), true);
+  assert.equal(existsSync(join(directory, "production-manifest.json")), true);
   assert.equal(existsSync(join(directory, "handoff-summary.json")), true);
   assert.equal(existsSync(join(directory, "analysis-plan.schema.json")), true);
   assert.equal(existsSync(join(directory, "analysis-plan-audit.json")), true);
@@ -832,6 +883,23 @@ test("exported handoff verifier checks the asset index against LayerDoc and cont
   assert.match(failed.stdout, /asset_index_mismatch/);
   assert.match(failed.stdout, /asset-index\.json/);
   assert.match(failed.stdout, /hero-crop/);
+});
+
+test("exported handoff verifier checks the production manifest against project handoff files", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-production-manifest-verifier-"));
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const productionManifestPath = join(directory, "production-manifest.json");
+  const productionManifest = JSON.parse(readFileSync(productionManifestPath, "utf8"));
+  productionManifest.generated.react.file = "src/StaleHomepage.tsx";
+  writeFileSync(productionManifestPath, `${JSON.stringify(productionManifest, null, 2)}\n`);
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-handoff.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /production_manifest_mismatch/);
+  assert.match(failed.stdout, /production-manifest\.json/);
+  assert.match(failed.stdout, /src\/ProductionHomepage\.tsx/);
 });
 
 test("createProjectExportPackage can include the visual reference PNG as a binary file", () => {
@@ -1444,6 +1512,7 @@ test("exported preview verifier script updates the handoff report from candidate
   assert.equal(existsSync(join(directory, "verification-artifacts", "diff.png")), true);
   const report = JSON.parse(readFileSync(join(directory, "verification-report.json"), "utf8"));
   const manifest = JSON.parse(readFileSync(join(directory, "manifest.json"), "utf8"));
+  const productionManifest = JSON.parse(readFileSync(join(directory, "production-manifest.json"), "utf8"));
   const handoffSummary = JSON.parse(readFileSync(join(directory, "handoff-summary.json"), "utf8"));
   const layerDoc = JSON.parse(readFileSync(join(directory, "layerdoc.json"), "utf8"));
   const contract = JSON.parse(readFileSync(join(directory, "integration-contract.json"), "utf8"));
@@ -1468,6 +1537,14 @@ test("exported preview verifier script updates the handoff report from candidate
   assert.deepEqual(manifest.scores.visualProblemAreas, report.visualProblemAreas);
   assert.equal(manifest.scores.visualSimilarity, 99.75);
   assert.equal(manifest.scores.evidence.visual.kind, "html-screenshot");
+  assert.equal(productionManifest.sourceOfTruth.hash, manifest.layerDocHash);
+  assert.deepEqual(productionManifest.quality.scores, {
+    visual_similarity: 99.75,
+    structure_score: report.structureScore,
+    component_score: report.componentScore,
+    project_fit_score: report.projectFitScore
+  });
+  assert.equal(productionManifest.quality.visualEvidence.kind, "html-screenshot");
   assert.equal(handoffSummary.quality.scores.visual_similarity, 99.75);
   assert.equal(handoffSummary.quality.visualEvidence.kind, "html-screenshot");
   assert.deepEqual(handoffSummary.quality.visualProblems, {

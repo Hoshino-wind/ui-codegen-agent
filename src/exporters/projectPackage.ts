@@ -37,6 +37,7 @@ export interface ProjectExportManifest {
   layerDocHash: string;
   integrationContract: string;
   handoffSummary: string;
+  productionManifest: string;
   assetIndex: string;
   sectionCandidateSchema: string;
   referenceVisual: ProjectReferenceVisual;
@@ -250,10 +251,83 @@ export interface ProjectExportPackage {
   files: ProjectExportFile[];
 }
 
+export interface ProjectProductionManifest {
+  version: "0.1.0";
+  system: "AI UI Production System";
+  role: "project_integration_manifest";
+  sourceOfTruth: {
+    type: "LayerDoc";
+    file: string;
+    schemaFile: string;
+    hash: string;
+    editable: true;
+  };
+  intake: {
+    sourceVisual?: NonNullable<LayerDoc["metadata"]["sourceImage"]>;
+    analysisPlan?: NonNullable<LayerDoc["metadata"]["analysisPlan"]>;
+    analysisPlanFiles?: ProjectHandoffSummary["sourceAnalysisPlanFiles"];
+    imageManifestFile?: string;
+  };
+  generated: {
+    react: {
+      component: string;
+      file: string;
+      rootSelector: string;
+      styling: "tailwind";
+    };
+    preview: {
+      file: string;
+      rootSelector: string;
+      verifierCommand: "npm run verify:preview";
+    };
+    contract: {
+      file: string;
+      verifierCommand: "npm run verify:contract";
+      sections: number;
+      layers: number;
+      components: number;
+      assets: number;
+      interactions: number;
+      responsiveRules: number;
+    };
+    assets: ProjectAssetIndexSummary & {
+      file: string;
+    };
+  };
+  quality: {
+    reportFile: "verification-report.json";
+    gatesFile: "quality-gates.json";
+    scores: ProjectHandoffSummary["quality"]["scores"];
+    visualEvidence: VerificationReport["evidence"]["visual"];
+    commands: {
+      full: "npm run verify";
+      preview: "npm run verify:preview";
+      gates: "npm run verify:gates";
+    };
+  };
+  regeneration: {
+    candidateSchemaFile: string;
+    requestCount: number;
+    applicationCount: number;
+    commands: {
+      verifyCandidate: "npm run verify:section-candidate";
+      applyCandidate: "npm run apply:section-candidate";
+      verifyApplication: "npm run verify:section-application";
+    };
+  };
+  integrationSteps: Array<{
+    id: string;
+    label: string;
+    command: string;
+    required: boolean;
+  }>;
+}
+
 const PROJECT_VERIFY_CHAIN =
   "npm run verify:preview && npm run verify:handoff && npm run verify:analysis-plan && npm run verify:image-manifest && npm run verify:layerdoc && npm run verify:contract && npm run verify:gates";
 const ASSET_INDEX_FILE = "asset-index.json";
 const SECTION_CANDIDATE_SCHEMA_FILE = "section-candidate.schema.json";
+const PRODUCTION_MANIFEST_FILE = "production-manifest.json";
 
 function toKebabCase(value: string): string {
   return value
@@ -818,10 +892,86 @@ const audit = readJson("../layerdoc-audit.json");
 const report = readJson("../verification-report.json");
 const assetIndexPath = manifest.assetIndex ?? "${ASSET_INDEX_FILE}";
 const assetIndex = fileExists(assetIndexPath) ? readJson("../" + assetIndexPath) : null;
+const productionManifestPath = manifest.productionManifest ?? "${PRODUCTION_MANIFEST_FILE}";
+const productionManifest = fileExists(productionManifestPath) ? readJson("../" + productionManifestPath) : null;
 const expectedAssetIndex = expectedAssetIndexFrom(layerDoc, contract, manifest);
 const expectedAssetIndexSummary = {
   file: assetIndexPath,
   ...expectedAssetIndex.summary
+};
+const expectedProductionManifest = {
+  version: "0.1.0",
+  system: "AI UI Production System",
+  role: "project_integration_manifest",
+  sourceOfTruth: {
+    type: "LayerDoc",
+    file: "layerdoc.json",
+    schemaFile: "layerdoc.schema.json",
+    hash: sha256(stableJson(layerDoc)),
+    editable: true
+  },
+  intake: {
+    ...(handoff.sourceVisual ? { sourceVisual: { ...handoff.sourceVisual } } : {}),
+    ...(handoff.sourceAnalysisPlan ? { analysisPlan: { ...handoff.sourceAnalysisPlan } } : {}),
+    ...(handoff.sourceAnalysisPlanFiles ? { analysisPlanFiles: { ...handoff.sourceAnalysisPlanFiles } } : {}),
+    ...(handoff.sourceImageManifestFile ? { imageManifestFile: handoff.sourceImageManifestFile } : {})
+  },
+  generated: {
+    react: {
+      component: contract.component?.name,
+      file: contract.component?.file,
+      rootSelector: contract.component?.rootSelector,
+      styling: "tailwind"
+    },
+    preview: {
+      file: contract.preview?.file,
+      rootSelector: contract.preview?.rootSelector,
+      verifierCommand: "npm run verify:preview"
+    },
+    contract: {
+      file: manifest.integrationContract,
+      verifierCommand: "npm run verify:contract",
+      sections: contract.sections?.length ?? 0,
+      layers: contract.layers?.length ?? 0,
+      components: contract.components?.length ?? 0,
+      assets: (contract.assets ?? []).filter((asset) => Array.isArray(asset.usedByLayerIds) && asset.usedByLayerIds.length > 0).length,
+      interactions: contract.interactions?.length ?? 0,
+      responsiveRules: contract.responsiveRules?.length ?? 0
+    },
+    assets: expectedAssetIndexSummary
+  },
+  quality: {
+    reportFile: "verification-report.json",
+    gatesFile: "quality-gates.json",
+    scores: {
+      visual_similarity: report.visualSimilarity,
+      structure_score: report.structureScore,
+      component_score: report.componentScore,
+      project_fit_score: report.projectFitScore
+    },
+    visualEvidence: report.evidence?.visual,
+    commands: {
+      full: "npm run verify",
+      preview: "npm run verify:preview",
+      gates: "npm run verify:gates"
+    }
+  },
+  regeneration: {
+    candidateSchemaFile: manifest.sectionCandidateSchema,
+    requestCount: contract.generationRequests?.length ?? 0,
+    applicationCount: contract.generationApplications?.length ?? 0,
+    commands: {
+      verifyCandidate: "npm run verify:section-candidate",
+      applyCandidate: "npm run apply:section-candidate",
+      verifyApplication: "npm run verify:section-application"
+    }
+  },
+  integrationSteps: [
+    { id: "install", label: "Install dependencies", command: "npm install", required: true },
+    { id: "verify-preview", label: "Capture preview diff", command: "npm run verify:preview", required: true },
+    { id: "verify-handoff", label: "Run full handoff verification", command: "npm run verify", required: true },
+    { id: "build", label: "Build React export", command: "npm run build", required: true }
+  ]
 };
 const actualLayerDocHash = sha256(stableJson(layerDoc));
 const failures = [];
@@ -832,6 +982,7 @@ const packageScripts = packageJson.scripts ?? {};
 pushIf(manifest.source !== "layerdoc", failures, "manifest_source_invalid", "manifest.json source must be layerdoc.");
 pushIf(manifest.handoffSummary !== "handoff-summary.json", failures, "manifest_handoff_file_mismatch", "manifest.json handoffSummary must be handoff-summary.json.");
 pushIf(manifest.assetIndex !== "${ASSET_INDEX_FILE}", failures, "manifest_asset_index_mismatch", "manifest.json assetIndex must be ${ASSET_INDEX_FILE}.");
+pushIf(manifest.productionManifest !== "${PRODUCTION_MANIFEST_FILE}", failures, "manifest_production_manifest_mismatch", "manifest.json productionManifest must be ${PRODUCTION_MANIFEST_FILE}.");
 pushIf(manifest.sectionCandidateSchema !== "${SECTION_CANDIDATE_SCHEMA_FILE}", failures, "manifest_section_candidate_schema_mismatch", "manifest.json sectionCandidateSchema must be ${SECTION_CANDIDATE_SCHEMA_FILE}.");
 pushIf(handoff.source !== "layerdoc", failures, "handoff_source_invalid", "handoff-summary.json source must be layerdoc.");
 pushIf(handoff.positioning !== "AI UI Production System", failures, "handoff_positioning_invalid", "handoff-summary.json positioning must identify the AI UI Production System.");
@@ -840,7 +991,9 @@ pushIf(handoff.sourceOfTruth?.schemaFile !== "layerdoc.schema.json", failures, "
 pushIf(handoff.sourceOfTruth?.hash !== actualLayerDocHash, failures, "handoff_source_hash_mismatch", "handoff sourceOfTruth.hash must match the current layerdoc.json hash.");
 pushIf(manifest.layerDocHash !== actualLayerDocHash, failures, "manifest_layerdoc_hash_mismatch", "manifest.json layerDocHash must match the current layerdoc.json hash.");
 pushIf(!manifestFiles.includes("${ASSET_INDEX_FILE}"), failures, "asset_index_not_listed", "manifest.json files must include ${ASSET_INDEX_FILE}.");
+pushIf(!manifestFiles.includes("${PRODUCTION_MANIFEST_FILE}"), failures, "production_manifest_not_listed", "manifest.json files must include ${PRODUCTION_MANIFEST_FILE}.");
 pushIf(!fileExists(assetIndexPath), failures, "asset_index_missing", "manifest.json assetIndex must point at an existing file.");
+pushIf(!fileExists(productionManifestPath), failures, "production_manifest_missing", "manifest.json productionManifest must point at an existing file.");
 pushIf(!fileExists(manifest.sectionCandidateSchema), failures, "section_candidate_schema_missing", "manifest.json sectionCandidateSchema must point at an existing file.");
 
 pushIf(!manifestFiles.includes("scripts/verify-handoff.mjs"), failures, "handoff_verifier_not_listed", "manifest.json files must include scripts/verify-handoff.mjs.");
@@ -877,6 +1030,7 @@ pushIf(handoff.sectionRegeneration?.requestCount !== (contract.generationRequest
 pushIf(handoff.sectionRegeneration?.applicationCount !== (contract.generationApplications?.length ?? 0), failures, "handoff_section_application_count_mismatch", "handoff sectionRegeneration.applicationCount must match integration contract.");
 pushIf(stableJson(assetIndex) !== stableJson(expectedAssetIndex), failures, "asset_index_mismatch", "asset-index.json does not match LayerDoc and integration-contract assets. Expected " + stableJson(expectedAssetIndex) + " Received " + stableJson(assetIndex));
 pushIf(stableJson(handoff.assetIndex) !== stableJson(expectedAssetIndexSummary), failures, "handoff_asset_index_mismatch", "handoff-summary.json assetIndex must summarize asset-index.json.");
+pushIf(stableJson(productionManifest) !== stableJson(expectedProductionManifest), failures, "production_manifest_mismatch", "production-manifest.json must match LayerDoc, integration contract, asset index, quality report, and handoff metadata. Expected " + stableJson(expectedProductionManifest) + " Received " + stableJson(productionManifest));
 
 pushIf(handoff.quality?.referenceVisual?.file !== manifest.referenceVisual?.file, failures, "handoff_reference_visual_mismatch", "handoff reference visual must match manifest referenceVisual.");
 pushIf(handoff.quality?.gatesFile !== "quality-gates.json", failures, "handoff_gates_file_mismatch", "handoff quality gatesFile must be quality-gates.json.");
@@ -2221,11 +2375,73 @@ function updateHandoffSummary(handoff, manifest, contract, audit, report, assetI
   };
 }
 
+function updateProductionManifest(productionManifest, manifest, contract, report, assetIndex, handoff) {
+  return {
+    ...productionManifest,
+    sourceOfTruth: {
+      ...(productionManifest.sourceOfTruth ?? {}),
+      hash: manifest.layerDocHash
+    },
+    intake: {
+      ...(handoff.sourceVisual ? { sourceVisual: { ...handoff.sourceVisual } } : {}),
+      ...(handoff.sourceAnalysisPlan ? { analysisPlan: { ...handoff.sourceAnalysisPlan } } : {}),
+      ...(handoff.sourceAnalysisPlanFiles ? { analysisPlanFiles: { ...handoff.sourceAnalysisPlanFiles } } : {}),
+      ...(handoff.sourceImageManifestFile ? { imageManifestFile: handoff.sourceImageManifestFile } : {})
+    },
+    generated: {
+      ...(productionManifest.generated ?? {}),
+      react: {
+        component: contract.component.name,
+        file: contract.component.file,
+        rootSelector: contract.component.rootSelector,
+        styling: "tailwind"
+      },
+      preview: {
+        file: contract.preview.file,
+        rootSelector: contract.preview.rootSelector,
+        verifierCommand: "npm run verify:preview"
+      },
+      contract: {
+        file: manifest.integrationContract,
+        verifierCommand: "npm run verify:contract",
+        sections: contract.sections.length,
+        layers: contract.layers.length,
+        components: contract.components.length,
+        assets: contract.assets.filter((asset) => asArray(asset.usedByLayerIds).length > 0).length,
+        interactions: contract.interactions.length,
+        responsiveRules: contract.responsiveRules.length
+      },
+      assets: {
+        file: manifest.assetIndex ?? "${ASSET_INDEX_FILE}",
+        ...assetIndex.summary
+      }
+    },
+    quality: {
+      ...(productionManifest.quality ?? {}),
+      scores: {
+        visual_similarity: report.visualSimilarity,
+        structure_score: report.structureScore,
+        component_score: report.componentScore,
+        project_fit_score: report.projectFitScore
+      },
+      visualEvidence: report.evidence.visual
+    },
+    regeneration: {
+      ...(productionManifest.regeneration ?? {}),
+      candidateSchemaFile: manifest.sectionCandidateSchema,
+      requestCount: contract.generationRequests.length,
+      applicationCount: contract.generationApplications.length
+    }
+  };
+}
+
 const options = parseArgs(process.argv.slice(2));
 const candidate = readInputJson(options.input);
 const currentLayerDoc = readProjectJson("../layerdoc.json");
 const manifest = readProjectJson("../manifest.json");
 const handoff = readProjectJson("../handoff-summary.json");
+const productionManifestPath = manifest.productionManifest ?? "${PRODUCTION_MANIFEST_FILE}";
+const productionManifest = readProjectJson("../" + productionManifestPath);
 const candidateFailures = validateCandidate(candidate, options.sectionId, currentLayerDoc);
 assertNoFailures(candidateFailures, "Section candidate validation");
 
@@ -2246,6 +2462,7 @@ manifest.audit = audit;
 const contract = createIntegrationContract(nextLayerDoc, componentName, componentFile, nextHash);
 const assetIndex = createAssetIndex(nextLayerDoc, contract, nextHash);
 const nextHandoff = updateHandoffSummary(handoff, manifest, contract, audit, report, assetIndex);
+const nextProductionManifest = updateProductionManifest(productionManifest, manifest, contract, report, assetIndex, nextHandoff);
 
 writeProjectJson("../layerdoc.json", nextLayerDoc);
 writeProjectJson("../verification-report.json", report);
@@ -2254,6 +2471,7 @@ writeProjectJson("../manifest.json", manifest);
 writeProjectJson("../integration-contract.json", contract);
 writeProjectJson("../" + (manifest.assetIndex ?? "${ASSET_INDEX_FILE}"), assetIndex);
 writeProjectJson("../handoff-summary.json", nextHandoff);
+writeProjectJson("../" + productionManifestPath, nextProductionManifest);
 writeProjectText("../preview.html", renderHtmlPreview(nextLayerDoc));
 writeProjectText("../src/" + componentFile, exportReactTailwind(nextLayerDoc, componentName));
 
@@ -2275,6 +2493,7 @@ process.stdout.write(JSON.stringify({
     "integration-contract.json",
     manifest.assetIndex ?? "${ASSET_INDEX_FILE}",
     "handoff-summary.json",
+    productionManifestPath,
     "preview.html",
     "src/" + componentFile
   ]
@@ -4166,6 +4385,7 @@ const manifest = readJson("../manifest.json");
 const outputDir = resolve(options.out);
 mkdirSync(outputDir, { recursive: true });
 
+const productionManifestPath = manifest.productionManifest ?? "${PRODUCTION_MANIFEST_FILE}";
 const referencePath = referencePathFrom(options, manifest);
 const candidatePath = options.candidate ? resolve(options.candidate) : join(outputDir, "candidate.png");
 const diffPath = join(outputDir, "diff.png");
@@ -4176,6 +4396,7 @@ if (!options.candidate) {
 
 const visualDiff = comparePngs(referencePath, candidatePath, diffPath, options.threshold, options.includeAA);
 const handoff = readJson("../handoff-summary.json");
+const productionManifest = readJson("../" + productionManifestPath);
 const layerDoc = readJson("../layerdoc.json");
 const contract = readJson("../integration-contract.json");
 const report = readJson("../verification-report.json");
@@ -4261,9 +4482,43 @@ handoff.quality = {
 };
 writeJson("../handoff-summary.json", handoff);
 
+productionManifest.sourceOfTruth = {
+  ...(productionManifest.sourceOfTruth ?? {}),
+  hash: layerDocHash
+};
+productionManifest.generated = {
+  ...(productionManifest.generated ?? {}),
+  assets: {
+    file: assetIndexPath,
+    ...(assetIndex.summary ?? {})
+  },
+  contract: {
+    ...(productionManifest.generated?.contract ?? {}),
+    file: manifest.integrationContract,
+    sections: contract.sections?.length ?? 0,
+    layers: contract.layers?.length ?? 0,
+    components: contract.components?.length ?? 0,
+    assets: (contract.assets ?? []).filter((asset) => Array.isArray(asset.usedByLayerIds) && asset.usedByLayerIds.length > 0).length,
+    interactions: contract.interactions?.length ?? 0,
+    responsiveRules: contract.responsiveRules?.length ?? 0
+  }
+};
+productionManifest.quality = {
+  ...(productionManifest.quality ?? {}),
+  scores: {
+    visual_similarity: report.visualSimilarity,
+    structure_score: report.structureScore,
+    component_score: report.componentScore,
+    project_fit_score: report.projectFitScore
+  },
+  visualEvidence: report.evidence.visual
+};
+writeJson("../" + productionManifestPath, productionManifest);
+
 process.stdout.write(\`\${JSON.stringify({
   reportPath: "verification-report.json",
   manifestPath: "manifest.json",
+  productionManifestPath,
   handoffSummaryPath: "handoff-summary.json",
   layerDocPath: "layerdoc.json",
   contractPath: "integration-contract.json",
@@ -4407,6 +4662,7 @@ Generated assets:
 - \`src/main.tsx\`, \`src/App.tsx\`, \`src/index.css\`: project entry points
 - \`src/${manifest.componentName}.tsx\`: React + Tailwind component export
 - \`preview.html\`: deterministic HTML verification preview
+- \`${manifest.productionManifest}\`: recommended integration entrypoint for downstream projects, tying LayerDoc, generated React, preview, contract, assets, quality gates, and regeneration commands together
 - \`handoff-summary.json\`: machine-readable integration summary for CI, importers, and downstream project handoff
 - \`integration-contract.json\`: stable mapping from visible LayerDoc objects to project files and DOM selectors
 - \`${manifest.assetIndex}\`: machine-readable asset inventory with source, usage, visible-project, section, component, and selector mapping
@@ -4417,8 +4673,8 @@ ${manifest.analysisPlanFile ? `- \`${manifest.analysisPlanFile}\`: confirmed Hom
 - \`verification-report.json\`, \`quality-gates.json\`, \`scripts/verify-handoff.mjs\`, \`scripts/verify-analysis-plan.mjs\`, \`scripts/verify-image-manifest.mjs\`, \`scripts/verify-layerdoc.mjs\`, \`scripts/verify-contract.mjs\`, \`scripts/verify-preview.mjs\`, \`scripts/verify-gates.mjs\`: executable source, structure, contract, visual, and quality gate handoff
 
 Verification:
-- Run \`npm run verify:preview\` first to use the manifest reference visual, render \`preview.html\`, capture \`verification-artifacts/candidate.png\`, produce \`verification-artifacts/diff.png\`, and sync \`verification-report.json\`, \`layerdoc.json\`, \`manifest.json\`, \`integration-contract.json\`, \`handoff-summary.json\`, and rendered root quality attributes.
-- Run \`npm run verify:handoff\` after preview verification to confirm the project package manifest, file list, commands, scripts, entrypoint, contract summary, quality summary, audit summary, and LayerDoc hash still agree.
+- Run \`npm run verify:preview\` first to use the manifest reference visual, render \`preview.html\`, capture \`verification-artifacts/candidate.png\`, produce \`verification-artifacts/diff.png\`, and sync \`verification-report.json\`, \`layerdoc.json\`, \`manifest.json\`, \`integration-contract.json\`, \`${manifest.productionManifest}\`, \`handoff-summary.json\`, and rendered root quality attributes.
+- Run \`npm run verify:handoff\` after preview verification to confirm the project package manifest, file list, commands, scripts, entrypoint, production manifest, contract summary, quality summary, audit summary, and LayerDoc hash still agree.
 - Run \`npm run verify:analysis-plan\` to confirm Analysis Plan schema and audit artifacts still match \`manifest.json\`, \`layerdoc.json\`, and \`handoff-summary.json\`.
 - Run \`npm run verify:image-manifest\` to confirm the source image decomposition still matches \`manifest.json\`, \`layerdoc.json\`, and \`handoff-summary.json\`.
 - Run \`npm run verify:layerdoc\` after editing \`layerdoc.json\` to catch broken graph references before integration.
@@ -4537,6 +4793,86 @@ function createHandoffSummary(
   };
 }
 
+function createProductionManifest(
+  manifest: ProjectExportManifest,
+  contract: ProjectIntegrationContract,
+  assetIndex: ProjectAssetIndex,
+  handoff: ProjectHandoffSummary
+): ProjectProductionManifest {
+  return {
+    version: "0.1.0",
+    system: "AI UI Production System",
+    role: "project_integration_manifest",
+    sourceOfTruth: {
+      type: "LayerDoc",
+      file: handoff.sourceOfTruth.file,
+      schemaFile: handoff.sourceOfTruth.schemaFile,
+      hash: handoff.sourceOfTruth.hash,
+      editable: true
+    },
+    intake: {
+      ...(handoff.sourceVisual ? { sourceVisual: { ...handoff.sourceVisual } } : {}),
+      ...(handoff.sourceAnalysisPlan ? { analysisPlan: { ...handoff.sourceAnalysisPlan } } : {}),
+      ...(handoff.sourceAnalysisPlanFiles ? { analysisPlanFiles: { ...handoff.sourceAnalysisPlanFiles } } : {}),
+      ...(handoff.sourceImageManifestFile ? { imageManifestFile: handoff.sourceImageManifestFile } : {})
+    },
+    generated: {
+      react: {
+        component: contract.component.name,
+        file: contract.component.file,
+        rootSelector: contract.component.rootSelector,
+        styling: "tailwind"
+      },
+      preview: {
+        file: contract.preview.file,
+        rootSelector: contract.preview.rootSelector,
+        verifierCommand: "npm run verify:preview"
+      },
+      contract: {
+        file: manifest.integrationContract,
+        verifierCommand: "npm run verify:contract",
+        sections: contract.sections.length,
+        layers: contract.layers.length,
+        components: contract.components.length,
+        assets: contract.assets.filter((asset) => asset.usedByLayerIds.length > 0).length,
+        interactions: contract.interactions.length,
+        responsiveRules: contract.responsiveRules.length
+      },
+      assets: {
+        file: manifest.assetIndex,
+        ...assetIndex.summary
+      }
+    },
+    quality: {
+      reportFile: "verification-report.json",
+      gatesFile: "quality-gates.json",
+      scores: { ...handoff.quality.scores },
+      visualEvidence: handoff.quality.visualEvidence,
+      commands: {
+        full: "npm run verify",
+        preview: "npm run verify:preview",
+        gates: "npm run verify:gates"
+      }
+    },
+    regeneration: {
+      candidateSchemaFile: manifest.sectionCandidateSchema,
+      requestCount: contract.generationRequests.length,
+      applicationCount: contract.generationApplications.length,
+      commands: {
+        verifyCandidate: "npm run verify:section-candidate",
+        applyCandidate: "npm run apply:section-candidate",
+        verifyApplication: "npm run verify:section-application"
+      }
+    },
+    integrationSteps: [
+      { id: "install", label: "Install dependencies", command: "npm install", required: true },
+      { id: "verify-preview", label: "Capture preview diff", command: "npm run verify:preview", required: true },
+      { id: "verify-handoff", label: "Run full handoff verification", command: "npm run verify", required: true },
+      { id: "build", label: "Build React export", command: "npm run build", required: true }
+    ]
+  };
+}
+
 /**
  * Package a LayerDoc into files a downstream project can commit.
  * LayerDoc remains the editable source; React, preview HTML, and reports are
@@ -4570,6 +4906,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     "manifest.json",
     "package.json",
     "preview.html",
+    PRODUCTION_MANIFEST_FILE,
     "quality-gates.json",
     SECTION_CANDIDATE_SCHEMA_FILE,
     ...(options.referencePng ? [referenceVisual.file] : []),
@@ -4598,6 +4935,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     layerDocHash: sourceHash,
     integrationContract: "integration-contract.json",
     handoffSummary: "handoff-summary.json",
+    productionManifest: PRODUCTION_MANIFEST_FILE,
     assetIndex: ASSET_INDEX_FILE,
     sectionCandidateSchema: SECTION_CANDIDATE_SCHEMA_FILE,
     referenceVisual,
@@ -4622,6 +4960,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     sourceDoc.metadata.analysisPlan,
     sourceDoc.metadata.analysisPlanAudit
   );
+  const productionManifest = createProductionManifest(manifest, integrationContract, assetIndex, handoffSummary);
 
   return {
     manifest,
@@ -4643,6 +4982,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
       { path: "manifest.json", contents: stableJson(manifest) },
       { path: "package.json", contents: packageJsonFor(manifest) },
       { path: "preview.html", contents: renderHtmlPreview(sourceDoc) },
+      { path: PRODUCTION_MANIFEST_FILE, contents: stableJson(productionManifest) },
       { path: "quality-gates.json", contents: stableJson(defaultVerificationGates) },
       { path: SECTION_CANDIDATE_SCHEMA_FILE, contents: stableJson(createSectionRegenerationCandidateJsonSchema()) },
       ...(options.referencePng ? [{ path: referenceVisual.file, contents: options.referencePng }] : []),
