@@ -16,7 +16,7 @@ import {
 } from "../dist/index.js";
 
 const EXPECTED_VERIFY_CHAIN =
-  "npm run verify:preview && npm run verify:handoff && npm run verify:analysis-plan && npm run verify:image-manifest && npm run verify:layerdoc && npm run verify:contract && npm run verify:gates";
+  "npm run verify:preview && npm run verify:production-manifest && npm run verify:handoff && npm run verify:analysis-plan && npm run verify:image-manifest && npm run verify:layerdoc && npm run verify:contract && npm run verify:gates";
 
 test("project package exporter stays browser-compatible for Studio exports", () => {
   const source = readFileSync(join(process.cwd(), "src", "exporters", "projectPackage.ts"), "utf8");
@@ -434,6 +434,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     "scripts/verify-image-manifest.mjs",
     "scripts/verify-layerdoc.mjs",
     "scripts/verify-preview.mjs",
+    "scripts/verify-production-manifest.mjs",
     "scripts/verify-section-application.mjs",
     "scripts/verify-section-candidate.mjs",
     "src/App.tsx",
@@ -453,6 +454,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:analysis-plan": "node scripts\/verify-analysis-plan\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:image-manifest": "node scripts\/verify-image-manifest\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:preview": "node scripts\/verify-preview\.mjs"/);
+  assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:production-manifest": "node scripts\/verify-production-manifest\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:gates": "node scripts\/verify-gates\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"apply:section-candidate": "node scripts\/apply-section-candidate\.mjs"/);
   assert.match(output.files.find((file) => file.path === "package.json").contents, /"verify:section-application": "node scripts\/verify-section-application\.mjs"/);
@@ -736,6 +738,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
       "npm run build",
       "npm run verify",
       "npm run verify:preview",
+      "npm run verify:production-manifest",
       "npm run verify:handoff",
       "npm run verify:analysis-plan",
       "npm run verify:image-manifest",
@@ -768,6 +771,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "scripts/apply-section-candidate.mjs").contents, /apply:section-candidate/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /preview\.html/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /verification-report\.json/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-production-manifest.mjs").contents, /production-manifest\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-section-application.mjs").contents, /verify:section-application/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-section-candidate.mjs").contents, /section-candidate\.schema\.json/);
   assert.match(output.files.find((file) => file.path === "preview.html").contents, /data-layerdoc="0.1.0"/);
@@ -781,6 +785,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:contract/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:layerdoc/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:preview/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:production-manifest/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:section-candidate/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /npm run verify:section-application/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /manifest reference visual/);
@@ -879,6 +884,7 @@ test("writeProjectExportPackage writes every package file under the target direc
   assert.equal(existsSync(join(directory, "scripts", "verify-contract.mjs")), true);
   assert.equal(existsSync(join(directory, "scripts", "verify-layerdoc.mjs")), true);
   assert.equal(existsSync(join(directory, "scripts", "verify-preview.mjs")), true);
+  assert.equal(existsSync(join(directory, "scripts", "verify-production-manifest.mjs")), true);
   assert.equal(existsSync(join(directory, "verification-report.json")), true);
   assert.equal(existsSync(join(directory, "quality-gates.json")), true);
   assert.equal(existsSync(join(directory, "manifest.json")), true);
@@ -939,6 +945,27 @@ test("exported handoff verifier checks the production manifest schema contract",
   assert.match(failed.stdout, /production_manifest_schema_mismatch/);
   assert.match(failed.stdout, /production-manifest\.schema\.json/);
   assert.match(failed.stdout, /project_integration_manifest/);
+});
+
+test("exported production manifest verifier validates the integration entrypoint independently", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-production-manifest-standalone-"));
+  const output = createProjectExportPackage(createExportDoc(), { componentName: "ProductionHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const passed = spawnSync(process.execPath, ["scripts/verify-production-manifest.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.equal(passed.status, 0, passed.stderr || passed.stdout);
+  assert.match(passed.stdout, /"passed": true/);
+  assert.match(passed.stdout, /"productionManifestPath": "production-manifest\.json"/);
+
+  const productionManifestPath = join(directory, "production-manifest.json");
+  const productionManifest = JSON.parse(readFileSync(productionManifestPath, "utf8"));
+  productionManifest.quality.scores.project_fit_score = 12;
+  writeFileSync(productionManifestPath, `${JSON.stringify(productionManifest, null, 2)}\n`);
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-production-manifest.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /production_manifest_mismatch/);
+  assert.match(failed.stdout, /project_fit_score/);
 });
 
 test("createProjectExportPackage can include the visual reference PNG as a binary file", () => {

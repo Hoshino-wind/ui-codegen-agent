@@ -275,6 +275,7 @@ test("createProjectPackageDownload serializes every project package file in one 
       "scripts/verify-image-manifest.mjs",
       "scripts/verify-layerdoc.mjs",
       "scripts/verify-preview.mjs",
+      "scripts/verify-production-manifest.mjs",
       "scripts/verify-section-application.mjs",
       "scripts/verify-section-candidate.mjs",
       "src/App.tsx",
@@ -311,6 +312,7 @@ test("createProjectPackageDownload serializes every project package file in one 
   assert.match(payload.files.find((file) => file.path === "verification-report.json").contents, /"structureScore": 100/);
   assert.match(payload.files.find((file) => file.path === "scripts/verify-contract.mjs").contents, /integration-contract\.json/);
   assert.match(payload.files.find((file) => file.path === "scripts/verify-handoff.mjs").contents, /handoff-summary\.json/);
+  assert.match(payload.files.find((file) => file.path === "scripts/verify-production-manifest.mjs").contents, /production-manifest\.json/);
   assert.match(payload.files.find((file) => file.path === "scripts/verify-analysis-plan.mjs").contents, /manifest\.json/);
   assert.match(payload.files.find((file) => file.path === "scripts/verify-image-manifest.mjs").contents, /image-manifest\.json/);
   assert.match(payload.files.find((file) => file.path === "scripts/verify-gates.mjs").contents, /quality-gates\.json/);

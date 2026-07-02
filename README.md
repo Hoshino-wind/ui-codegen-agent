@@ -114,6 +114,8 @@ The repository currently implements the core LayerDoc domain layer:
   regeneration commands into one stable file.
 - Export `production-manifest.schema.json` so downstream importers and CI can
   validate that project integration entrypoint before ingesting generated UI.
+- Export a project-local `verify:production-manifest` command for validating
+  that integration entrypoint without running the entire handoff chain.
 - Export an `asset-index.json` that inventories LayerDoc assets by source/type,
   usage, visible-project inclusion, section/component ownership, and DOM
   selectors so downstream project importers can wire media without reverse
