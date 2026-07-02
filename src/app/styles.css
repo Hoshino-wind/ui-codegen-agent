@@ -829,7 +829,7 @@ button {
 
 .section-row {
   display: grid;
-  grid-template-columns: 32px 42px 30px 30px 30px minmax(0, 1fr) 22px;
+  grid-template-columns: 32px 42px 30px 30px 30px 30px minmax(0, 1fr) 22px;
   align-items: center;
   gap: 6px;
   margin-bottom: 6px;
@@ -864,6 +864,19 @@ button {
   place-items: center;
   padding: 0;
   color: #334155;
+}
+
+.section-row .section-revert {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: #475569;
+}
+
+.section-row .section-revert:disabled {
+  color: #cbd5e1;
+  background: #f8fafc;
+  cursor: not-allowed;
 }
 
 .section-row.hidden .section-visibility {

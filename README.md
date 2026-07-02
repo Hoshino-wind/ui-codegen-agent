@@ -33,6 +33,8 @@ LayerDoc owns:
 - `components`: exportable component groupings.
 - `interactions`: controlled behavior attached to layers.
 - `responsive`: breakpoint rules and layout changes.
+- `generation`: queued section regeneration requests plus applied/reverted
+  section graph snapshots for traceable rollback.
 - `verification`: visual, structural, component, and project-fit evidence.
 
 LayerDoc metadata can also carry `sourceImage` provenance for the original AI
@@ -84,6 +86,10 @@ The repository currently implements the core LayerDoc domain layer:
   replacing one stable section id with new layers, assets, components,
   interactions, and responsive rules, then refreshing preview, React export,
   verifier state, and project package output from the updated graph.
+- Record every accepted section candidate in `generation.sectionApplications`
+  with before/after section graph snapshots, expose the history in project
+  contracts and handoff summaries, and let Studio revert the latest applied
+  candidate for a section.
 - Export `section-candidate.schema.json` with project packages so AI workers
   and Studio imports share a verifiable contract for reviewed regeneration
   results, plus an exported `verify:section-candidate` script that checks a
@@ -94,9 +100,9 @@ The repository currently implements the core LayerDoc domain layer:
   to verify, apply, refresh preview screenshot evidence, recheck handoff
   artifacts, and enforce gates in one project-local command.
 - Export a `handoff-summary.json` with the source LayerDoc hash, entry
-  component, contract counts, regeneration request count, verifier scores,
-  audit status, and verification commands so CI or downstream importers can
-  consume the package without scraping README text.
+  component, contract counts, regeneration request/application counts, verifier
+  scores, audit status, and verification commands so CI or downstream importers
+  can consume the package without scraping README text.
 - Verify that exported integration contracts still match the LayerDoc source, generated project selectors, preview selectors, section order, layer bounds, layer style, layer copy, asset URIs, responsive CSS, and interaction metadata.
 - Enforce Studio and exported quality gates against verifier scores, LayerDoc
   asset-compliance audit results, and visible-section editable coverage,

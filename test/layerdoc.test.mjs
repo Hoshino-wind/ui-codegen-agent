@@ -76,6 +76,7 @@ test("createLayerDoc returns a complete editable production asset shell", () => 
   });
   assert.deepEqual(doc.metadata.analysisPlanAudit, createAnalysisPlanAudit());
   assert.deepEqual(doc.generation.sectionRequests, []);
+  assert.deepEqual(doc.generation.sectionApplications, []);
   assert.equal(doc.verification.scores.visualSimilarity, null);
   assert.deepEqual(doc.verification.visualProblemAreas, []);
 });

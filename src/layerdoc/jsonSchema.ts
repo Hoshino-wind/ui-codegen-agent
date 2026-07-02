@@ -141,6 +141,30 @@ const verificationVisualProblemAreaSchema = {
   }
 };
 
+const sectionRegenerationGraphSnapshotSchema = {
+  type: "object",
+  required: ["section", "layers", "assets", "components", "interactions", "responsiveRules"],
+  additionalProperties: false,
+  properties: {
+    section: {
+      type: "object",
+      required: ["id", "name", "bounds", "layerIds"],
+      additionalProperties: true,
+      properties: {
+        id: { type: "string", minLength: 1 },
+        name: { type: "string", minLength: 1 },
+        bounds: rectSchema,
+        layerIds: { type: "array", items: { type: "string", minLength: 1 } }
+      }
+    },
+    layers: { type: "array", items: { type: "object", required: ["id", "kind", "track", "editable", "bounds"], additionalProperties: true } },
+    assets: { type: "array", items: { type: "object", required: ["id", "type", "source"], additionalProperties: true } },
+    components: { type: "array", items: { type: "object", required: ["id", "layerIds", "exportable"], additionalProperties: true } },
+    interactions: { type: "array", items: { type: "object", required: ["id", "layerId", "event", "action"], additionalProperties: true } },
+    responsiveRules: { type: "array", items: { type: "object", required: ["id", "query", "target", "changes"], additionalProperties: true } }
+  }
+};
+
 /**
  * Publish the LayerDoc contract with exported packages so downstream projects
  * can validate the editable source without depending on this repository.
@@ -368,7 +392,7 @@ export function createLayerDocJsonSchema(): Record<string, unknown> {
       },
       generation: {
         type: "object",
-        required: ["sectionRequests"],
+        required: ["sectionRequests", "sectionApplications"],
         additionalProperties: false,
         properties: {
           sectionRequests: {
@@ -381,8 +405,26 @@ export function createLayerDocJsonSchema(): Record<string, unknown> {
                 id: { type: "string", minLength: 1 },
                 sectionId: { type: "string" },
                 prompt: { type: "string" },
-                status: { enum: ["requested", "running", "applied", "rejected"] },
+                status: { enum: ["requested", "running", "applied", "rejected", "reverted"] },
                 requestedAt: { type: "string" }
+              }
+            }
+          },
+          sectionApplications: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["id", "sectionId", "status", "appliedAt", "previous", "applied"],
+              additionalProperties: false,
+              properties: {
+                id: { type: "string", minLength: 1 },
+                sectionId: { type: "string", minLength: 1 },
+                requestId: { type: "string", minLength: 1 },
+                status: { enum: ["applied", "reverted"] },
+                appliedAt: { type: "string" },
+                revertedAt: { type: "string" },
+                previous: sectionRegenerationGraphSnapshotSchema,
+                applied: sectionRegenerationGraphSnapshotSchema
               }
             }
           }

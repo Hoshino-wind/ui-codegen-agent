@@ -212,6 +212,7 @@ export function validateLayerDoc(doc: LayerDoc): ValidationResult {
   const sectionsById = new Map(doc.sections.map((section) => [section.id, section]));
   const layersById = new Map(doc.layers.map((layer) => [layer.id, layer]));
   const assetIds = new Set(doc.assets.map((asset) => asset.id));
+  const requestIds = new Set(doc.generation.sectionRequests.map((request) => request.id));
   const duplicateIds = collectDuplicateIds([
     ...doc.sections.map((section) => section.id),
     ...doc.layers.map((layer) => layer.id),
@@ -219,7 +220,8 @@ export function validateLayerDoc(doc: LayerDoc): ValidationResult {
     ...doc.components.map((component) => component.id),
     ...doc.interactions.map((interaction) => interaction.id),
     ...doc.responsive.rules.map((rule) => rule.id),
-    ...doc.generation.sectionRequests.map((request) => request.id)
+    ...doc.generation.sectionRequests.map((request) => request.id),
+    ...doc.generation.sectionApplications.map((application) => application.id)
   ]);
 
   validateAnalysisPlanProvenance(doc, issues);
@@ -336,6 +338,37 @@ export function validateLayerDoc(doc: LayerDoc): ValidationResult {
           "section_missing",
           `generation.sectionRequests[${index}].sectionId`,
           `Regeneration request "${request.id}" references missing section "${request.sectionId}".`
+        )
+      );
+    }
+  }
+
+  for (const [index, application] of doc.generation.sectionApplications.entries()) {
+    const path = `generation.sectionApplications[${index}]`;
+    if (!sectionIds.has(application.sectionId)) {
+      issues.push(
+        issue(
+          "section_missing",
+          `${path}.sectionId`,
+          `Section regeneration application "${application.id}" references missing section "${application.sectionId}".`
+        )
+      );
+    }
+    if (application.requestId && !requestIds.has(application.requestId)) {
+      issues.push(
+        issue(
+          "metadata_invalid",
+          `${path}.requestId`,
+          `Section regeneration application "${application.id}" references missing request "${application.requestId}".`
+        )
+      );
+    }
+    if (application.previous.section.id !== application.sectionId || application.applied.section.id !== application.sectionId) {
+      issues.push(
+        issue(
+          "metadata_invalid",
+          `${path}.section`,
+          `Section regeneration application "${application.id}" snapshots must match section "${application.sectionId}".`
         )
       );
     }

@@ -8,6 +8,8 @@ import type {
   LayerStyle,
   Rect,
   ResponsiveRule,
+  SectionRegenerationApplication,
+  SectionRegenerationGraphSnapshot,
   SectionNode
 } from "../layerdoc/types.js";
 
@@ -26,6 +28,14 @@ export interface SectionRegenerationCandidateInput {
   components?: ComponentNode[];
   interactions?: InteractionNode[];
   responsiveRules?: ResponsiveRule[];
+}
+
+export interface SectionRegenerationApplicationOptions {
+  appliedAt?: string;
+}
+
+export interface SectionRegenerationRevertOptions {
+  revertedAt?: string;
 }
 
 function cloneLayer(layer: LayerNode): LayerNode {
@@ -61,6 +71,25 @@ function cloneResponsiveRule(rule: ResponsiveRule): ResponsiveRule {
   return { ...rule, target: { ...rule.target }, changes: { ...rule.changes } };
 }
 
+function cloneSectionGraphSnapshot(snapshot: SectionRegenerationGraphSnapshot): SectionRegenerationGraphSnapshot {
+  return {
+    section: cloneSection(snapshot.section),
+    layers: snapshot.layers.map(cloneLayer),
+    assets: snapshot.assets.map(cloneAsset),
+    components: snapshot.components.map(cloneComponent),
+    interactions: snapshot.interactions.map(cloneInteraction),
+    responsiveRules: snapshot.responsiveRules.map(cloneResponsiveRule)
+  };
+}
+
+function cloneSectionApplication(application: SectionRegenerationApplication): SectionRegenerationApplication {
+  return {
+    ...application,
+    previous: cloneSectionGraphSnapshot(application.previous),
+    applied: cloneSectionGraphSnapshot(application.applied)
+  };
+}
+
 function cloneDoc(doc: LayerDoc): LayerDoc {
   return {
     ...doc,
@@ -85,7 +114,8 @@ function cloneDoc(doc: LayerDoc): LayerDoc {
       rules: doc.responsive.rules.map(cloneResponsiveRule)
     },
     generation: {
-      sectionRequests: doc.generation.sectionRequests.map((request) => ({ ...request }))
+      sectionRequests: doc.generation.sectionRequests.map((request) => ({ ...request })),
+      sectionApplications: doc.generation.sectionApplications.map(cloneSectionApplication)
     },
     verification: {
       scores: { ...doc.verification.scores },
@@ -198,6 +228,49 @@ function isTargetedBySectionCandidate(
     (rule.target.type === "layer" && oldLayerIds.has(rule.target.id)) ||
     (rule.target.type === "component" && oldComponentIds.has(rule.target.id))
   );
+}
+
+function sectionGraphSnapshot(
+  doc: LayerDoc,
+  section: SectionNode,
+  layerIds: Set<string>,
+  componentIds: Set<string>,
+  responsiveRules: ResponsiveRule[]
+): SectionRegenerationGraphSnapshot {
+  const assetIds = new Set(doc.layers.filter((layer) => layerIds.has(layer.id) && layer.assetId).map((layer) => layer.assetId as string));
+
+  return {
+    section: cloneSection(section),
+    layers: doc.layers.filter((layer) => layerIds.has(layer.id)).map(cloneLayer),
+    assets: doc.assets.filter((asset) => assetIds.has(asset.id)).map(cloneAsset),
+    components: doc.components.filter((component) => componentIds.has(component.id)).map(cloneComponent),
+    interactions: doc.interactions.filter((interaction) => layerIds.has(interaction.layerId)).map(cloneInteraction),
+    responsiveRules: responsiveRules.map(cloneResponsiveRule)
+  };
+}
+
+function candidateSnapshot(candidate: SectionRegenerationCandidateInput): SectionRegenerationGraphSnapshot {
+  return {
+    section: cloneSection(candidate.section),
+    layers: candidate.layers.map(cloneLayer),
+    assets: candidate.assets?.map(cloneAsset) ?? [],
+    components: candidate.components?.map(cloneComponent) ?? [],
+    interactions: candidate.interactions?.map(cloneInteraction) ?? [],
+    responsiveRules: candidate.responsiveRules?.map(cloneResponsiveRule) ?? []
+  };
+}
+
+function nextSectionApplicationId(doc: LayerDoc, sectionId: string, requestId: string | undefined): string {
+  const baseId = requestId ? `apply-${requestId}` : `apply-${sectionId}`;
+  if (!doc.generation.sectionApplications.some((application) => application.id === baseId)) {
+    return baseId;
+  }
+
+  let suffix = 2;
+  while (doc.generation.sectionApplications.some((application) => application.id === `${baseId}-${suffix}`)) {
+    suffix += 1;
+  }
+  return `${baseId}-${suffix}`;
 }
 
 function assertValidAppliedCandidate(doc: LayerDoc, sectionId: string): void {
@@ -428,7 +501,8 @@ export function requestSectionRegeneration(doc: LayerDoc, sectionId: string, inp
 export function applySectionRegenerationCandidate(
   doc: LayerDoc,
   sectionId: string,
-  candidate: SectionRegenerationCandidateInput
+  candidate: SectionRegenerationCandidateInput,
+  options: SectionRegenerationApplicationOptions = {}
 ): LayerDoc {
   assertCandidateSectionShape(sectionId, candidate);
 
@@ -448,6 +522,9 @@ export function applySectionRegenerationCandidate(
   const oldComponentIds = new Set(
     next.components.filter((component) => component.layerIds.some((layerId) => oldLayerIds.has(layerId))).map((component) => component.id)
   );
+  const oldResponsiveRules = next.responsive.rules.filter((rule) => isTargetedBySectionCandidate(rule, sectionId, oldLayerIds, oldComponentIds));
+  const previousSnapshot = sectionGraphSnapshot(next, targetSection, oldLayerIds, oldComponentIds, oldResponsiveRules);
+  const appliedSnapshot = candidateSnapshot(appliedCandidate);
 
   next.sections[sectionIndex] = appliedCandidate.section;
   next.layers = [
@@ -484,7 +561,92 @@ export function applySectionRegenerationCandidate(
     request.status = "applied";
   }
 
+  next.generation.sectionApplications.push({
+    id: nextSectionApplicationId(next, sectionId, candidate.requestId),
+    sectionId,
+    ...(candidate.requestId ? { requestId: candidate.requestId } : {}),
+    status: "applied",
+    appliedAt: options.appliedAt ?? new Date().toISOString(),
+    previous: previousSnapshot,
+    applied: appliedSnapshot
+  });
+
   reflowSectionStack(next);
   assertValidAppliedCandidate(next, sectionId);
+  return next;
+}
+
+export function revertSectionRegenerationApplication(
+  doc: LayerDoc,
+  applicationId: string,
+  options: SectionRegenerationRevertOptions = {}
+): LayerDoc {
+  const next = cloneDoc(doc);
+  const application = next.generation.sectionApplications.find((candidate) => candidate.id === applicationId);
+
+  if (!application) {
+    throw new Error(`Section regeneration application "${applicationId}" was not found.`);
+  }
+  if (application.status !== "applied") {
+    throw new Error(`Section regeneration application "${applicationId}" is already reverted.`);
+  }
+  const applicationIndex = next.generation.sectionApplications.findIndex((candidate) => candidate.id === applicationId);
+  const newerAppliedApplication = next.generation.sectionApplications
+    .slice(applicationIndex + 1)
+    .find((candidate) => candidate.sectionId === application.sectionId && candidate.status === "applied");
+  if (newerAppliedApplication) {
+    throw new Error(`Section regeneration application "${applicationId}" cannot be reverted before newer application "${newerAppliedApplication.id}".`);
+  }
+
+  const sectionIndex = next.sections.findIndex((section) => section.id === application.sectionId);
+  if (sectionIndex === -1) {
+    throw new Error(`Section "${application.sectionId}" was not found.`);
+  }
+
+  const targetSection = next.sections[sectionIndex];
+  const currentLayerIds = new Set([
+    ...targetSection.layerIds,
+    ...next.layers.filter((layer) => layer.sectionId === application.sectionId).map((layer) => layer.id)
+  ]);
+  const currentAssetIds = new Set(next.layers.filter((layer) => currentLayerIds.has(layer.id) && layer.assetId).map((layer) => layer.assetId as string));
+  const currentComponentIds = new Set(
+    next.components.filter((component) => component.layerIds.some((layerId) => currentLayerIds.has(layerId))).map((component) => component.id)
+  );
+
+  next.sections[sectionIndex] = cloneSection(application.previous.section);
+  next.layers = [
+    ...next.layers.filter((layer) => !currentLayerIds.has(layer.id) && layer.sectionId !== application.sectionId),
+    ...application.previous.layers.map(cloneLayer)
+  ];
+
+  const retainedAssetIds = new Set(next.layers.map((layer) => layer.assetId).filter((assetId): assetId is string => Boolean(assetId)));
+  next.assets = [
+    ...next.assets.filter((asset) => !currentAssetIds.has(asset.id) || retainedAssetIds.has(asset.id)),
+    ...application.previous.assets.map(cloneAsset)
+  ];
+  next.components = [
+    ...next.components.filter((component) => !currentComponentIds.has(component.id)),
+    ...application.previous.components.map(cloneComponent)
+  ];
+  next.interactions = [
+    ...next.interactions.filter((interaction) => !currentLayerIds.has(interaction.layerId)),
+    ...application.previous.interactions.map(cloneInteraction)
+  ];
+  next.responsive.rules = [
+    ...next.responsive.rules.filter((rule) => !isTargetedBySectionCandidate(rule, application.sectionId, currentLayerIds, currentComponentIds)),
+    ...application.previous.responsiveRules.map(cloneResponsiveRule)
+  ];
+
+  application.status = "reverted";
+  application.revertedAt = options.revertedAt ?? new Date().toISOString();
+  if (application.requestId) {
+    const request = next.generation.sectionRequests.find((candidate) => candidate.id === application.requestId);
+    if (request) {
+      request.status = "reverted";
+    }
+  }
+
+  reflowSectionStack(next);
+  assertValidAppliedCandidate(next, application.sectionId);
   return next;
 }

@@ -6,6 +6,7 @@ import {
   createLayerDoc,
   moveSection,
   requestSectionRegeneration,
+  revertSectionRegenerationApplication,
   setSectionVisibility,
   updateButtonAction,
   updateImageLayerAsset,
@@ -214,7 +215,7 @@ test("applySectionRegenerationCandidate replaces one section with a reviewed can
     }
   );
 
-  const next = applySectionRegenerationCandidate(requested, "hero", {
+  const candidate = {
     requestId: "regen-hero-1",
     section: { id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 800, height: 360 }, layerIds: ["hero-title", "hero-cta", "hero-art"] },
     layers: [
@@ -258,6 +259,9 @@ test("applySectionRegenerationCandidate replaces one section with a reviewed can
         changes: { bounds: { x: 24, y: 40, width: 280, height: 80 } }
       }
     ]
+  };
+  const next = applySectionRegenerationCandidate(requested, "hero", candidate, {
+    appliedAt: "2026-07-01T08:05:00.000Z"
   });
 
   assert.equal(requested.layers.some((layer) => layer.id === "hero-title"), false);
@@ -275,6 +279,108 @@ test("applySectionRegenerationCandidate replaces one section with a reviewed can
   assert.deepEqual(next.interactions, [{ id: "hero-cta-click", layerId: "hero-cta", event: "click", action: "open-signup" }]);
   assert.deepEqual(next.responsive.rules.map((rule) => rule.id), ["proof-mobile", "new-hero-mobile"]);
   assert.equal(next.generation.sectionRequests[0].status, "applied");
+  assert.deepEqual(next.generation.sectionApplications.map((application) => ({
+    id: application.id,
+    sectionId: application.sectionId,
+    requestId: application.requestId,
+    status: application.status,
+    appliedAt: application.appliedAt,
+    previousLayerIds: application.previous.section.layerIds,
+    appliedLayerIds: application.applied.section.layerIds
+  })), [
+    {
+      id: "apply-regen-hero-1",
+      sectionId: "hero",
+      requestId: "regen-hero-1",
+      status: "applied",
+      appliedAt: "2026-07-01T08:05:00.000Z",
+      previousLayerIds: ["headline", "old-art"],
+      appliedLayerIds: ["hero-title", "hero-cta", "hero-art"]
+    }
+  ]);
+
+  const reverted = revertSectionRegenerationApplication(next, "apply-regen-hero-1", {
+    revertedAt: "2026-07-01T08:10:00.000Z"
+  });
+
+  assert.equal(next.generation.sectionApplications[0].status, "applied");
+  assert.deepEqual(reverted.sections.map((section) => [section.id, section.bounds.y, section.bounds.height]), [
+    ["hero", 0, 400],
+    ["proof", 400, 300]
+  ]);
+  assert.deepEqual(reverted.sections.find((section) => section.id === "hero").layerIds, ["headline", "old-art"]);
+  assert.equal(reverted.layers.some((layer) => layer.id === "hero-title"), false);
+  assert.equal(reverted.layers.find((layer) => layer.id === "headline").content.text, "Old hero");
+  assert.equal(reverted.layers.find((layer) => layer.id === "metric").bounds.y, 448);
+  assert.equal(reverted.assets.some((asset) => asset.id === "new-hero-asset"), false);
+  assert.equal(reverted.assets.find((asset) => asset.id === "old-hero-asset").uri, "/old.png");
+  assert.deepEqual(reverted.components.map((component) => component.id), ["ProofMetric", "OldHero"]);
+  assert.deepEqual(reverted.interactions, [{ id: "headline-click", layerId: "headline", event: "click", action: "old-action" }]);
+  assert.deepEqual(reverted.responsive.rules.map((rule) => rule.id), ["proof-mobile", "old-hero-mobile"]);
+  assert.equal(reverted.generation.sectionRequests[0].status, "reverted");
+  assert.equal(reverted.generation.sectionApplications[0].status, "reverted");
+  assert.equal(reverted.generation.sectionApplications[0].revertedAt, "2026-07-01T08:10:00.000Z");
+});
+
+test("revertSectionRegenerationApplication requires reverting the latest applied section candidate first", () => {
+  const doc = createLayerDoc({
+    name: "Sequential regeneration",
+    canvas: { width: 800, height: 400 },
+    sections: [{ id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 800, height: 400 }, layerIds: ["hero-original"] }],
+    layers: [
+      {
+        id: "hero-original",
+        sectionId: "hero",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 40, y: 40, width: 300, height: 48 },
+        content: { text: "Original hero" }
+      }
+    ]
+  });
+  const first = applySectionRegenerationCandidate(doc, "hero", {
+    section: { id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 800, height: 400 }, layerIds: ["hero-v1"] },
+    layers: [
+      {
+        id: "hero-v1",
+        sectionId: "hero",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 40, y: 40, width: 300, height: 48 },
+        content: { text: "Hero v1" }
+      }
+    ]
+  });
+  const second = applySectionRegenerationCandidate(first, "hero", {
+    section: { id: "hero", name: "Hero", bounds: { x: 0, y: 0, width: 800, height: 400 }, layerIds: ["hero-v2"] },
+    layers: [
+      {
+        id: "hero-v2",
+        sectionId: "hero",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 40, y: 40, width: 300, height: 48 },
+        content: { text: "Hero v2" }
+      }
+    ]
+  });
+
+  assert.throws(
+    () => revertSectionRegenerationApplication(second, "apply-hero"),
+    /cannot be reverted before newer application "apply-hero-2"/
+  );
+
+  const revertedLatest = revertSectionRegenerationApplication(second, "apply-hero-2");
+
+  assert.equal(revertedLatest.layers.some((layer) => layer.id === "hero-v1"), true);
+  assert.equal(revertedLatest.layers.some((layer) => layer.id === "hero-v2"), false);
+  assert.deepEqual(revertedLatest.generation.sectionApplications.map((application) => [application.id, application.status]), [
+    ["apply-hero", "applied"],
+    ["apply-hero-2", "reverted"]
+  ]);
 });
 
 test("updateLayerStyle merges controlled visual style without mutating the original LayerDoc", () => {

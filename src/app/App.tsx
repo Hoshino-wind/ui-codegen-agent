@@ -12,6 +12,7 @@ import {
   PanelRight,
   Play,
   RefreshCw,
+  RotateCcw,
   Smartphone,
   SquareDashedMousePointer,
   Type,
@@ -26,6 +27,7 @@ import {
   createEditorWorkspace,
   moveWorkspaceSection,
   requestWorkspaceSectionRegeneration,
+  revertWorkspaceSectionRegenerationApplication,
   selectWorkspaceLayer,
   selectedLayer,
   updateSelectedButtonAction,
@@ -719,6 +721,9 @@ function SectionOrder({
       <div className="sidebar-title">Sections</div>
       {workspace.doc.sections.map((section, index) => {
         const requestCount = workspace.doc.generation.sectionRequests.filter((request) => request.sectionId === section.id).length;
+        const latestApplication = [...workspace.doc.generation.sectionApplications]
+          .reverse()
+          .find((application) => application.sectionId === section.id && application.status === "applied");
 
         return (
           <div className={`section-row ${section.visible === false ? "hidden" : ""}`} key={section.id}>
@@ -771,6 +776,23 @@ function SectionOrder({
               />
               <Upload size={13} />
             </label>
+            <button
+              className="section-revert"
+              disabled={!latestApplication}
+              type="button"
+              onClick={() =>
+                latestApplication
+                  ? onChange(
+                      revertWorkspaceSectionRegenerationApplication(workspace, latestApplication.id),
+                      `${section.name} regeneration reverted`
+                    )
+                  : undefined
+              }
+              aria-label={`Revert latest ${section.name} regeneration application`}
+              title="Revert latest regeneration application"
+            >
+              <RotateCcw size={13} />
+            </button>
             <span>{section.name}</span>
             {requestCount > 0 ? <small>{requestCount}</small> : null}
           </div>

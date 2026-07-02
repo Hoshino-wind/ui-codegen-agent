@@ -1,6 +1,7 @@
 import {
   applySectionRegenerationCandidate,
   requestSectionRegeneration,
+  revertSectionRegenerationApplication,
   setSectionVisibility,
   updateButtonAction,
   updateImageLayerAsset,
@@ -17,6 +18,7 @@ import type {
   ImageAssetPatch,
   LayerBoundsPatch,
   SectionRegenerationCandidateInput,
+  SectionRegenerationRevertOptions,
   SectionRegenerationRequestInput
 } from "../editor/operations.js";
 import { createLayerDocAudit, type LayerDocAudit } from "../layerdoc/audit.js";
@@ -49,6 +51,16 @@ function firstEditableLayerId(doc: LayerDoc): string {
 
 function firstEditableCandidateLayerId(candidate: SectionRegenerationCandidateInput): string | null {
   return candidate.layers.find((layer) => layer.editable)?.id ?? null;
+}
+
+function firstEditableSectionLayerId(doc: LayerDoc, sectionId: string): string | null {
+  const section = doc.sections.find((candidate) => candidate.id === sectionId);
+  if (!section) {
+    return null;
+  }
+
+  const layerIds = new Set(section.layerIds);
+  return doc.layers.find((layer) => layerIds.has(layer.id) && layer.editable)?.id ?? null;
 }
 
 function selectedLayerExists(doc: LayerDoc, layerId: string): boolean {
@@ -171,5 +183,18 @@ export function applyWorkspaceSectionRegenerationCandidate(
   const selected = selectedLayerExists(nextDoc, workspace.selectedLayerId)
     ? workspace.selectedLayerId
     : (firstEditableCandidateLayerId(candidate) ?? firstEditableLayerId(nextDoc));
+  return materialize(nextDoc, selected, createVerificationReport(nextDoc), workspace);
+}
+
+export function revertWorkspaceSectionRegenerationApplication(
+  workspace: EditorWorkspace,
+  applicationId: string,
+  options: SectionRegenerationRevertOptions = {}
+): EditorWorkspace {
+  const nextDoc = revertSectionRegenerationApplication(workspace.doc, applicationId, options);
+  const application = nextDoc.generation.sectionApplications.find((candidate) => candidate.id === applicationId);
+  const selected = selectedLayerExists(nextDoc, workspace.selectedLayerId)
+    ? workspace.selectedLayerId
+    : (application ? firstEditableSectionLayerId(nextDoc, application.sectionId) : null) ?? firstEditableLayerId(nextDoc);
   return materialize(nextDoc, selected, createVerificationReport(nextDoc), workspace);
 }

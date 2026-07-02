@@ -15,8 +15,20 @@ const emptyScores: VerificationScores = {
 };
 
 const emptyGeneration: GenerationState = {
-  sectionRequests: []
+  sectionRequests: [],
+  sectionApplications: []
 };
+
+function cloneJson<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function cloneGeneration(generation: Partial<GenerationState> | undefined): GenerationState {
+  return {
+    sectionRequests: (generation?.sectionRequests ?? emptyGeneration.sectionRequests).map((request) => ({ ...request })),
+    sectionApplications: (generation?.sectionApplications ?? emptyGeneration.sectionApplications).map(cloneJson)
+  };
+}
 
 function cloneAnalysisPlanAudit(audit: AnalysisPlanAudit): AnalysisPlanAudit {
   return {
@@ -70,9 +82,7 @@ export function createLayerDoc(input: CreateLayerDocInput): LayerDoc {
       breakpoints: { ...(input.responsive?.breakpoints ?? {}) },
       rules: [...(input.responsive?.rules ?? [])]
     },
-    generation: {
-      sectionRequests: [...(input.generation?.sectionRequests ?? emptyGeneration.sectionRequests)]
-    },
+    generation: cloneGeneration(input.generation),
     verification: {
       scores: { ...emptyScores },
       issues: [],

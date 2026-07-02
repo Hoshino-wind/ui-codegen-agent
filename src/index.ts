@@ -2,6 +2,7 @@ export {
   applySectionRegenerationCandidate,
   moveSection,
   requestSectionRegeneration,
+  revertSectionRegenerationApplication,
   setSectionVisibility,
   updateButtonAction,
   updateImageLayerAsset,
@@ -86,6 +87,8 @@ export type {
   Rect,
   ResponsiveRule,
   GenerationState,
+  SectionRegenerationApplication,
+  SectionRegenerationGraphSnapshot,
   SectionRegenerationRequest,
   SectionNode,
   TokenSet,
@@ -98,6 +101,8 @@ export type {
   ImageAssetPatch,
   LayerBoundsPatch,
   SectionRegenerationCandidateInput,
+  SectionRegenerationApplicationOptions,
+  SectionRegenerationRevertOptions,
   SectionRegenerationRequestInput
 } from "./editor/operations.js";
 export type {

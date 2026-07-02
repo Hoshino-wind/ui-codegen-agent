@@ -7,6 +7,7 @@ import {
   createEditorWorkspace,
   moveWorkspaceSection,
   requestWorkspaceSectionRegeneration,
+  revertWorkspaceSectionRegenerationApplication,
   selectWorkspaceLayer,
   updateSelectedButtonAction,
   updateWorkspaceSectionVisibility,
@@ -282,7 +283,10 @@ test("requestWorkspaceSectionRegeneration refreshes the project package with a q
       sectionVisible: true
     }
   ]);
+  assert.deepEqual(contract.generationApplications, []);
   assert.equal(handoffSummary.contract.generationRequests, 1);
+  assert.equal(handoffSummary.contract.generationApplications, 0);
+  assert.equal(handoffSummary.sectionRegeneration.applicationCount, 0);
   assert.equal(next.previewHtml, workspace.previewHtml);
   assert.equal(next.reactExport.code, workspace.reactExport.code);
 });
@@ -334,9 +338,82 @@ test("applyWorkspaceSectionRegenerationCandidate refreshes preview, export, and 
   assert.match(projectComponent, /data-layer-id="hero-regenerated-cta"/);
   assert.equal(layerDocFile.sections.find((section) => section.id === "hero").bounds.height, 340);
   assert.equal(layerDocFile.generation.sectionRequests[0].status, "applied");
+  assert.equal(layerDocFile.generation.sectionApplications[0].status, "applied");
   assert.equal(contract.generationRequests[0].status, "applied");
+  assert.deepEqual(contract.generationApplications.map((application) => ({
+    id: application.id,
+    sectionId: application.sectionId,
+    requestId: application.requestId,
+    status: application.status,
+    previousLayerIds: application.previousLayerIds,
+    appliedLayerIds: application.appliedLayerIds
+  })), [
+    {
+      id: "apply-regen-hero-1",
+      sectionId: "hero",
+      requestId: "regen-hero-1",
+      status: "applied",
+      previousLayerIds: ["hero-title", "hero-copy", "hero-cta", "hero-image"],
+      appliedLayerIds: ["hero-regenerated-title", "hero-regenerated-cta"]
+    }
+  ]);
   assert.equal(contract.layers.some((layer) => layer.id === "hero-title"), false);
   assert.equal(contract.layers.some((layer) => layer.id === "hero-regenerated-title"), true);
+});
+
+test("revertWorkspaceSectionRegenerationApplication restores the previous section and refreshes exports", () => {
+  const requested = requestWorkspaceSectionRegeneration(createEditorWorkspace(createSampleHomepageLayerDoc()), "hero", "Regenerate the hero.");
+  const applied = applyWorkspaceSectionRegenerationCandidate(requested, "hero", {
+    requestId: "regen-hero-1",
+    section: {
+      id: "hero",
+      name: "Hero",
+      bounds: { x: 0, y: 0, width: 1440, height: 340 },
+      layerIds: ["hero-regenerated-title", "hero-regenerated-cta"]
+    },
+    layers: [
+      {
+        id: "hero-regenerated-title",
+        sectionId: "hero",
+        kind: "text",
+        track: "component",
+        editable: true,
+        bounds: { x: 96, y: 72, width: 680, height: 80 },
+        content: { text: "Reviewed AI hero section" }
+      },
+      {
+        id: "hero-regenerated-cta",
+        sectionId: "hero",
+        kind: "button",
+        track: "component",
+        editable: true,
+        bounds: { x: 96, y: 184, width: 180, height: 52 },
+        content: { text: "Export build" }
+      }
+    ],
+    components: [{ id: "RegeneratedHero", layerIds: ["hero-regenerated-title", "hero-regenerated-cta"], exportable: true }]
+  });
+
+  const reverted = revertWorkspaceSectionRegenerationApplication(applied, "apply-regen-hero-1", {
+    revertedAt: "2026-07-01T08:10:00.000Z"
+  });
+  const layerDocFile = JSON.parse(reverted.projectExport.files.find((file) => file.path === "layerdoc.json").contents);
+  const contract = JSON.parse(reverted.projectExport.files.find((file) => file.path === "integration-contract.json").contents);
+
+  assert.equal(reverted.doc.generation.sectionApplications[0].status, "reverted");
+  assert.equal(reverted.doc.generation.sectionRequests[0].status, "reverted");
+  assert.equal(reverted.selectedLayerId, "hero-title");
+  assert.match(reverted.previewHtml, /Turn AI visuals into production UI/);
+  assert.doesNotMatch(reverted.previewHtml, /Reviewed AI hero section/);
+  assert.match(reverted.reactExport.code, /hero-title/);
+  assert.doesNotMatch(reverted.reactExport.code, /hero-regenerated-title/);
+  assert.deepEqual(layerDocFile.sections.find((section) => section.id === "hero").layerIds, ["hero-title", "hero-copy", "hero-cta", "hero-image"]);
+  assert.equal(layerDocFile.generation.sectionApplications[0].status, "reverted");
+  assert.equal(contract.generationApplications[0].status, "reverted");
+  assert.deepEqual(contract.generationApplications[0].appliedLayerIds, ["hero-regenerated-title", "hero-regenerated-cta"]);
+  assert.deepEqual(contract.generationApplications[0].previousLayerIds, ["hero-title", "hero-copy", "hero-cta", "hero-image"]);
+  assert.equal(contract.layers.some((layer) => layer.id === "hero-regenerated-title"), false);
+  assert.equal(contract.layers.some((layer) => layer.id === "hero-title"), true);
 });
 
 test("updateSelectedBounds patches selected layer geometry and refreshes preview output", () => {

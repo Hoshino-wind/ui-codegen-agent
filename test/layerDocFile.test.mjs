@@ -89,6 +89,7 @@ test("createWorkspaceFromLayerDocJson normalizes older LayerDoc JSON without gen
   const workspace = createWorkspaceFromLayerDocJson(JSON.stringify(doc));
 
   assert.deepEqual(workspace.doc.generation.sectionRequests, []);
+  assert.deepEqual(workspace.doc.generation.sectionApplications, []);
 });
 
 test("createWorkspaceFromLayerDocJson rejects malformed or invalid LayerDoc JSON", () => {

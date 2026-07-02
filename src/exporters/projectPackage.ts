@@ -94,10 +94,12 @@ export interface ProjectHandoffSummary {
     interactions: number;
     responsiveRules: number;
     generationRequests: number;
+    generationApplications: number;
   };
   sectionRegeneration: {
     candidateSchemaFile: string;
     requestCount: number;
+    applicationCount: number;
   };
   quality: {
     scores: {
@@ -191,6 +193,17 @@ export interface ProjectIntegrationContract {
     requestedAt: string;
     selector: string | null;
     sectionVisible: boolean;
+  }>;
+  generationApplications: Array<{
+    id: string;
+    sectionId: string;
+    requestId: string | null;
+    status: string;
+    appliedAt: string;
+    revertedAt: string | null;
+    selector: string | null;
+    previousLayerIds: string[];
+    appliedLayerIds: string[];
   }>;
 }
 
@@ -475,6 +488,17 @@ function createIntegrationContract(doc: LayerDoc, componentName: string, compone
       requestedAt: request.requestedAt,
       selector: visibleSectionIds.has(request.sectionId) ? selectorFor("data-section-id", request.sectionId) : null,
       sectionVisible: sectionsById.get(request.sectionId)?.visible !== false
+    })),
+    generationApplications: doc.generation.sectionApplications.map((application) => ({
+      id: application.id,
+      sectionId: application.sectionId,
+      requestId: application.requestId ?? null,
+      status: application.status,
+      appliedAt: application.appliedAt,
+      revertedAt: application.revertedAt ?? null,
+      selector: visibleSectionIds.has(application.sectionId) ? selectorFor("data-section-id", application.sectionId) : null,
+      previousLayerIds: application.previous.layers.map((layer) => layer.id),
+      appliedLayerIds: application.applied.layers.map((layer) => layer.id)
     }))
   };
 }
@@ -676,8 +700,10 @@ pushIf(handoff.contract?.assets !== (contract.assets ?? []).filter((asset) => Ar
 pushIf(handoff.contract?.interactions !== (contract.interactions?.length ?? 0), failures, "handoff_contract_interaction_count_mismatch", "handoff interaction count must match integration contract.");
 pushIf(handoff.contract?.responsiveRules !== (contract.responsiveRules?.length ?? 0), failures, "handoff_contract_responsive_count_mismatch", "handoff responsive rule count must match integration contract.");
 pushIf(handoff.contract?.generationRequests !== (contract.generationRequests?.length ?? 0), failures, "handoff_contract_generation_request_count_mismatch", "handoff generation request count must match integration contract.");
+pushIf(handoff.contract?.generationApplications !== (contract.generationApplications?.length ?? 0), failures, "handoff_contract_generation_application_count_mismatch", "handoff generation application count must match integration contract.");
 pushIf(handoff.sectionRegeneration?.candidateSchemaFile !== manifest.sectionCandidateSchema, failures, "handoff_section_candidate_schema_mismatch", "handoff sectionRegeneration.candidateSchemaFile must match manifest sectionCandidateSchema.");
 pushIf(handoff.sectionRegeneration?.requestCount !== (contract.generationRequests?.length ?? 0), failures, "handoff_section_regeneration_count_mismatch", "handoff sectionRegeneration.requestCount must match integration contract.");
+pushIf(handoff.sectionRegeneration?.applicationCount !== (contract.generationApplications?.length ?? 0), failures, "handoff_section_application_count_mismatch", "handoff sectionRegeneration.applicationCount must match integration contract.");
 
 pushIf(handoff.quality?.referenceVisual?.file !== manifest.referenceVisual?.file, failures, "handoff_reference_visual_mismatch", "handoff reference visual must match manifest referenceVisual.");
 pushIf(handoff.quality?.gatesFile !== "quality-gates.json", failures, "handoff_gates_file_mismatch", "handoff quality gatesFile must be quality-gates.json.");
@@ -1005,14 +1031,67 @@ function candidateTargetsRule(rule, sectionId, oldLayerIds, oldComponentIds) {
   );
 }
 
+function sectionGraphSnapshot(doc, sectionId) {
+  const section = asArray(doc.sections).find((item) => item.id === sectionId);
+  if (!section) {
+    throw new Error("Section " + sectionId + " was not found.");
+  }
+
+  const sectionLayerIds = new Set([
+    ...asArray(section.layerIds),
+    ...asArray(doc.layers).filter((layer) => layer.sectionId === sectionId).map((layer) => layer.id)
+  ]);
+  const layers = asArray(doc.layers).filter((layer) => sectionLayerIds.has(layer.id) || layer.sectionId === sectionId);
+  const layerIds = new Set(layers.map((layer) => layer.id));
+  const assetIds = new Set(layers.map((layer) => layer.assetId).filter(Boolean));
+  const components = asArray(doc.components).filter((component) => asArray(component.layerIds).some((layerId) => layerIds.has(layerId)));
+  const componentIds = new Set(components.map((component) => component.id));
+
+  return {
+    section: clone(section),
+    layers: layers.map(clone),
+    assets: asArray(doc.assets).filter((asset) => assetIds.has(asset.id)).map(clone),
+    components: components.map(clone),
+    interactions: asArray(doc.interactions).filter((interaction) => layerIds.has(interaction.layerId)).map(clone),
+    responsiveRules: asArray(doc.responsive?.rules).filter((rule) => candidateTargetsRule(rule, sectionId, layerIds, componentIds)).map(clone)
+  };
+}
+
+function candidateGraphSnapshot(candidate) {
+  return {
+    section: clone(candidate.section),
+    layers: asArray(candidate.layers).map(clone),
+    assets: asArray(candidate.assets).map(clone),
+    components: asArray(candidate.components).map(clone),
+    interactions: asArray(candidate.interactions).map(clone),
+    responsiveRules: asArray(candidate.responsiveRules).map(clone)
+  };
+}
+
+function nextSectionApplicationId(doc, sectionId) {
+  const prefix = "apply-regen-" + sectionId + "-";
+  const used = new Set(asArray(doc.generation?.sectionApplications).map((application) => application.id));
+  let index = used.size + 1;
+  while (used.has(prefix + index)) {
+    index += 1;
+  }
+  return prefix + index;
+}
+
 function applyCandidate(doc, sectionId, candidate) {
   const next = clone(doc);
+  next.generation = {
+    ...(next.generation ?? {}),
+    sectionRequests: asArray(next.generation?.sectionRequests),
+    sectionApplications: asArray(next.generation?.sectionApplications)
+  };
   const sectionIndex = next.sections.findIndex((section) => section.id === sectionId);
   if (sectionIndex === -1) {
     throw new Error("Section " + sectionId + " was not found.");
   }
 
   const targetSection = next.sections[sectionIndex];
+  const previous = sectionGraphSnapshot(next, sectionId);
   const applied = translateCandidateIntoSlot(candidate, targetSection);
   const oldLayerIds = new Set([
     ...asArray(targetSection.layerIds),
@@ -1056,6 +1135,16 @@ function applyCandidate(doc, sectionId, candidate) {
     }
     request.status = "applied";
   }
+
+  next.generation.sectionApplications.push({
+    id: nextSectionApplicationId(next, sectionId),
+    sectionId,
+    ...(candidate.requestId ? { requestId: candidate.requestId } : {}),
+    status: "applied",
+    appliedAt: new Date().toISOString(),
+    previous,
+    applied: candidateGraphSnapshot(applied)
+  });
 
   reflowSectionStack(next);
   return next;
@@ -1103,10 +1192,12 @@ function validateLayerDoc(doc) {
   const interactions = asArray(doc.interactions);
   const responsiveRules = asArray(doc.responsive?.rules);
   const sectionRequests = asArray(doc.generation?.sectionRequests);
+  const sectionApplications = asArray(doc.generation?.sectionApplications);
   const canvas = doc.canvas ?? {};
   const sectionIds = new Set(sections.map((section) => section.id));
   const layerIds = new Set(layers.map((layer) => layer.id));
   const componentIds = new Set(components.map((component) => component.id));
+  const requestIds = new Set(sectionRequests.map((request) => request.id));
   const sectionsById = new Map(sections.map((section) => [section.id, section]));
   const layersById = new Map(layers.map((layer) => [layer.id, layer]));
   const assetIds = new Set(assets.map((asset) => asset.id));
@@ -1125,7 +1216,8 @@ function validateLayerDoc(doc) {
     ...components.map((component) => component.id),
     ...interactions.map((interaction) => interaction.id),
     ...responsiveRules.map((rule) => rule.id),
-    ...sectionRequests.map((request) => request.id)
+    ...sectionRequests.map((request) => request.id),
+    ...sectionApplications.map((application) => application.id)
   ])) {
     issues.push(issue("duplicate_id", id, "Duplicate id " + id + " appears in the LayerDoc graph."));
   }
@@ -1198,6 +1290,21 @@ function validateLayerDoc(doc) {
   for (const [index, request] of sectionRequests.entries()) {
     if (!sectionIds.has(request.sectionId)) {
       issues.push(issue("section_missing", "generation.sectionRequests[" + index + "].sectionId", "Regeneration request " + request.id + " references missing section " + request.sectionId + "."));
+    }
+  }
+  for (const [index, application] of sectionApplications.entries()) {
+    const path = "generation.sectionApplications[" + index + "]";
+    if (!sectionIds.has(application.sectionId)) {
+      issues.push(issue("section_missing", path + ".sectionId", "Regeneration application " + application.id + " references missing section " + application.sectionId + "."));
+    }
+    if (application.requestId && !requestIds.has(application.requestId)) {
+      issues.push(issue("metadata_invalid", path + ".requestId", "Regeneration application " + application.id + " references missing request " + application.requestId + "."));
+    }
+    if (application.previous?.section?.id !== application.sectionId) {
+      issues.push(issue("metadata_invalid", path + ".previous.section", "Regeneration application " + application.id + " previous snapshot must match section " + application.sectionId + "."));
+    }
+    if (application.applied?.section?.id !== application.sectionId) {
+      issues.push(issue("metadata_invalid", path + ".applied.section", "Regeneration application " + application.id + " applied snapshot must match section " + application.sectionId + "."));
     }
   }
 
@@ -1812,6 +1919,17 @@ function createIntegrationContract(doc, componentName, componentFile, sourceHash
       requestedAt: request.requestedAt,
       selector: visibleSectionIds.has(request.sectionId) ? selectorFor("data-section-id", request.sectionId) : null,
       sectionVisible: sectionsById.get(request.sectionId)?.visible !== false
+    })),
+    generationApplications: asArray(doc.generation?.sectionApplications).map((application) => ({
+      id: application.id,
+      sectionId: application.sectionId,
+      requestId: application.requestId ?? null,
+      status: application.status,
+      appliedAt: application.appliedAt,
+      revertedAt: application.revertedAt ?? null,
+      selector: visibleSectionIds.has(application.sectionId) ? selectorFor("data-section-id", application.sectionId) : null,
+      previousLayerIds: asArray(application.previous?.layers).map((layer) => layer.id),
+      appliedLayerIds: asArray(application.applied?.layers).map((layer) => layer.id)
     }))
   };
 }
@@ -1843,11 +1961,13 @@ function updateHandoffSummary(handoff, manifest, contract, audit, report) {
       assets: contract.assets.filter((asset) => asArray(asset.usedByLayerIds).length > 0).length,
       interactions: contract.interactions.length,
       responsiveRules: contract.responsiveRules.length,
-      generationRequests: contract.generationRequests.length
+      generationRequests: contract.generationRequests.length,
+      generationApplications: contract.generationApplications.length
     },
     sectionRegeneration: {
       candidateSchemaFile: manifest.sectionCandidateSchema,
-      requestCount: contract.generationRequests.length
+      requestCount: contract.generationRequests.length,
+      applicationCount: contract.generationApplications.length
     },
     quality: {
       ...handoff.quality,
@@ -1905,10 +2025,13 @@ writeProjectJson("../handoff-summary.json", nextHandoff);
 writeProjectText("../preview.html", renderHtmlPreview(nextLayerDoc));
 writeProjectText("../src/" + componentFile, exportReactTailwind(nextLayerDoc, componentName));
 
+const applications = asArray(nextLayerDoc.generation?.sectionApplications);
+const latestApplication = applications[applications.length - 1] ?? null;
 process.stdout.write(JSON.stringify({
   applied: true,
   sectionId: options.sectionId,
   requestId: candidate.requestId ?? null,
+  applicationId: latestApplication?.id ?? null,
   layerCount: asArray(candidate.layers).length,
   layerDocHash: nextHash,
   visualSimilarity: report.visualSimilarity,
@@ -2848,6 +2971,17 @@ function expectedContractFrom(layerDoc, manifest) {
       requestedAt: request.requestedAt,
       selector: visibleSectionIds.has(request.sectionId) ? selectorFor("data-section-id", request.sectionId) : null,
       sectionVisible: sectionsById.get(request.sectionId)?.visible !== false
+    })),
+    generationApplications: (layerDoc.generation?.sectionApplications ?? []).map((application) => ({
+      id: application.id,
+      sectionId: application.sectionId,
+      requestId: application.requestId ?? null,
+      status: application.status,
+      appliedAt: application.appliedAt,
+      revertedAt: application.revertedAt ?? null,
+      selector: visibleSectionIds.has(application.sectionId) ? selectorFor("data-section-id", application.sectionId) : null,
+      previousLayerIds: (application.previous?.layers ?? []).map((layer) => layer.id),
+      appliedLayerIds: (application.applied?.layers ?? []).map((layer) => layer.id)
     }))
   };
 }
@@ -3264,6 +3398,7 @@ function validateLayerDoc(doc) {
   const interactions = Array.isArray(doc?.interactions) ? doc.interactions : [];
   const responsiveRules = Array.isArray(doc?.responsive?.rules) ? doc.responsive.rules : [];
   const sectionRequests = Array.isArray(doc?.generation?.sectionRequests) ? doc.generation.sectionRequests : [];
+  const sectionApplications = Array.isArray(doc?.generation?.sectionApplications) ? doc.generation.sectionApplications : [];
   const canvas = doc?.canvas ?? {};
   const analysisPlan = doc?.metadata?.analysisPlan;
   const analysisPlanAudit = doc?.metadata?.analysisPlanAudit;
@@ -3271,6 +3406,7 @@ function validateLayerDoc(doc) {
   const sectionIds = new Set(sections.map((section) => section.id));
   const layerIds = new Set(layers.map((layer) => layer.id));
   const componentIds = new Set(components.map((component) => component.id));
+  const requestIds = new Set(sectionRequests.map((request) => request.id));
   const sectionsById = new Map(sections.map((section) => [section.id, section]));
   const layersById = new Map(layers.map((layer) => [layer.id, layer]));
   const assetIds = new Set(assets.map((asset) => asset.id));
@@ -3281,7 +3417,8 @@ function validateLayerDoc(doc) {
     ...components.map((component) => component.id),
     ...interactions.map((interaction) => interaction.id),
     ...responsiveRules.map((rule) => rule.id),
-    ...sectionRequests.map((request) => request.id)
+    ...sectionRequests.map((request) => request.id),
+    ...sectionApplications.map((application) => application.id)
   ])) {
     issues.push(issue("duplicate_id", id, \`Duplicate id "\${id}" appears in the LayerDoc graph.\`));
   }
@@ -3389,6 +3526,22 @@ function validateLayerDoc(doc) {
   for (const [index, request] of sectionRequests.entries()) {
     if (!sectionIds.has(request.sectionId)) {
       issues.push(issue("section_missing", \`generation.sectionRequests[\${index}].sectionId\`, \`Regeneration request "\${request.id}" references missing section "\${request.sectionId}".\`));
+    }
+  }
+
+  for (const [index, application] of sectionApplications.entries()) {
+    const path = \`generation.sectionApplications[\${index}]\`;
+    if (!sectionIds.has(application.sectionId)) {
+      issues.push(issue("section_missing", \`\${path}.sectionId\`, \`Regeneration application "\${application.id}" references missing section "\${application.sectionId}".\`));
+    }
+    if (application.requestId && !requestIds.has(application.requestId)) {
+      issues.push(issue("metadata_invalid", \`\${path}.requestId\`, \`Regeneration application "\${application.id}" references missing request "\${application.requestId}".\`));
+    }
+    if (application.previous?.section?.id !== application.sectionId) {
+      issues.push(issue("metadata_invalid", \`\${path}.previous.section\`, \`Regeneration application "\${application.id}" previous snapshot must match section "\${application.sectionId}".\`));
+    }
+    if (application.applied?.section?.id !== application.sectionId) {
+      issues.push(issue("metadata_invalid", \`\${path}.applied.section\`, \`Regeneration application "\${application.id}" applied snapshot must match section "\${application.sectionId}".\`));
     }
   }
 
@@ -4025,9 +4178,9 @@ Verification:
 - Run \`npm run verify:layerdoc\` after editing \`layerdoc.json\` to catch broken graph references before integration.
 - Run \`npm run verify:contract\` to confirm \`integration-contract.json\` still matches the LayerDoc source, project selectors, preview selectors, section order, layer bounds, layer style, layer copy, assets, responsive CSS, and interaction metadata.
 - Run \`npm run verify:section-candidate -- --input path/to/section-candidate.json\` before applying a reviewed regeneration result to confirm it matches \`${manifest.sectionCandidateSchema}\` and the current LayerDoc section graph.
-- Run \`npm run apply:section-candidate -- --section section-id --input path/to/section-candidate.json\` to apply a verified candidate into \`layerdoc.json\` and regenerate the project contract, handoff, preview, and React component from the updated LayerDoc.
+- Run \`npm run apply:section-candidate -- --section section-id --input path/to/section-candidate.json\` to apply a verified candidate into \`layerdoc.json\`, record a \`generation.sectionApplications\` before/after snapshot, and regenerate the project contract, handoff, preview, and React component from the updated LayerDoc.
 - Applying a candidate clears visual similarity evidence to \`Not captured\`; rerun \`npm run verify:preview\` with a fresh screenshot before enforcing gates.
-- Run \`npm run verify:section-application -- --section section-id --input path/to/section-candidate.json --reference reference.png\` to verify the candidate, apply it, refresh preview screenshot evidence, recheck LayerDoc/contract/handoff, and enforce gates in one CI-friendly command. You may pass any \`verify:preview\` option such as \`--candidate\`, \`--out\`, \`--browser\`, \`--threshold\`, or \`--include-aa\`.
+- Run \`npm run verify:section-application -- --section section-id --input path/to/section-candidate.json --reference reference.png\` to verify the candidate, apply it with an auditable section application record, refresh preview screenshot evidence, recheck LayerDoc/contract/handoff, and enforce gates in one CI-friendly command. You may pass any \`verify:preview\` option such as \`--candidate\`, \`--out\`, \`--browser\`, \`--threshold\`, or \`--include-aa\`.
 - Hidden sections remain editable in \`layerdoc.json\` but are intentionally omitted from rendered project, preview, and responsive CSS contract requirements.
 - Put the original target visual at \`${manifest.referenceVisual.file}\`.
 - Run \`npm run verify:gates\` after preview verification to enforce score thresholds and LayerDoc asset compliance.
@@ -4103,11 +4256,13 @@ function createHandoffSummary(
       assets: contract.assets.filter((asset) => asset.usedByLayerIds.length > 0).length,
       interactions: contract.interactions.length,
       responsiveRules: contract.responsiveRules.length,
-      generationRequests: contract.generationRequests.length
+      generationRequests: contract.generationRequests.length,
+      generationApplications: contract.generationApplications.length
     },
     sectionRegeneration: {
       candidateSchemaFile: manifest.sectionCandidateSchema,
-      requestCount: contract.generationRequests.length
+      requestCount: contract.generationRequests.length,
+      applicationCount: contract.generationApplications.length
     },
     quality: {
       scores: {

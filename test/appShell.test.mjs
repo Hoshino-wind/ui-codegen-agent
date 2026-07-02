@@ -78,6 +78,15 @@ test("app shell exposes reviewed section candidate import for regeneration resul
   assert.match(source, /accept="application\/json,\.json"/);
 });
 
+test("app shell exposes section regeneration rollback for applied candidates", () => {
+  const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+
+  assert.match(source, /revertWorkspaceSectionRegenerationApplication/);
+  assert.match(source, /section-revert/);
+  assert.match(source, /Revert latest/);
+  assert.match(source, /sectionApplications/);
+});
+
 test("app shell exposes verifier problem areas in the editor surface", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 

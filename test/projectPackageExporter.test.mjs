@@ -507,6 +507,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     changes: { bounds: { x: 24, y: 340, width: 280, height: 52 } }
   });
   assert.deepEqual(contract.generationRequests, []);
+  assert.deepEqual(contract.generationApplications, []);
   const layerDocSchema = JSON.parse(output.files.find((file) => file.path === "layerdoc.schema.json").contents);
   assert.equal(layerDocSchema.properties.schema.const, "layerdoc");
   assert.deepEqual(layerDocSchema.properties.metadata.properties.sourceImage.required, ["uri", "width", "height"]);
@@ -609,11 +610,13 @@ test("createProjectExportPackage returns project-ready files derived from one La
     assets: 0,
     interactions: 0,
     responsiveRules: 1,
-    generationRequests: 0
+    generationRequests: 0,
+    generationApplications: 0
   });
   assert.deepEqual(handoffSummary.sectionRegeneration, {
     candidateSchemaFile: "section-candidate.schema.json",
-    requestCount: 0
+    requestCount: 0,
+    applicationCount: 0
   });
   assert.deepEqual(handoffSummary.quality.scores, {
     visual_similarity: output.manifest.scores.visualSimilarity,
@@ -880,7 +883,10 @@ test("exported integration contract verifier checks section regeneration request
       sectionVisible: true
     }
   ]);
+  assert.deepEqual(contract.generationApplications, []);
   assert.equal(handoffSummary.contract.generationRequests, 1);
+  assert.equal(handoffSummary.contract.generationApplications, 0);
+  assert.equal(handoffSummary.sectionRegeneration.applicationCount, 0);
 
   contract.generationRequests[0].status = "applied";
   writeFileSync(contractPath, `${JSON.stringify(contract, null, 2)}\n`);
@@ -1487,15 +1493,46 @@ test("exported section candidate apply script updates LayerDoc and derived hando
   assert.equal(applied.status, 0, applied.stderr);
   assert.match(applied.stdout, /"applied": true/);
   assert.match(applied.stdout, /"sectionId": "hero"/);
+  assert.match(applied.stdout, /"applicationId": "apply-regen-hero-1"/);
 
   const layerDoc = JSON.parse(readFileSync(join(directory, "layerdoc.json"), "utf8"));
   assert.deepEqual(layerDoc.sections[0].layerIds, ["hero-title", "hero-cta"]);
   assert.equal(layerDoc.layers.find((layer) => layer.id === "hero-title").content.text, "Reviewed production hero");
   assert.equal(layerDoc.generation.sectionRequests[0].status, "applied");
+  assert.deepEqual(layerDoc.generation.sectionApplications.map((application) => ({
+    id: application.id,
+    sectionId: application.sectionId,
+    requestId: application.requestId,
+    status: application.status,
+    previousLayerIds: application.previous.layers.map((layer) => layer.id),
+    appliedLayerIds: application.applied.layers.map((layer) => layer.id)
+  })), [
+    {
+      id: "apply-regen-hero-1",
+      sectionId: "hero",
+      requestId: "regen-hero-1",
+      status: "applied",
+      previousLayerIds: ["headline", "cta"],
+      appliedLayerIds: ["hero-title", "hero-cta"]
+    }
+  ]);
 
   const contract = JSON.parse(readFileSync(join(directory, "integration-contract.json"), "utf8"));
   assert.deepEqual(contract.sections[0].layerIds, ["hero-title", "hero-cta"]);
   assert.equal(contract.generationRequests[0].status, "applied");
+  assert.deepEqual(contract.generationApplications, [
+    {
+      id: "apply-regen-hero-1",
+      sectionId: "hero",
+      requestId: "regen-hero-1",
+      status: "applied",
+      appliedAt: layerDoc.generation.sectionApplications[0].appliedAt,
+      revertedAt: null,
+      selector: '[data-section-id="hero"]',
+      previousLayerIds: ["headline", "cta"],
+      appliedLayerIds: ["hero-title", "hero-cta"]
+    }
+  ]);
 
   const componentSource = readFileSync(join(directory, "src", "ProductionHomepage.tsx"), "utf8");
   assert.match(componentSource, /data-layer-id="hero-title"/);
@@ -1550,6 +1587,7 @@ test("exported section application verifier applies candidate, refreshes preview
   const layerDoc = JSON.parse(readFileSync(join(directory, "layerdoc.json"), "utf8"));
   assert.deepEqual(layerDoc.sections[0].layerIds, ["hero-title", "hero-cta"]);
   assert.equal(layerDoc.generation.sectionRequests[0].status, "applied");
+  assert.equal(layerDoc.generation.sectionApplications[0].status, "applied");
   assert.equal(layerDoc.verification.scores.visualSimilarity, 100);
 
   const report = JSON.parse(readFileSync(join(directory, "verification-report.json"), "utf8"));

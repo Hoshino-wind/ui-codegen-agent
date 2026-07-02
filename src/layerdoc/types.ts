@@ -171,12 +171,33 @@ export interface SectionRegenerationRequest {
   id: string;
   sectionId: string;
   prompt: string;
-  status: "requested" | "running" | "applied" | "rejected";
+  status: "requested" | "running" | "applied" | "rejected" | "reverted";
   requestedAt: string;
+}
+
+export interface SectionRegenerationGraphSnapshot {
+  section: SectionNode;
+  layers: LayerNode[];
+  assets: AssetNode[];
+  components: ComponentNode[];
+  interactions: InteractionNode[];
+  responsiveRules: ResponsiveRule[];
+}
+
+export interface SectionRegenerationApplication {
+  id: string;
+  sectionId: string;
+  requestId?: string;
+  status: "applied" | "reverted";
+  appliedAt: string;
+  revertedAt?: string;
+  previous: SectionRegenerationGraphSnapshot;
+  applied: SectionRegenerationGraphSnapshot;
 }
 
 export interface GenerationState {
   sectionRequests: SectionRegenerationRequest[];
+  sectionApplications: SectionRegenerationApplication[];
 }
 
 export interface VerificationScores {
