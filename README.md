@@ -65,6 +65,9 @@ The repository currently implements the core LayerDoc domain layer:
 - Validate graph references, canvas geometry, and empty visible sections.
 - Apply controlled editor operations without mutating the original document:
   copy, layer style, image assets, bounds, and section order.
+- Export controlled editor edit history as `edit-audit.json`, with applied and
+  undone operations, affected layer ids, affected section ids, and handoff
+  summary coverage that project-local verification can validate.
 - Run a React/Vite controlled editor console for the sample homepage LayerDoc.
 - Edit an Analysis Plan panel that scaffolds homepage sections before building LayerDoc.
 - Audit Analysis Plans before LayerDoc build with section coverage, track counts,
@@ -109,8 +112,9 @@ The repository currently implements the core LayerDoc domain layer:
   artifacts, and enforce gates in one project-local command.
 - Export a `handoff-summary.json` with the source LayerDoc hash, entry
   component, contract counts, regeneration request/application counts, verifier
-  scores, audit status, and verification commands so CI or downstream importers
-  can consume the package without scraping README text.
+  scores, audit status, optional controlled edit audit summary, and
+  verification commands so CI or downstream importers can consume the package
+  without scraping README text.
 - Export a `production-manifest.json` as the recommended project integration
   entrypoint, tying the editable LayerDoc source, generated React component,
   HTML preview, integration contract, asset index, quality gates, and section
@@ -485,4 +489,20 @@ const swapped = updateImageLayerAsset(styled, "hero-image", {
 ```
 
 Because these edits update LayerDoc, the same state can feed preview, export,
-verification, and editor undo/redo without separate UI-specific state.
+verification, and editor undo/redo without separate UI-specific state. When the
+workspace is exported, that history is materialized as `edit-audit.json` rather
+than trapped in the browser session:
+
+```json
+{
+  "kind": "controlled_editor_edit_audit",
+  "summary": {
+    "appliedEdits": 2,
+    "undoneEdits": 1,
+    "operations": { "update-text": 1, "move-section": 1 }
+  }
+}
+```
+
+`scripts/verify-handoff.mjs` recomputes that summary from the audit entries and
+checks that `handoff-summary.json` points at the same evidence.

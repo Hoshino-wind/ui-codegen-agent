@@ -114,6 +114,35 @@ test("updateSelectedText changes selected editable copy and refreshes preview ou
   assert.match(next.previewHtml, /Make AI visuals shippable/);
 });
 
+test("workspace project export carries controlled editor edit audit", () => {
+  const workspace = createEditorWorkspace(createSampleHomepageLayerDoc());
+  const textEdited = updateSelectedText(workspace, "Make AI visuals shippable");
+  const moved = moveWorkspaceSection(textEdited, "proof", 0);
+  const auditFile = moved.projectExport.files.find((file) => file.path === "edit-audit.json");
+  const handoffSummary = JSON.parse(moved.projectExport.files.find((file) => file.path === "handoff-summary.json").contents);
+
+  assert.equal(moved.projectExport.manifest.editAuditFile, "edit-audit.json");
+  assert.equal(Boolean(auditFile), true);
+  const editAudit = JSON.parse(auditFile.contents);
+  assert.equal(editAudit.kind, "controlled_editor_edit_audit");
+  assert.equal(editAudit.summary.appliedEdits, 2);
+  assert.equal(editAudit.summary.undoneEdits, 0);
+  assert.deepEqual(editAudit.entries.map((entry) => entry.operation), ["update-text", "move-section"]);
+  assert.equal(editAudit.summary.operations["update-text"], 1);
+  assert.equal(editAudit.summary.operations["move-section"], 1);
+  assert.equal(editAudit.summary.affectedLayerIds.includes("hero-title"), true);
+  assert.equal(editAudit.summary.affectedSectionIds.includes("hero"), true);
+  assert.equal(editAudit.summary.affectedSectionIds.includes("proof"), true);
+  assert.equal(handoffSummary.editAudit.file, "edit-audit.json");
+  assert.equal(handoffSummary.editAudit.appliedEdits, 2);
+
+  const undone = undoWorkspace(moved);
+  const undoneAudit = JSON.parse(undone.projectExport.files.find((file) => file.path === "edit-audit.json").contents);
+  assert.equal(undoneAudit.summary.appliedEdits, 1);
+  assert.equal(undoneAudit.summary.undoneEdits, 1);
+  assert.deepEqual(undoneAudit.undoneEntries.map((entry) => entry.operation), ["move-section"]);
+});
+
 test("undoWorkspace and redoWorkspace restore controlled text edits through preview and project export", () => {
   const workspace = createEditorWorkspace(createSampleHomepageLayerDoc());
   const edited = updateSelectedText(workspace, "Make AI visuals shippable");

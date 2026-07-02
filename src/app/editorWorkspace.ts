@@ -12,7 +12,12 @@ import {
 } from "../editor/operations.js";
 import { moveSection } from "../editor/operations.js";
 import { renderHtmlPreview } from "../exporters/htmlPreview.js";
-import { createProjectExportPackage, type ProjectExportPackage } from "../exporters/projectPackage.js";
+import {
+  createProjectExportPackage,
+  type ProjectEditAuditEntry,
+  type ProjectEditAuditInput,
+  type ProjectExportPackage
+} from "../exporters/projectPackage.js";
 import { exportReactTailwind, type ReactTailwindExportResult } from "../exporters/reactTailwind.js";
 import type {
   ImageAssetPatch,
@@ -96,6 +101,71 @@ function cloneHistory(history: EditorWorkspaceHistory | undefined): EditorWorksp
   return history ? { past: [...history.past], future: [...history.future] } : emptyHistory();
 }
 
+function stableHistoryJson(value: unknown): string {
+  return JSON.stringify(value);
+}
+
+function uniqueStrings(values: Array<string | undefined>): string[] {
+  return Array.from(new Set(values.filter((value): value is string => typeof value === "string" && value.length > 0)));
+}
+
+function changedLayerIds(before: LayerDoc, after: LayerDoc): string[] {
+  const beforeLayersById = new Map(before.layers.map((layer) => [layer.id, layer]));
+  const afterLayersById = new Map(after.layers.map((layer) => [layer.id, layer]));
+  const layerIds = uniqueStrings([...before.layers.map((layer) => layer.id), ...after.layers.map((layer) => layer.id)]);
+
+  return layerIds.filter((layerId) => stableHistoryJson(beforeLayersById.get(layerId) ?? null) !== stableHistoryJson(afterLayersById.get(layerId) ?? null));
+}
+
+function changedSectionIds(before: LayerDoc, after: LayerDoc, affectedLayerIds: string[]): string[] {
+  const beforeSectionsById = new Map(before.sections.map((section) => [section.id, section]));
+  const afterSectionsById = new Map(after.sections.map((section) => [section.id, section]));
+  const sectionIds = uniqueStrings([...before.sections.map((section) => section.id), ...after.sections.map((section) => section.id)]);
+  const reorderedSectionIds =
+    before.sections.map((section) => section.id).join("|") === after.sections.map((section) => section.id).join("|")
+      ? []
+      : sectionIds;
+  const sectionIdsFromLayers = affectedLayerIds.flatMap((layerId) => [
+    before.layers.find((layer) => layer.id === layerId)?.sectionId,
+    after.layers.find((layer) => layer.id === layerId)?.sectionId
+  ]);
+
+  return uniqueStrings([
+    ...sectionIds.filter(
+      (sectionId) => stableHistoryJson(beforeSectionsById.get(sectionId) ?? null) !== stableHistoryJson(afterSectionsById.get(sectionId) ?? null)
+    ),
+    ...reorderedSectionIds,
+    ...sectionIdsFromLayers
+  ]);
+}
+
+function auditEntryForHistory(entry: EditorWorkspaceHistoryEntry): ProjectEditAuditEntry {
+  const affectedLayerIds = changedLayerIds(entry.before, entry.after);
+
+  return {
+    id: entry.id,
+    operation: entry.operation,
+    label: entry.label,
+    selectedLayerIdBefore: entry.selectedLayerIdBefore,
+    selectedLayerIdAfter: entry.selectedLayerIdAfter,
+    affectedLayerIds,
+    affectedSectionIds: changedSectionIds(entry.before, entry.after, affectedLayerIds)
+  };
+}
+
+function createWorkspaceEditAudit(history: EditorWorkspaceHistory): ProjectEditAuditInput | undefined {
+  if (history.past.length === 0 && history.future.length === 0) {
+    return undefined;
+  }
+
+  return {
+    kind: "controlled_editor_edit_audit",
+    source: "editor-workspace",
+    entries: history.past.map(auditEntryForHistory),
+    undoneEntries: history.future.map(auditEntryForHistory)
+  };
+}
+
 function materialize(
   doc: LayerDoc,
   selectedLayerId: string,
@@ -105,6 +175,8 @@ function materialize(
   const verifiedDoc = layerDocWithVerificationReport(doc, report);
   const audit = createLayerDocAudit(verifiedDoc);
   const referencePng = cloneReferencePng(options.referencePng);
+  const history = cloneHistory(options.history);
+  const editAudit = createWorkspaceEditAudit(history);
 
   return {
     doc: verifiedDoc,
@@ -112,10 +184,10 @@ function materialize(
     referencePng,
     previewHtml: renderHtmlPreview(verifiedDoc),
     reactExport: exportReactTailwind(verifiedDoc, { componentName: "ProductionHomepage" }),
-    projectExport: createProjectExportPackage(verifiedDoc, { componentName: "ProductionHomepage", report, referencePng }),
+    projectExport: createProjectExportPackage(verifiedDoc, { componentName: "ProductionHomepage", report, referencePng, editAudit }),
     report,
     audit,
-    history: cloneHistory(options.history)
+    history
   };
 }
 
@@ -130,7 +202,8 @@ function materializeEdit(
   operation: string,
   label: string
 ): EditorWorkspace {
-  const nextWorkspace = materialize(nextDoc, selectedLayerId, createVerificationReport(nextDoc), workspace);
+  const report = createVerificationReport(nextDoc);
+  const verifiedNextDoc = layerDocWithVerificationReport(nextDoc, report);
   const entry: EditorWorkspaceHistoryEntry = {
     id: nextHistoryEntryId(workspace.history),
     operation,
@@ -138,16 +211,16 @@ function materializeEdit(
     selectedLayerIdBefore: workspace.selectedLayerId,
     selectedLayerIdAfter: selectedLayerId,
     before: workspace.doc,
-    after: nextWorkspace.doc
+    after: verifiedNextDoc
   };
 
-  return {
-    ...nextWorkspace,
+  return materialize(nextDoc, selectedLayerId, report, {
+    ...workspace,
     history: {
       past: [...workspace.history.past, entry],
       future: []
     }
-  };
+  });
 }
 
 export function createEditorWorkspace(doc: LayerDoc, options: EditorWorkspaceOptions = {}): EditorWorkspace {

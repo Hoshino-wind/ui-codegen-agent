@@ -204,6 +204,16 @@ test("app shell exposes LayerDoc audit status in the project surface", () => {
   assert.match(source, /assetCompliance/);
 });
 
+test("app shell exposes controlled editor edit audit in the project surface", () => {
+  const appSource = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
+  const cssSource = readFileSync(join(rootDir, "src", "app", "styles.css"), "utf8");
+
+  assert.match(appSource, /Edit Audit/);
+  assert.match(appSource, /workspace\.projectExport\.manifest\.editAuditFile/);
+  assert.match(appSource, /controlled_editor_edit_audit/);
+  assert.match(cssSource, /\.project-edit-audit-card/);
+});
+
 test("app shell exposes the generated HTML preview as a real iframe surface", () => {
   const source = readFileSync(join(rootDir, "src", "app", "App.tsx"), "utf8");
 

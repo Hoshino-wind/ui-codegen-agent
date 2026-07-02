@@ -16,6 +16,7 @@ export interface ProjectExportPackageOptions {
   packageName?: string;
   analysisPlan?: HomepageAnalysisPlan;
   imageManifest?: ImageAnalysisManifest;
+  editAudit?: ProjectEditAuditInput;
   report?: VerificationReport;
   referencePng?: Uint8Array;
 }
@@ -40,6 +41,7 @@ export interface ProjectExportManifest {
   handoffSummary: string;
   backtestRunbook: string;
   ciWorkflow: string;
+  editAuditFile?: string;
   productionManifest: string;
   productionManifestSchema: string;
   assetIndex: string;
@@ -111,6 +113,10 @@ export interface ProjectHandoffSummary {
     file: string;
     kind: ProjectCiWorkflow["kind"];
     command: "npm run ci";
+  };
+  editAudit?: ProjectEditAuditSummary & {
+    file: string;
+    kind: ProjectEditAudit["kind"];
   };
   sectionRegeneration: {
     candidateSchemaFile: string;
@@ -188,6 +194,46 @@ export interface ProjectCiWorkflow {
     required: boolean;
     artifacts: string[];
   }>;
+}
+
+export interface ProjectEditAuditEntry {
+  id: string;
+  operation: string;
+  label: string;
+  selectedLayerIdBefore: string;
+  selectedLayerIdAfter: string;
+  affectedLayerIds: string[];
+  affectedSectionIds: string[];
+}
+
+export interface ProjectEditAuditInput {
+  kind: "controlled_editor_edit_audit";
+  source: "editor-workspace";
+  entries: ProjectEditAuditEntry[];
+  undoneEntries?: ProjectEditAuditEntry[];
+}
+
+export interface ProjectEditAuditSummary {
+  appliedEdits: number;
+  undoneEdits: number;
+  operations: Record<string, number>;
+  affectedLayerIds: string[];
+  affectedSectionIds: string[];
+}
+
+export interface ProjectEditAudit {
+  version: "0.1.0";
+  kind: "controlled_editor_edit_audit";
+  source: "editor-workspace";
+  packageName: string;
+  componentName: string;
+  layerDoc: {
+    file: "layerdoc.json";
+    hash: string;
+  };
+  summary: ProjectEditAuditSummary;
+  entries: ProjectEditAuditEntry[];
+  undoneEntries: ProjectEditAuditEntry[];
 }
 
 export interface ProjectIntegrationContract {
@@ -405,6 +451,7 @@ const ANALYSIS_TASK_FILE = "analysis-task.json";
 const ASSET_INDEX_FILE = "asset-index.json";
 const BACKTEST_RUNBOOK_FILE = "backtest-runbook.json";
 const CI_WORKFLOW_FILE = "ci-workflow.json";
+const EDIT_AUDIT_FILE = "edit-audit.json";
 const SECTION_CANDIDATE_SCHEMA_FILE = "section-candidate.schema.json";
 const PRODUCTION_MANIFEST_FILE = "production-manifest.json";
 const PRODUCTION_MANIFEST_SCHEMA_FILE = "production-manifest.schema.json";
@@ -428,6 +475,57 @@ function visualProblemSummaryFor(report: VerificationReport): ProjectVisualProbl
     affectedLayerIds: Array.from(new Set(areas.map((area) => area.affectedLayerId).filter((layerId): layerId is string => Boolean(layerId)))),
     unmapped: areas.filter((area) => !area.affectedLayerId).length,
     areas: areas.map((area) => ({ ...area, bounds: { ...area.bounds } }))
+  };
+}
+
+function uniquePreservingOrder(values: string[]): string[] {
+  return Array.from(new Set(values.filter((value) => value.length > 0)));
+}
+
+function cloneEditAuditEntry(entry: ProjectEditAuditEntry): ProjectEditAuditEntry {
+  return {
+    id: entry.id,
+    operation: entry.operation,
+    label: entry.label,
+    selectedLayerIdBefore: entry.selectedLayerIdBefore,
+    selectedLayerIdAfter: entry.selectedLayerIdAfter,
+    affectedLayerIds: uniquePreservingOrder(entry.affectedLayerIds),
+    affectedSectionIds: uniquePreservingOrder(entry.affectedSectionIds)
+  };
+}
+
+function editAuditSummary(entries: ProjectEditAuditEntry[], undoneEntries: ProjectEditAuditEntry[]): ProjectEditAuditSummary {
+  const operations: Record<string, number> = {};
+  for (const entry of entries) {
+    operations[entry.operation] = (operations[entry.operation] ?? 0) + 1;
+  }
+
+  return {
+    appliedEdits: entries.length,
+    undoneEdits: undoneEntries.length,
+    operations,
+    affectedLayerIds: uniquePreservingOrder(entries.flatMap((entry) => entry.affectedLayerIds)),
+    affectedSectionIds: uniquePreservingOrder(entries.flatMap((entry) => entry.affectedSectionIds))
+  };
+}
+
+function createProjectEditAudit(manifest: ProjectExportManifest, input: ProjectEditAuditInput): ProjectEditAudit {
+  const entries = input.entries.map(cloneEditAuditEntry);
+  const undoneEntries = (input.undoneEntries ?? []).map(cloneEditAuditEntry);
+
+  return {
+    version: "0.1.0",
+    kind: "controlled_editor_edit_audit",
+    source: "editor-workspace",
+    packageName: manifest.packageName,
+    componentName: manifest.componentName,
+    layerDoc: {
+      file: "layerdoc.json",
+      hash: manifest.layerDocHash
+    },
+    summary: editAuditSummary(entries, undoneEntries),
+    entries,
+    undoneEntries
   };
 }
 
@@ -1153,6 +1251,8 @@ const backtestRunbookPath = manifest.backtestRunbook ?? "${BACKTEST_RUNBOOK_FILE
 const backtestRunbook = fileExists(backtestRunbookPath) ? readJson("../" + backtestRunbookPath) : null;
 const ciWorkflowPath = manifest.ciWorkflow ?? "${CI_WORKFLOW_FILE}";
 const ciWorkflow = fileExists(ciWorkflowPath) ? readJson("../" + ciWorkflowPath) : null;
+const editAuditPath = manifest.editAuditFile ?? null;
+const editAudit = editAuditPath && fileExists(editAuditPath) ? readJson("../" + editAuditPath) : null;
 const productionManifestPath = manifest.productionManifest ?? "${PRODUCTION_MANIFEST_FILE}";
 const productionManifest = fileExists(productionManifestPath) ? readJson("../" + productionManifestPath) : null;
 const productionManifestSchemaPath = manifest.productionManifestSchema ?? "${PRODUCTION_MANIFEST_SCHEMA_FILE}";
@@ -1166,6 +1266,21 @@ const expectedAssetIndexSummary = {
   file: assetIndexPath,
   ...expectedAssetIndex.summary
 };
+function expectedEditAuditSummary(audit) {
+  const entries = Array.isArray(audit?.entries) ? audit.entries : [];
+  const undoneEntries = Array.isArray(audit?.undoneEntries) ? audit.undoneEntries : [];
+  const operations = {};
+  for (const entry of entries) {
+    operations[entry.operation] = (operations[entry.operation] ?? 0) + 1;
+  }
+  return {
+    appliedEdits: entries.length,
+    undoneEdits: undoneEntries.length,
+    operations,
+    affectedLayerIds: Array.from(new Set(entries.flatMap((entry) => Array.isArray(entry.affectedLayerIds) ? entry.affectedLayerIds : []).filter(Boolean))),
+    affectedSectionIds: Array.from(new Set(entries.flatMap((entry) => Array.isArray(entry.affectedSectionIds) ? entry.affectedSectionIds : []).filter(Boolean)))
+  };
+}
 const expectedProductionManifestSchema = ${stableJson(createProductionManifestJsonSchema())};
 const expectedProductionManifest = {
   version: "0.1.0",
@@ -1336,11 +1451,13 @@ pushIf(manifest.layerDocHash !== actualLayerDocHash, failures, "manifest_layerdo
 pushIf(!manifestFiles.includes("${ASSET_INDEX_FILE}"), failures, "asset_index_not_listed", "manifest.json files must include ${ASSET_INDEX_FILE}.");
 pushIf(!manifestFiles.includes("${BACKTEST_RUNBOOK_FILE}"), failures, "backtest_runbook_not_listed", "manifest.json files must include ${BACKTEST_RUNBOOK_FILE}.");
 pushIf(!manifestFiles.includes("${CI_WORKFLOW_FILE}"), failures, "ci_workflow_not_listed", "manifest.json files must include ${CI_WORKFLOW_FILE}.");
+pushIf(Boolean(editAuditPath) && !manifestFiles.includes(editAuditPath), failures, "edit_audit_not_listed", "manifest.json files must include edit-audit.json when editAuditFile is set.");
 pushIf(!manifestFiles.includes("${PRODUCTION_MANIFEST_FILE}"), failures, "production_manifest_not_listed", "manifest.json files must include ${PRODUCTION_MANIFEST_FILE}.");
 pushIf(!manifestFiles.includes("${PRODUCTION_MANIFEST_SCHEMA_FILE}"), failures, "production_manifest_schema_not_listed", "manifest.json files must include ${PRODUCTION_MANIFEST_SCHEMA_FILE}.");
 pushIf(!fileExists(assetIndexPath), failures, "asset_index_missing", "manifest.json assetIndex must point at an existing file.");
 pushIf(!fileExists(backtestRunbookPath), failures, "backtest_runbook_missing", "manifest.json backtestRunbook must point at an existing file.");
 pushIf(!fileExists(ciWorkflowPath), failures, "ci_workflow_missing", "manifest.json ciWorkflow must point at an existing file.");
+pushIf(Boolean(editAuditPath) && !fileExists(editAuditPath), failures, "edit_audit_missing", "manifest.json editAuditFile must point at an existing file.");
 pushIf(!fileExists(productionManifestPath), failures, "production_manifest_missing", "manifest.json productionManifest must point at an existing file.");
 pushIf(!fileExists(productionManifestSchemaPath), failures, "production_manifest_schema_missing", "manifest.json productionManifestSchema must point at an existing file.");
 pushIf(!fileExists(manifest.sectionCandidateSchema), failures, "section_candidate_schema_missing", "manifest.json sectionCandidateSchema must point at an existing file.");
@@ -1382,6 +1499,21 @@ pushIf(handoff.sectionRegeneration?.applicationCount !== (contract.generationApp
 pushIf(stableJson(assetIndex) !== stableJson(expectedAssetIndex), failures, "asset_index_mismatch", "asset-index.json does not match LayerDoc and integration-contract assets. Expected " + stableJson(expectedAssetIndex) + " Received " + stableJson(assetIndex));
 pushIf(stableJson(handoff.assetIndex) !== stableJson(expectedAssetIndexSummary), failures, "handoff_asset_index_mismatch", "handoff-summary.json assetIndex must summarize asset-index.json.");
 pushIf(stableJson(handoff.ciWorkflow) !== stableJson({ file: ciWorkflowPath, kind: "project_ci_workflow", command: "npm run ci" }), failures, "handoff_ci_workflow_mismatch", "handoff-summary.json ciWorkflow must match manifest.json.");
+if (editAudit) {
+  const expectedSummary = expectedEditAuditSummary(editAudit);
+  const expectedHandoffEditAudit = {
+    file: editAuditPath,
+    kind: "controlled_editor_edit_audit",
+    ...expectedSummary
+  };
+  pushIf(editAudit.kind !== "controlled_editor_edit_audit", failures, "edit_audit_kind_invalid", "edit-audit.json kind must be controlled_editor_edit_audit.");
+  pushIf(editAudit.source !== "editor-workspace", failures, "edit_audit_source_invalid", "edit-audit.json source must be editor-workspace.");
+  pushIf(editAudit.layerDoc?.hash !== actualLayerDocHash, failures, "edit_audit_layerdoc_hash_mismatch", "edit-audit.json layerDoc.hash must match the current layerdoc.json hash.");
+  pushIf(stableJson(editAudit.summary) !== stableJson(expectedSummary), failures, "edit_audit_mismatch", "edit-audit.json summary must match its entries. Expected " + stableJson(expectedSummary) + " Received " + stableJson(editAudit.summary));
+  pushIf(stableJson(handoff.editAudit) !== stableJson(expectedHandoffEditAudit), failures, "handoff_edit_audit_mismatch", "handoff-summary.json editAudit must summarize edit-audit.json.");
+} else {
+  pushIf(Boolean(handoff.editAudit), failures, "handoff_edit_audit_unexpected", "handoff-summary.json must not include editAudit unless manifest.json editAuditFile is set.");
+}
 pushIf(stableJson(ciWorkflow) !== stableJson(expectedCiWorkflow), failures, "ci_workflow_mismatch", "ci-workflow.json must match manifest.json, handoff-summary.json, package scripts, and current LayerDoc hash. Expected " + stableJson(expectedCiWorkflow) + " Received " + stableJson(ciWorkflow));
 pushIf(stableJson(backtestRunbook) !== stableJson(expectedBacktestRunbook), failures, "backtest_runbook_mismatch", "backtest-runbook.json must match manifest.json, handoff-summary.json, and current LayerDoc hash. Expected " + stableJson(expectedBacktestRunbook) + " Received " + stableJson(backtestRunbook));
 pushIf(stableJson(productionManifest) !== stableJson(expectedProductionManifest), failures, "production_manifest_mismatch", "production-manifest.json must match LayerDoc, integration contract, asset index, quality report, and handoff metadata. Expected " + stableJson(expectedProductionManifest) + " Received " + stableJson(productionManifest));
@@ -5568,7 +5700,8 @@ function createHandoffSummary(
   audit: LayerDocAudit,
   sourceImage: LayerDoc["metadata"]["sourceImage"],
   analysisPlan: LayerDoc["metadata"]["analysisPlan"],
-  analysisPlanAudit: LayerDoc["metadata"]["analysisPlanAudit"]
+  analysisPlanAudit: LayerDoc["metadata"]["analysisPlanAudit"],
+  editAudit?: ProjectEditAudit
 ): ProjectHandoffSummary {
   return {
     version: "0.1.0",
@@ -5618,6 +5751,15 @@ function createHandoffSummary(
       kind: "project_ci_workflow",
       command: "npm run ci"
     },
+    ...(editAudit
+      ? {
+          editAudit: {
+            file: manifest.editAuditFile ?? EDIT_AUDIT_FILE,
+            kind: editAudit.kind,
+            ...editAudit.summary
+          }
+        }
+      : {}),
     sectionRegeneration: {
       candidateSchemaFile: manifest.sectionCandidateSchema,
       requestCount: contract.generationRequests.length,
@@ -5800,6 +5942,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
       : undefined;
   const analysisPlanPath = options.analysisPlan ? "analysis-plan.json" : undefined;
   const imageManifestPath = options.imageManifest ? "image-manifest.json" : undefined;
+  const editAuditPath = options.editAudit ? EDIT_AUDIT_FILE : undefined;
   const analysisPlanSchemaPath = analysisTaskPath || sourceDoc.metadata.analysisPlan || sourceDoc.metadata.analysisPlanAudit ? "analysis-plan.schema.json" : undefined;
   const analysisPlanAuditPath = sourceDoc.metadata.analysisPlanAudit ? "analysis-plan-audit.json" : undefined;
   const files = [
@@ -5807,6 +5950,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     ...(analysisTaskPath ? [analysisTaskPath] : []),
     ...(analysisPlanPath ? [analysisPlanPath] : []),
     ...(imageManifestPath ? [imageManifestPath] : []),
+    ...(editAuditPath ? [editAuditPath] : []),
     ...(analysisPlanAuditPath ? [analysisPlanAuditPath] : []),
     ...(analysisPlanSchemaPath ? [analysisPlanSchemaPath] : []),
     ASSET_INDEX_FILE,
@@ -5864,6 +6008,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     ...(sourceDoc.metadata.analysisPlan ? { analysisPlan: { ...sourceDoc.metadata.analysisPlan } } : {}),
     ...(analysisPlanPath ? { analysisPlanFile: analysisPlanPath } : {}),
     ...(imageManifestPath ? { imageManifestFile: imageManifestPath } : {}),
+    ...(editAuditPath ? { editAuditFile: editAuditPath } : {}),
     ...(sourceDoc.metadata.analysisPlanAudit ? { analysisPlanAudit: { ...sourceDoc.metadata.analysisPlanAudit } } : {}),
     ...(analysisPlanSchemaPath ? { analysisPlanSchema: analysisPlanSchemaPath } : {}),
     ...(analysisPlanAuditPath ? { analysisPlanAuditFile: analysisPlanAuditPath } : {}),
@@ -5873,6 +6018,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
   };
   const integrationContract = createIntegrationContract(sourceDoc, options.componentName, reactExport.fileName, sourceHash);
   const assetIndex = createAssetIndex(sourceDoc, integrationContract, sourceHash);
+  const editAudit = options.editAudit ? createProjectEditAudit(manifest, options.editAudit) : undefined;
   const handoffSummary = createHandoffSummary(
     manifest,
     integrationContract,
@@ -5880,7 +6026,8 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     audit,
     sourceDoc.metadata.sourceImage,
     sourceDoc.metadata.analysisPlan,
-    sourceDoc.metadata.analysisPlanAudit
+    sourceDoc.metadata.analysisPlanAudit,
+    editAudit
   );
   const backtestRunbook = createBacktestRunbook(manifest, handoffSummary);
   const ciWorkflow = createCiWorkflow(manifest, handoffSummary);
@@ -5901,6 +6048,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
       ...(analysisTaskPath && analysisTask ? [{ path: analysisTaskPath, contents: stableJson(analysisTask) }] : []),
       ...(analysisPlanPath && options.analysisPlan ? [{ path: analysisPlanPath, contents: stableJson(options.analysisPlan) }] : []),
       ...(imageManifestPath && options.imageManifest ? [{ path: imageManifestPath, contents: stableJson(options.imageManifest) }] : []),
+      ...(editAuditPath && editAudit ? [{ path: editAuditPath, contents: stableJson(editAudit) }] : []),
       ...(analysisPlanAuditPath && sourceDoc.metadata.analysisPlanAudit
         ? [{ path: analysisPlanAuditPath, contents: stableJson(sourceDoc.metadata.analysisPlanAudit) }]
         : []),

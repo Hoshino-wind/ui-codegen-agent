@@ -933,6 +933,80 @@ test("createProjectExportPackage exports a LayerDoc asset index for downstream i
   ]);
 });
 
+test("createProjectExportPackage can carry a controlled editor edit audit", () => {
+  const output = createProjectExportPackage(createExportDoc(), {
+    componentName: "ProductionHomepage",
+    editAudit: {
+      kind: "controlled_editor_edit_audit",
+      source: "editor-workspace",
+      entries: [
+        {
+          id: "edit-1",
+          operation: "update-text",
+          label: "Update headline text",
+          selectedLayerIdBefore: "headline",
+          selectedLayerIdAfter: "headline",
+          affectedLayerIds: ["headline"],
+          affectedSectionIds: ["hero"]
+        },
+        {
+          id: "edit-2",
+          operation: "move-section",
+          label: "Move hero section",
+          selectedLayerIdBefore: "headline",
+          selectedLayerIdAfter: "headline",
+          affectedLayerIds: [],
+          affectedSectionIds: ["hero"]
+        }
+      ],
+      undoneEntries: []
+    }
+  });
+  const manifest = JSON.parse(output.files.find((file) => file.path === "manifest.json").contents);
+  const handoffSummary = JSON.parse(output.files.find((file) => file.path === "handoff-summary.json").contents);
+  const editAuditFile = output.files.find((file) => file.path === "edit-audit.json");
+
+  assert.equal(output.manifest.editAuditFile, "edit-audit.json");
+  assert.equal(Boolean(editAuditFile), true);
+  const editAudit = JSON.parse(editAuditFile.contents);
+  assert.equal(manifest.editAuditFile, "edit-audit.json");
+  assert.equal(output.manifest.files.includes("edit-audit.json"), true);
+  assert.equal(editAudit.kind, "controlled_editor_edit_audit");
+  assert.equal(editAudit.layerDoc.hash, output.manifest.layerDocHash);
+  assert.deepEqual(editAudit.summary, {
+    appliedEdits: 2,
+    undoneEdits: 0,
+    operations: { "update-text": 1, "move-section": 1 },
+    affectedLayerIds: ["headline"],
+    affectedSectionIds: ["hero"]
+  });
+  assert.deepEqual(editAudit.entries.map((entry) => entry.operation), ["update-text", "move-section"]);
+  assert.deepEqual(handoffSummary.editAudit, {
+    file: "edit-audit.json",
+    kind: "controlled_editor_edit_audit",
+    appliedEdits: 2,
+    undoneEdits: 0,
+    operations: { "update-text": 1, "move-section": 1 },
+    affectedLayerIds: ["headline"],
+    affectedSectionIds: ["hero"]
+  });
+
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-edit-audit-"));
+  writeProjectExportPackage(output, directory);
+  const passed = spawnSync(process.execPath, ["scripts/verify-handoff.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.equal(passed.status, 0, passed.stderr || passed.stdout);
+
+  const auditPath = join(directory, "edit-audit.json");
+  const staleAudit = JSON.parse(readFileSync(auditPath, "utf8"));
+  staleAudit.summary.appliedEdits = 99;
+  writeFileSync(auditPath, `${JSON.stringify(staleAudit, null, 2)}\n`);
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-handoff.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /edit_audit_mismatch/);
+  assert.match(failed.stdout, /edit-audit\.json/);
+});
+
 test("createProjectExportPackage stores verifier scores on the exported LayerDoc source", () => {
   const doc = createExportDoc();
   const report = {

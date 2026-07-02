@@ -910,6 +910,7 @@ function ProjectExportPanel({
 }) {
   const auditStatus = workspace.audit.structure.valid && workspace.audit.assetCompliance.passed ? "ready" : "review";
   const assetCoverage = `${Math.round(workspace.audit.assetCompliance.assetCoverageRatio * 100)}%`;
+  const editAuditFile = workspace.projectExport.manifest.editAuditFile;
 
   return (
     <div className="project-export-panel">
@@ -926,6 +927,19 @@ function ProjectExportPanel({
         </div>
         {workspace.audit.assetCompliance.findings[0] ? <small>{workspace.audit.assetCompliance.findings[0]}</small> : null}
       </div>
+      {editAuditFile ? (
+        <div className="project-edit-audit-card">
+          <div className="project-edit-audit-head">
+            <span>Edit Audit</span>
+            <strong>{editAuditFile}</strong>
+            <small>controlled_editor_edit_audit</small>
+          </div>
+          <div className="project-edit-audit-grid">
+            <span>{workspace.history.past.length} applied</span>
+            <span>{workspace.history.future.length} undone</span>
+          </div>
+        </div>
+      ) : null}
       <div className="export-package-head">
         <strong>{workspace.projectExport.manifest.packageName}</strong>
         <span>{workspace.projectExport.files.length} files</span>
