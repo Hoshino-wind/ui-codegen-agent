@@ -86,6 +86,10 @@ The repository currently implements the core LayerDoc domain layer:
 - Export a React + Tailwind component that preserves LayerDoc traceability.
 - Expose current verifier scores as root `data-verification-*` attributes in both
   HTML preview and React/Tailwind export surfaces.
+- Expose root `data-verification-issues`,
+  `data-verification-structural-blockers`, and
+  `data-verification-track-notes` separately so downstream DOM checks do not
+  confuse non-blocking track notes with delivery blockers.
 - Project responsive rules into preview and exported React media-query CSS.
 - Export an `integration-contract.json` mapping LayerDoc objects to project
   files, responsive rules, DOM selectors, and queued section regeneration

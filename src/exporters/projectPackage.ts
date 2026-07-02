@@ -2736,12 +2736,16 @@ function scoreAttributeValue(value) {
 }
 
 function verificationDataAttributes(doc) {
+  const issues = asArray(doc.verification?.issues);
+  const trackNotes = issues.filter((issue) => issue?.code === "track_mismatch").length;
   return {
     "data-verification-visual-similarity": scoreAttributeValue(doc.verification?.scores?.visualSimilarity),
     "data-verification-structure-score": scoreAttributeValue(doc.verification?.scores?.structureScore),
     "data-verification-component-score": scoreAttributeValue(doc.verification?.scores?.componentScore),
     "data-verification-project-fit-score": scoreAttributeValue(doc.verification?.scores?.projectFitScore),
-    "data-verification-issues": String(asArray(doc.verification?.issues).length)
+    "data-verification-issues": String(issues.length),
+    "data-verification-structural-blockers": String(issues.length - trackNotes),
+    "data-verification-track-notes": String(trackNotes)
   };
 }
 
@@ -3875,12 +3879,16 @@ function scoreAttributeValue(value) {
 
 function verificationDataAttributes(layerDoc) {
   const scores = layerDoc.verification?.scores ?? {};
+  const issues = layerDoc.verification?.issues ?? [];
+  const trackNotes = issues.filter((issue) => issue?.code === "track_mismatch").length;
   return {
     "data-verification-visual-similarity": scoreAttributeValue(scores.visualSimilarity),
     "data-verification-structure-score": scoreAttributeValue(scores.structureScore),
     "data-verification-component-score": scoreAttributeValue(scores.componentScore),
     "data-verification-project-fit-score": scoreAttributeValue(scores.projectFitScore),
-    "data-verification-issues": String((layerDoc.verification?.issues ?? []).length)
+    "data-verification-issues": String(issues.length),
+    "data-verification-structural-blockers": String(issues.length - trackNotes),
+    "data-verification-track-notes": String(trackNotes)
   };
 }
 
@@ -5160,12 +5168,17 @@ function scoreAttributeValue(value) {
 }
 
 function verificationDataAttributes(report) {
+  const issues = report.issues ?? [];
+  const structuralBlockers = report.structureBreakdown?.structuralIssueCount ?? issues.length;
+  const trackNotes = report.structureBreakdown?.trackMismatchCount ?? 0;
   return {
     "data-verification-visual-similarity": scoreAttributeValue(report.visualSimilarity),
     "data-verification-structure-score": scoreAttributeValue(report.structureScore),
     "data-verification-component-score": scoreAttributeValue(report.componentScore),
     "data-verification-project-fit-score": scoreAttributeValue(report.projectFitScore),
-    "data-verification-issues": String((report.issues ?? []).length)
+    "data-verification-issues": String(issues.length),
+    "data-verification-structural-blockers": String(structuralBlockers),
+    "data-verification-track-notes": String(trackNotes)
   };
 }
 

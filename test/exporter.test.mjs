@@ -62,6 +62,34 @@ test("renderHtmlPreview exposes verification scores on the root surface", () => 
   assert.match(html, /data-verification-component-score="100"/);
   assert.match(html, /data-verification-project-fit-score="\d+"/);
   assert.match(html, /data-verification-issues="0"/);
+  assert.match(html, /data-verification-structural-blockers="0"/);
+  assert.match(html, /data-verification-track-notes="0"/);
+});
+
+test("renderHtmlPreview separates raw issues from structural blockers on the root surface", () => {
+  const doc = createLayerDoc({
+    name: "Track note preview",
+    canvas: { width: 640, height: 480 },
+    assets: [{ id: "decorative-asset", type: "image", source: "generated", uri: "/assets/decorative.png" }],
+    layers: [
+      {
+        id: "decorative-copy",
+        kind: "image",
+        track: "component",
+        editable: true,
+        bounds: { x: 24, y: 32, width: 320, height: 48 },
+        assetId: "decorative-asset",
+        content: { alt: "Track note" }
+      }
+    ]
+  });
+  const verifiedDoc = layerDocWithVerificationReport(doc, createVerificationReport(doc, { visualSimilarity: 93.25 }));
+
+  const html = renderHtmlPreview(verifiedDoc);
+
+  assert.match(html, /data-verification-issues="1"/);
+  assert.match(html, /data-verification-structural-blockers="0"/);
+  assert.match(html, /data-verification-track-notes="1"/);
 });
 
 test("renderHtmlPreview emits section and component DOM markers", () => {

@@ -84,6 +84,8 @@ test("exportReactTailwind exposes verification scores on the root surface", () =
   assert.match(output.code, /data-verification-component-score="100"/);
   assert.match(output.code, /data-verification-project-fit-score="\d+"/);
   assert.match(output.code, /data-verification-issues="0"/);
+  assert.match(output.code, /data-verification-structural-blockers="0"/);
+  assert.match(output.code, /data-verification-track-notes="0"/);
 });
 
 test("exportReactTailwind positions section layers relative to their section bounds", () => {

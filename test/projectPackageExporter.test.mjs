@@ -123,7 +123,9 @@ function expectedVerificationAttributesFor(report) {
     "data-verification-structure-score": String(report.structureScore),
     "data-verification-component-score": String(report.componentScore),
     "data-verification-project-fit-score": String(report.projectFitScore),
-    "data-verification-issues": String(report.issues.length)
+    "data-verification-issues": String(report.issues.length),
+    "data-verification-structural-blockers": String(report.structureBreakdown.structuralIssueCount),
+    "data-verification-track-notes": String(report.structureBreakdown.trackMismatchCount)
   };
 }
 
