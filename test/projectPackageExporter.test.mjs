@@ -9,6 +9,7 @@ import { PNG } from "pngjs";
 
 import {
   createLayerDoc,
+  createProjectAssetIndexJsonSchema,
   createProjectExportPackage,
   createProjectIntegrationContractJsonSchema,
   createVerificationReport,
@@ -57,6 +58,30 @@ test("createProjectIntegrationContractJsonSchema exposes the project integration
   ]);
   assert.equal(schema.properties.layers.items.properties.track.enum.includes("component"), true);
   assert.deepEqual(schema.properties.responsiveRules.items.properties.target.properties.type.enum, ["section", "layer", "component"]);
+});
+
+test("createProjectAssetIndexJsonSchema exposes the project asset inventory contract", () => {
+  const schema = createProjectAssetIndexJsonSchema();
+
+  assert.equal(schema.title, "ProjectAssetIndex 0.1.0");
+  assert.deepEqual(schema.required, ["version", "source", "layerDoc", "summary", "assets"]);
+  assert.deepEqual(schema.properties.layerDoc.required, ["file", "hash"]);
+  assert.deepEqual(schema.properties.summary.required, ["total", "used", "visibleInProject", "bySource", "byType"]);
+  assert.equal(schema.properties.assets.items.properties.source.enum.includes("reference-crop"), true);
+  assert.deepEqual(schema.properties.assets.items.required, [
+    "id",
+    "type",
+    "source",
+    "uri",
+    "bounds",
+    "usedByLayerIds",
+    "visibleUsedByLayerIds",
+    "sectionIds",
+    "visibleSectionIds",
+    "componentIds",
+    "visibleInProject",
+    "layerSelectors"
+  ]);
 });
 
 function createExportAnalysisPlanAudit() {
@@ -434,6 +459,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.equal(output.manifest.verificationReportSchema, "verification-report.schema.json");
   assert.equal(output.manifest.sectionCandidateSchema, "section-candidate.schema.json");
   assert.equal(output.manifest.assetIndex, "asset-index.json");
+  assert.equal(output.manifest.assetIndexSchema, "asset-index.schema.json");
   assert.deepEqual(output.manifest.referenceVisual, {
     file: "reference.png",
     role: "visual_verification_reference",
@@ -456,6 +482,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     "analysis-plan-audit.json",
     "analysis-plan.schema.json",
     "asset-index.json",
+    "asset-index.schema.json",
     "backtest-runbook.json",
     "ci-workflow.json",
     "handoff-summary.json",
@@ -531,6 +558,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   const backtestRunbook = JSON.parse(output.files.find((file) => file.path === "backtest-runbook.json").contents);
   const ciWorkflow = JSON.parse(output.files.find((file) => file.path === "ci-workflow.json").contents);
   const assetIndex = JSON.parse(output.files.find((file) => file.path === "asset-index.json").contents);
+  const assetIndexSchema = JSON.parse(output.files.find((file) => file.path === "asset-index.schema.json").contents);
   const exportedLayerDoc = JSON.parse(output.files.find((file) => file.path === "layerdoc.json").contents);
   assert.deepEqual(manifest.referenceVisual, output.manifest.referenceVisual);
   assert.equal(manifest.integrationContractSchema, output.manifest.integrationContractSchema);
@@ -543,6 +571,25 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.equal(manifest.backtestRunbook, output.manifest.backtestRunbook);
   assert.equal(manifest.ciWorkflow, output.manifest.ciWorkflow);
   assert.equal(manifest.assetIndex, output.manifest.assetIndex);
+  assert.equal(manifest.assetIndexSchema, output.manifest.assetIndexSchema);
+  assert.deepEqual(assetIndexSchema, createProjectAssetIndexJsonSchema());
+  assert.equal(assetIndexSchema.title, "ProjectAssetIndex 0.1.0");
+  assert.deepEqual(assetIndexSchema.required, ["version", "source", "layerDoc", "summary", "assets"]);
+  assert.deepEqual(assetIndexSchema.properties.summary.required, ["total", "used", "visibleInProject", "bySource", "byType"]);
+  assert.deepEqual(assetIndexSchema.properties.assets.items.required, [
+    "id",
+    "type",
+    "source",
+    "uri",
+    "bounds",
+    "usedByLayerIds",
+    "visibleUsedByLayerIds",
+    "sectionIds",
+    "visibleSectionIds",
+    "componentIds",
+    "visibleInProject",
+    "layerSelectors"
+  ]);
   assert.deepEqual(contractSchema, createProjectIntegrationContractJsonSchema());
   assert.equal(contractSchema.title, "ProjectIntegrationContract 0.1.0");
   assert.deepEqual(contractSchema.required, [
@@ -589,6 +636,8 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.deepEqual(productionManifestSchema.properties.generated.required, ["react", "preview", "contract", "assets"]);
   assert.equal(productionManifestSchema.properties.generated.properties.contract.required.includes("schemaFile"), true);
   assert.equal(productionManifestSchema.properties.generated.properties.contract.properties.schemaFile.const, "integration-contract.schema.json");
+  assert.equal(productionManifestSchema.properties.generated.properties.assets.required.includes("schemaFile"), true);
+  assert.equal(productionManifestSchema.properties.generated.properties.assets.properties.schemaFile.const, "asset-index.schema.json");
   assert.equal(productionManifestSchema.properties.quality.required.includes("reportSchemaFile"), true);
   assert.equal(productionManifestSchema.properties.quality.properties.reportSchemaFile.const, "verification-report.schema.json");
   assert.equal(productionManifestSchema.properties.quality.properties.scores.required.includes("visual_similarity"), true);
@@ -703,6 +752,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   });
   assert.deepEqual(productionManifest.generated.assets, {
     file: "asset-index.json",
+    schemaFile: "asset-index.schema.json",
     total: 0,
     used: 0,
     visibleInProject: 0,
@@ -884,6 +934,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
     "component"
   ]);
   assert.match(output.files.find((file) => file.path === "layerdoc-audit.json").contents, /"assetCompliance"/);
+  assert.match(output.files.find((file) => file.path === "asset-index.schema.json").contents, /"title": "ProjectAssetIndex 0.1.0"/);
   assert.match(output.files.find((file) => file.path === "analysis-plan.schema.json").contents, /"HomepageAnalysisPlan 0.1.0"/);
   const sectionCandidateSchema = JSON.parse(output.files.find((file) => file.path === "section-candidate.schema.json").contents);
   assert.equal(sectionCandidateSchema.title, "SectionRegenerationCandidate 0.1.0");
@@ -934,6 +985,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   });
   assert.deepEqual(handoffSummary.assetIndex, {
     file: "asset-index.json",
+    schemaFile: "asset-index.schema.json",
     total: 0,
     used: 0,
     visibleInProject: 0,
@@ -1004,6 +1056,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "scripts/verify-handoff.mjs").contents, /backtest-runbook\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-handoff.mjs").contents, /ci-workflow\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-handoff.mjs").contents, /asset-index\.json/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-handoff.mjs").contents, /asset-index\.schema\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-handoff.mjs").contents, /package\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-analysis-plan.mjs").contents, /analysis-plan-audit\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-analysis-plan.mjs").contents, /analysis-task\.json/);
@@ -1024,6 +1077,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /preview\.html/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-preview.mjs").contents, /verification-report\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-production-manifest.mjs").contents, /production-manifest\.json/);
+  assert.match(output.files.find((file) => file.path === "scripts/verify-production-manifest.mjs").contents, /asset-index\.schema\.json/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-section-application.mjs").contents, /verify:section-application/);
   assert.match(output.files.find((file) => file.path === "scripts/verify-section-candidate.mjs").contents, /section-candidate\.schema\.json/);
   assert.match(output.files.find((file) => file.path === "preview.html").contents, /data-layerdoc="0.1.0"/);
@@ -1050,6 +1104,7 @@ test("createProjectExportPackage returns project-ready files derived from one La
   assert.match(output.files.find((file) => file.path === "README.md").contents, /handoff-summary\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /backtest-runbook\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /asset-index\.json/);
+  assert.match(output.files.find((file) => file.path === "README.md").contents, /asset-index\.schema\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /integration-contract\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /layerdoc\.schema\.json/);
   assert.match(output.files.find((file) => file.path === "README.md").contents, /section-candidate\.schema\.json/);
@@ -1243,6 +1298,23 @@ test("exported handoff verifier checks the asset index against LayerDoc and cont
   assert.match(failed.stdout, /asset_index_mismatch/);
   assert.match(failed.stdout, /asset-index\.json/);
   assert.match(failed.stdout, /hero-crop/);
+});
+
+test("exported handoff verifier checks the asset index schema contract", () => {
+  const directory = mkdtempSync(join(tmpdir(), "layerdoc-project-asset-index-schema-verifier-"));
+  const output = createProjectExportPackage(createAssetExportDoc(), { componentName: "AssetHomepage" });
+  writeProjectExportPackage(output, directory);
+
+  const schemaPath = join(directory, "asset-index.schema.json");
+  const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
+  schema.properties.assets.items.properties.source.enum = ["project"];
+  writeFileSync(schemaPath, `${JSON.stringify(schema, null, 2)}\n`);
+
+  const failed = spawnSync(process.execPath, ["scripts/verify-handoff.mjs"], { cwd: directory, encoding: "utf8" });
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stdout, /asset_index_schema_mismatch/);
+  assert.match(failed.stdout, /asset-index\.schema\.json/);
+  assert.match(failed.stdout, /reference-crop/);
 });
 
 test("exported handoff verifier checks the production manifest against project handoff files", () => {

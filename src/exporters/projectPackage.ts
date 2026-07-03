@@ -52,6 +52,7 @@ export interface ProjectExportManifest {
   productionManifestSchema: string;
   verificationReportSchema: "verification-report.schema.json";
   assetIndex: string;
+  assetIndexSchema: "asset-index.schema.json";
   sectionCandidateSchema: string;
   referenceVisual: ProjectReferenceVisual;
   analysisTaskFile?: string;
@@ -116,6 +117,7 @@ export interface ProjectHandoffSummary {
   };
   assetIndex: ProjectAssetIndexSummary & {
     file: string;
+    schemaFile: string;
   };
   ciWorkflow: {
     file: string;
@@ -415,6 +417,7 @@ export interface ProjectProductionManifest {
     };
     assets: ProjectAssetIndexSummary & {
       file: string;
+      schemaFile: "asset-index.schema.json";
     };
   };
   quality: {
@@ -466,6 +469,7 @@ const PROJECT_VERIFY_CHAIN =
 const PROJECT_CI_COMMAND = "npm run verify && npm run build";
 const ANALYSIS_TASK_FILE = "analysis-task.json";
 const ASSET_INDEX_FILE = "asset-index.json";
+const ASSET_INDEX_SCHEMA_FILE = "asset-index.schema.json";
 const BACKTEST_RUNBOOK_FILE = "backtest-runbook.json";
 const CI_WORKFLOW_FILE = "ci-workflow.json";
 const EDIT_AUDIT_FILE = "edit-audit.json";
@@ -1131,6 +1135,96 @@ export function createProjectIntegrationContractJsonSchema(): Record<string, unk
   };
 }
 
+export function createProjectAssetIndexJsonSchema(): Record<string, unknown> {
+  const stringArray = {
+    type: "array",
+    items: { type: "string", minLength: 1 }
+  };
+  const countRecord = {
+    type: "object",
+    additionalProperties: { type: "integer", minimum: 0 }
+  };
+  const rect = {
+    type: "object",
+    additionalProperties: false,
+    required: ["x", "y", "width", "height"],
+    properties: {
+      x: { type: "number" },
+      y: { type: "number" },
+      width: { type: "number", minimum: 0 },
+      height: { type: "number", minimum: 0 }
+    }
+  };
+
+  return {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    title: "ProjectAssetIndex 0.1.0",
+    type: "object",
+    additionalProperties: false,
+    required: ["version", "source", "layerDoc", "summary", "assets"],
+    properties: {
+      version: { const: "0.1.0" },
+      source: { const: "layerdoc" },
+      layerDoc: {
+        type: "object",
+        additionalProperties: false,
+        required: ["file", "hash"],
+        properties: {
+          file: { const: "layerdoc.json" },
+          hash: { type: "string", pattern: "^sha256:[a-f0-9]{64}$" }
+        }
+      },
+      summary: {
+        type: "object",
+        additionalProperties: false,
+        required: ["total", "used", "visibleInProject", "bySource", "byType"],
+        properties: {
+          total: { type: "integer", minimum: 0 },
+          used: { type: "integer", minimum: 0 },
+          visibleInProject: { type: "integer", minimum: 0 },
+          bySource: countRecord,
+          byType: countRecord
+        }
+      },
+      assets: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: [
+            "id",
+            "type",
+            "source",
+            "uri",
+            "bounds",
+            "usedByLayerIds",
+            "visibleUsedByLayerIds",
+            "sectionIds",
+            "visibleSectionIds",
+            "componentIds",
+            "visibleInProject",
+            "layerSelectors"
+          ],
+          properties: {
+            id: { type: "string", minLength: 1 },
+            type: { enum: ["image", "video", "font", "json", "model", "other"] },
+            source: { enum: ["reference-crop", "generated", "uploaded", "remote", "project"] },
+            uri: { type: ["string", "null"] },
+            bounds: { anyOf: [{ type: "null" }, rect] },
+            usedByLayerIds: stringArray,
+            visibleUsedByLayerIds: stringArray,
+            sectionIds: stringArray,
+            visibleSectionIds: stringArray,
+            componentIds: stringArray,
+            visibleInProject: { type: "boolean" },
+            layerSelectors: stringArray
+          }
+        }
+      }
+    }
+  };
+}
+
 function createProductionManifestJsonSchema(): Record<string, unknown> {
   const scoreProperties = {
     visual_similarity: { type: ["number", "null"], minimum: 0, maximum: 100 },
@@ -1216,9 +1310,10 @@ function createProductionManifestJsonSchema(): Record<string, unknown> {
           assets: {
             type: "object",
             additionalProperties: true,
-            required: ["file", "total", "used", "visibleInProject", "bySource", "byType"],
+            required: ["file", "schemaFile", "total", "used", "visibleInProject", "bySource", "byType"],
             properties: {
               file: { const: ASSET_INDEX_FILE },
+              schemaFile: { const: ASSET_INDEX_SCHEMA_FILE },
               total: { type: "integer", minimum: 0 },
               used: { type: "integer", minimum: 0 },
               visibleInProject: { type: "integer", minimum: 0 },
@@ -1577,6 +1672,8 @@ const audit = readJson("../layerdoc-audit.json");
 const report = readJson("../verification-report.json");
 const assetIndexPath = manifest.assetIndex ?? "${ASSET_INDEX_FILE}";
 const assetIndex = fileExists(assetIndexPath) ? readJson("../" + assetIndexPath) : null;
+const assetIndexSchemaPath = manifest.assetIndexSchema ?? "${ASSET_INDEX_SCHEMA_FILE}";
+const assetIndexSchema = fileExists(assetIndexSchemaPath) ? readJson("../" + assetIndexSchemaPath) : null;
 const backtestRunbookPath = manifest.backtestRunbook ?? "${BACKTEST_RUNBOOK_FILE}";
 const backtestRunbook = fileExists(backtestRunbookPath) ? readJson("../" + backtestRunbookPath) : null;
 const ciWorkflowPath = manifest.ciWorkflow ?? "${CI_WORKFLOW_FILE}";
@@ -1598,6 +1695,7 @@ const packageScripts = packageJson.scripts ?? {};
 const expectedAssetIndex = expectedAssetIndexFrom(layerDoc, contract, manifest);
 const expectedAssetIndexSummary = {
   file: assetIndexPath,
+  schemaFile: assetIndexSchemaPath,
   ...expectedAssetIndex.summary
 };
 function expectedEditAuditSummary(audit) {
@@ -1617,6 +1715,7 @@ function expectedEditAuditSummary(audit) {
 }
 const expectedProductionManifestSchema = ${stableJson(createProductionManifestJsonSchema())};
 const expectedIntegrationContractSchema = ${stableJson(createProjectIntegrationContractJsonSchema())};
+const expectedAssetIndexSchema = ${stableJson(createProjectAssetIndexJsonSchema())};
 const expectedVerificationReportSchema = ${stableJson(createVerificationReportJsonSchema())};
 const expectedProductionManifest = {
   version: "0.1.0",
@@ -1780,6 +1879,7 @@ pushIf(manifest.handoffSummary !== "handoff-summary.json", failures, "manifest_h
 pushIf(manifest.backtestRunbook !== "${BACKTEST_RUNBOOK_FILE}", failures, "manifest_backtest_runbook_mismatch", "manifest.json backtestRunbook must be ${BACKTEST_RUNBOOK_FILE}.");
 pushIf(manifest.ciWorkflow !== "${CI_WORKFLOW_FILE}", failures, "manifest_ci_workflow_mismatch", "manifest.json ciWorkflow must be ${CI_WORKFLOW_FILE}.");
 pushIf(manifest.assetIndex !== "${ASSET_INDEX_FILE}", failures, "manifest_asset_index_mismatch", "manifest.json assetIndex must be ${ASSET_INDEX_FILE}.");
+pushIf(manifest.assetIndexSchema !== "${ASSET_INDEX_SCHEMA_FILE}", failures, "manifest_asset_index_schema_mismatch", "manifest.json assetIndexSchema must be ${ASSET_INDEX_SCHEMA_FILE}.");
 pushIf(manifest.integrationContractSchema !== "${INTEGRATION_CONTRACT_SCHEMA_FILE}", failures, "manifest_integration_contract_schema_mismatch", "manifest.json integrationContractSchema must be ${INTEGRATION_CONTRACT_SCHEMA_FILE}.");
 pushIf(manifest.productionManifest !== "${PRODUCTION_MANIFEST_FILE}", failures, "manifest_production_manifest_mismatch", "manifest.json productionManifest must be ${PRODUCTION_MANIFEST_FILE}.");
 pushIf(manifest.productionManifestSchema !== "${PRODUCTION_MANIFEST_SCHEMA_FILE}", failures, "manifest_production_manifest_schema_mismatch", "manifest.json productionManifestSchema must be ${PRODUCTION_MANIFEST_SCHEMA_FILE}.");
@@ -1792,6 +1892,7 @@ pushIf(handoff.sourceOfTruth?.schemaFile !== "layerdoc.schema.json", failures, "
 pushIf(handoff.sourceOfTruth?.hash !== actualLayerDocHash, failures, "handoff_source_hash_mismatch", "handoff sourceOfTruth.hash must match the current layerdoc.json hash.");
 pushIf(manifest.layerDocHash !== actualLayerDocHash, failures, "manifest_layerdoc_hash_mismatch", "manifest.json layerDocHash must match the current layerdoc.json hash.");
 pushIf(!manifestFiles.includes("${ASSET_INDEX_FILE}"), failures, "asset_index_not_listed", "manifest.json files must include ${ASSET_INDEX_FILE}.");
+pushIf(!manifestFiles.includes("${ASSET_INDEX_SCHEMA_FILE}"), failures, "asset_index_schema_not_listed", "manifest.json files must include ${ASSET_INDEX_SCHEMA_FILE}.");
 pushIf(!manifestFiles.includes("${BACKTEST_RUNBOOK_FILE}"), failures, "backtest_runbook_not_listed", "manifest.json files must include ${BACKTEST_RUNBOOK_FILE}.");
 pushIf(!manifestFiles.includes("${CI_WORKFLOW_FILE}"), failures, "ci_workflow_not_listed", "manifest.json files must include ${CI_WORKFLOW_FILE}.");
 pushIf(Boolean(editAuditPath) && !manifestFiles.includes(editAuditPath), failures, "edit_audit_not_listed", "manifest.json files must include edit-audit.json when editAuditFile is set.");
@@ -1800,6 +1901,7 @@ pushIf(!manifestFiles.includes("${PRODUCTION_MANIFEST_FILE}"), failures, "produc
 pushIf(!manifestFiles.includes("${PRODUCTION_MANIFEST_SCHEMA_FILE}"), failures, "production_manifest_schema_not_listed", "manifest.json files must include ${PRODUCTION_MANIFEST_SCHEMA_FILE}.");
 pushIf(!manifestFiles.includes("${VERIFICATION_REPORT_SCHEMA_FILE}"), failures, "verification_report_schema_not_listed", "manifest.json files must include ${VERIFICATION_REPORT_SCHEMA_FILE}.");
 pushIf(!fileExists(assetIndexPath), failures, "asset_index_missing", "manifest.json assetIndex must point at an existing file.");
+pushIf(!fileExists(assetIndexSchemaPath), failures, "asset_index_schema_missing", "manifest.json assetIndexSchema must point at an existing file.");
 pushIf(!fileExists(backtestRunbookPath), failures, "backtest_runbook_missing", "manifest.json backtestRunbook must point at an existing file.");
 pushIf(!fileExists(ciWorkflowPath), failures, "ci_workflow_missing", "manifest.json ciWorkflow must point at an existing file.");
 pushIf(Boolean(editAuditPath) && !fileExists(editAuditPath), failures, "edit_audit_missing", "manifest.json editAuditFile must point at an existing file.");
@@ -1844,6 +1946,7 @@ pushIf(handoff.sectionRegeneration?.candidateSchemaFile !== manifest.sectionCand
 pushIf(handoff.sectionRegeneration?.requestCount !== (contract.generationRequests?.length ?? 0), failures, "handoff_section_regeneration_count_mismatch", "handoff sectionRegeneration.requestCount must match integration contract.");
 pushIf(handoff.sectionRegeneration?.applicationCount !== (contract.generationApplications?.length ?? 0), failures, "handoff_section_application_count_mismatch", "handoff sectionRegeneration.applicationCount must match integration contract.");
 pushIf(stableJson(assetIndex) !== stableJson(expectedAssetIndex), failures, "asset_index_mismatch", "asset-index.json does not match LayerDoc and integration-contract assets. Expected " + stableJson(expectedAssetIndex) + " Received " + stableJson(assetIndex));
+pushIf(stableJson(assetIndexSchema) !== stableJson(expectedAssetIndexSchema), failures, "asset_index_schema_mismatch", "asset-index.schema.json must match the exported ProjectAssetIndex contract. Expected " + stableJson(expectedAssetIndexSchema) + " Received " + stableJson(assetIndexSchema));
 pushIf(stableJson(handoff.assetIndex) !== stableJson(expectedAssetIndexSummary), failures, "handoff_asset_index_mismatch", "handoff-summary.json assetIndex must summarize asset-index.json.");
 pushIf(stableJson(handoff.ciWorkflow) !== stableJson({ file: ciWorkflowPath, kind: "project_ci_workflow", command: "npm run ci" }), failures, "handoff_ci_workflow_mismatch", "handoff-summary.json ciWorkflow must match manifest.json.");
 if (editAudit) {
@@ -1939,6 +2042,8 @@ const report = readJson("../verification-report.json");
 const handoff = readJson("../handoff-summary.json");
 const assetIndexPath = manifest.assetIndex ?? "${ASSET_INDEX_FILE}";
 const assetIndex = fileExists(assetIndexPath) ? readJson("../" + assetIndexPath) : null;
+const assetIndexSchemaPath = manifest.assetIndexSchema ?? "${ASSET_INDEX_SCHEMA_FILE}";
+const assetIndexSchema = fileExists(assetIndexSchemaPath) ? readJson("../" + assetIndexSchemaPath) : null;
 const productionManifestPath = manifest.productionManifest ?? "${PRODUCTION_MANIFEST_FILE}";
 const productionManifestSchemaPath = manifest.productionManifestSchema ?? "${PRODUCTION_MANIFEST_SCHEMA_FILE}";
 const productionManifest = fileExists(productionManifestPath) ? readJson("../" + productionManifestPath) : null;
@@ -1950,9 +2055,11 @@ const verificationReportSchema = fileExists(verificationReportSchemaPath) ? read
 const layerDocHash = sha256(stableJson(layerDoc));
 const expectedProductionManifestSchema = ${stableJson(createProductionManifestJsonSchema())};
 const expectedIntegrationContractSchema = ${stableJson(createProjectIntegrationContractJsonSchema())};
+const expectedAssetIndexSchema = ${stableJson(createProjectAssetIndexJsonSchema())};
 const expectedVerificationReportSchema = ${stableJson(createVerificationReportJsonSchema())};
 const expectedAssetSummary = {
   file: assetIndexPath,
+  schemaFile: assetIndexSchemaPath,
   ...(assetIndex?.summary ?? {})
 };
 const expectedProductionManifest = {
@@ -2049,15 +2156,18 @@ const expectedProductionManifest = {
 
 const failures = [];
 pushIf(manifest.integrationContractSchema !== "${INTEGRATION_CONTRACT_SCHEMA_FILE}", failures, "manifest_integration_contract_schema_mismatch", "manifest.json integrationContractSchema must be ${INTEGRATION_CONTRACT_SCHEMA_FILE}.");
+pushIf(manifest.assetIndexSchema !== "${ASSET_INDEX_SCHEMA_FILE}", failures, "manifest_asset_index_schema_mismatch", "manifest.json assetIndexSchema must be ${ASSET_INDEX_SCHEMA_FILE}.");
 pushIf(manifest.productionManifest !== "${PRODUCTION_MANIFEST_FILE}", failures, "manifest_production_manifest_mismatch", "manifest.json productionManifest must be ${PRODUCTION_MANIFEST_FILE}.");
 pushIf(manifest.productionManifestSchema !== "${PRODUCTION_MANIFEST_SCHEMA_FILE}", failures, "manifest_production_manifest_schema_mismatch", "manifest.json productionManifestSchema must be ${PRODUCTION_MANIFEST_SCHEMA_FILE}.");
 pushIf(manifest.verificationReportSchema !== "${VERIFICATION_REPORT_SCHEMA_FILE}", failures, "manifest_verification_report_schema_mismatch", "manifest.json verificationReportSchema must be ${VERIFICATION_REPORT_SCHEMA_FILE}.");
 pushIf(!fileExists(integrationContractSchemaPath), failures, "integration_contract_schema_missing", "integration contract schema file is missing: " + integrationContractSchemaPath);
+pushIf(!fileExists(assetIndexSchemaPath), failures, "asset_index_schema_missing", "asset index schema file is missing: " + assetIndexSchemaPath);
 pushIf(!fileExists(productionManifestPath), failures, "production_manifest_missing", "production manifest file is missing: " + productionManifestPath);
 pushIf(!fileExists(productionManifestSchemaPath), failures, "production_manifest_schema_missing", "production manifest schema file is missing: " + productionManifestSchemaPath);
 pushIf(!fileExists(verificationReportSchemaPath), failures, "verification_report_schema_missing", "verification report schema file is missing: " + verificationReportSchemaPath);
 pushIf(stableJson(productionManifestSchema) !== stableJson(expectedProductionManifestSchema), failures, "production_manifest_schema_mismatch", "production-manifest.schema.json must match the exported contract. Expected " + stableJson(expectedProductionManifestSchema) + " Received " + stableJson(productionManifestSchema));
 pushIf(stableJson(integrationContractSchema) !== stableJson(expectedIntegrationContractSchema), failures, "integration_contract_schema_mismatch", "integration-contract.schema.json must match the exported contract. Expected " + stableJson(expectedIntegrationContractSchema) + " Received " + stableJson(integrationContractSchema));
+pushIf(stableJson(assetIndexSchema) !== stableJson(expectedAssetIndexSchema), failures, "asset_index_schema_mismatch", "asset-index.schema.json must match the exported contract. Expected " + stableJson(expectedAssetIndexSchema) + " Received " + stableJson(assetIndexSchema));
 pushIf(stableJson(verificationReportSchema) !== stableJson(expectedVerificationReportSchema), failures, "verification_report_schema_mismatch", "verification-report.schema.json must match the exported contract. Expected " + stableJson(expectedVerificationReportSchema) + " Received " + stableJson(verificationReportSchema));
 pushIf(stableJson(productionManifest) !== stableJson(expectedProductionManifest), failures, "production_manifest_mismatch", "production-manifest.json must match LayerDoc, integration contract, asset index, quality report, and handoff metadata. Expected " + stableJson(expectedProductionManifest) + " Received " + stableJson(productionManifest));
 
@@ -2067,6 +2177,7 @@ const result = {
   productionManifestPath,
   productionManifestSchemaPath,
   integrationContractSchemaPath,
+  assetIndexSchemaPath,
   verificationReportSchemaPath,
   layerDocHash
 };
@@ -3527,6 +3638,7 @@ function updateHandoffSummary(handoff, manifest, contract, audit, report, assetI
     },
     assetIndex: {
       file: manifest.assetIndex ?? "${ASSET_INDEX_FILE}",
+      schemaFile: manifest.assetIndexSchema ?? "${ASSET_INDEX_SCHEMA_FILE}",
       ...assetIndex.summary
     },
     sectionRegeneration: {
@@ -3600,6 +3712,7 @@ function updateProductionManifest(productionManifest, manifest, contract, report
       },
       assets: {
         file: manifest.assetIndex ?? "${ASSET_INDEX_FILE}",
+        schemaFile: manifest.assetIndexSchema ?? "${ASSET_INDEX_SCHEMA_FILE}",
         ...assetIndex.summary
       }
     },
@@ -5836,6 +5949,7 @@ handoff.sourceOfTruth = {
 };
 handoff.assetIndex = {
   file: assetIndexPath,
+  schemaFile: manifest.assetIndexSchema ?? "${ASSET_INDEX_SCHEMA_FILE}",
   ...(assetIndex.summary ?? {})
 };
 handoff.quality = {
@@ -5865,6 +5979,7 @@ productionManifest.generated = {
   ...(productionManifest.generated ?? {}),
   assets: {
     file: assetIndexPath,
+    schemaFile: manifest.assetIndexSchema ?? "${ASSET_INDEX_SCHEMA_FILE}",
     ...(assetIndex.summary ?? {})
   },
   contract: {
@@ -6052,7 +6167,7 @@ Generated assets:
 - \`${manifest.ciWorkflow}\`: machine-readable CI workflow for installing, verifying preview/structure/gates, and building the generated project
 - \`handoff-summary.json\`: machine-readable integration summary for CI, importers, and downstream project handoff
 - \`integration-contract.json\`, \`${manifest.integrationContractSchema}\`: stable mapping from visible LayerDoc objects to project files and DOM selectors, plus the schema for validating that handoff
-- \`${manifest.assetIndex}\`: machine-readable asset inventory with source, usage, visible-project, section, component, and selector mapping
+- \`${manifest.assetIndex}\`, \`${manifest.assetIndexSchema}\`: machine-readable asset inventory with source, usage, visible-project, section, component, and selector mapping, plus the schema for validating that inventory before media ingestion
 - \`manifest.json\`, \`layerdoc.schema.json\`: project package manifest and LayerDoc source contract
 - \`${manifest.sectionCandidateSchema}\`: reviewed section regeneration candidate contract for AI workers and Studio imports
 ${manifest.analysisTaskFile ? `- \`${manifest.analysisTaskFile}\`: source PNG decomposition task given to the vision/manual analysis step\n` : ""}${manifest.analysisPlanFile ? `- \`${manifest.analysisPlanFile}\`: confirmed Homepage Analysis Plan used before LayerDoc build\n` : ""}${manifest.analysisPlanSchema ? `- \`${manifest.analysisPlanSchema}\`: Homepage Analysis Plan source contract\n` : ""}${manifest.analysisPlanAuditFile ? `- \`${manifest.analysisPlanAuditFile}\`: Analysis Plan coverage, track, and readiness audit\n` : ""}${manifest.imageManifestFile ? `- \`${manifest.imageManifestFile}\`: source image decomposition manifest connecting the visual intake to LayerDoc sections and layers\n` : ""}- \`${manifest.referenceVisual.file}\`: original target visual expected by preview verification; included when the exporter receives \`referencePng\`; homepage pipeline supplies it automatically
@@ -6155,6 +6270,7 @@ function ciWorkflowPhases(): ProjectCiWorkflow["phases"] {
         "layerdoc.json",
         "integration-contract.json",
         INTEGRATION_CONTRACT_SCHEMA_FILE,
+        ASSET_INDEX_SCHEMA_FILE,
         ASSET_INDEX_FILE
       ]
     },
@@ -6247,6 +6363,7 @@ function createHandoffSummary(
     },
     assetIndex: {
       file: manifest.assetIndex,
+      schemaFile: manifest.assetIndexSchema,
       ...assetIndex.summary
     },
     ciWorkflow: {
@@ -6387,6 +6504,7 @@ function createProductionManifest(
       },
       assets: {
         file: manifest.assetIndex,
+        schemaFile: manifest.assetIndexSchema,
         ...assetIndex.summary
       }
     },
@@ -6466,6 +6584,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     ...(analysisPlanAuditPath ? [analysisPlanAuditPath] : []),
     ...(analysisPlanSchemaPath ? [analysisPlanSchemaPath] : []),
     ASSET_INDEX_FILE,
+    ASSET_INDEX_SCHEMA_FILE,
     BACKTEST_RUNBOOK_FILE,
     CI_WORKFLOW_FILE,
     "handoff-summary.json",
@@ -6518,6 +6637,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
     productionManifestSchema: PRODUCTION_MANIFEST_SCHEMA_FILE,
     verificationReportSchema: VERIFICATION_REPORT_SCHEMA_FILE,
     assetIndex: ASSET_INDEX_FILE,
+    assetIndexSchema: ASSET_INDEX_SCHEMA_FILE,
     sectionCandidateSchema: SECTION_CANDIDATE_SCHEMA_FILE,
     referenceVisual,
     ...(analysisTaskPath ? { analysisTaskFile: analysisTaskPath } : {}),
@@ -6570,6 +6690,7 @@ export function createProjectExportPackage(doc: LayerDoc, options: ProjectExport
         : []),
       ...(analysisPlanSchemaPath ? [{ path: analysisPlanSchemaPath, contents: stableJson(createHomepageAnalysisPlanJsonSchema()) }] : []),
       { path: ASSET_INDEX_FILE, contents: stableJson(assetIndex) },
+      { path: ASSET_INDEX_SCHEMA_FILE, contents: stableJson(createProjectAssetIndexJsonSchema()) },
       { path: BACKTEST_RUNBOOK_FILE, contents: stableJson(backtestRunbook) },
       { path: CI_WORKFLOW_FILE, contents: stableJson(ciWorkflow) },
       { path: "handoff-summary.json", contents: stableJson(handoffSummary) },

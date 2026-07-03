@@ -137,10 +137,11 @@ The repository currently implements the core LayerDoc domain layer:
   that integration entrypoint without running the entire handoff chain.
 - Export a project-local `verify:ci-workflow` command and `npm run ci` script
   for validating and running the generated project automation contract.
-- Export an `asset-index.json` that inventories LayerDoc assets by source/type,
-  usage, visible-project inclusion, section/component ownership, and DOM
-  selectors so downstream project importers can wire media without reverse
-  engineering `layerdoc.json` or rendered HTML.
+- Export an `asset-index.json` and `asset-index.schema.json` pair that
+  inventories LayerDoc assets by source/type, usage, visible-project inclusion,
+  section/component ownership, and DOM selectors so downstream project importers
+  can validate and wire media without reverse engineering `layerdoc.json` or
+  rendered HTML.
 - Verify that exported integration contracts still match the LayerDoc source, generated project selectors, preview selectors, section order, layer bounds, layer style, layer copy, asset URIs, responsive CSS, and interaction metadata.
 - Enforce Studio and exported quality gates against verifier scores, LayerDoc
   asset-compliance audit results, and visible-section editable coverage,
